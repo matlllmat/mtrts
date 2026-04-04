@@ -1,7 +1,6 @@
 <?php
 session_start();
 
-// Already logged in → go to dashboard
 if (isset($_SESSION['user_id'])) {
     header('Location: ../index.php');
     exit;
@@ -52,16 +51,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </head>
 <body class="min-h-screen flex">
 
-  <!-- ── LEFT PANEL ─────────────────────────────────────────── -->
   <div class="hidden md:flex w-1/2 bg-olfu-green flex-col items-center justify-between py-12 px-10 relative overflow-hidden">
 
-    <!-- Decorative circles (background) -->
     <div class="absolute -top-24 -left-24 w-80 h-80 rounded-full border border-white/10"></div>
     <div class="absolute top-10 -left-10  w-56 h-56 rounded-full border border-white/10"></div>
     <div class="absolute -bottom-20 -right-20 w-96 h-96 rounded-full border border-white/10"></div>
     <div class="absolute bottom-20 right-10  w-60 h-60 rounded-full border border-white/10"></div>
 
-    <!-- Top spacer -->
     <div></div>
 
     <!-- Centre content -->

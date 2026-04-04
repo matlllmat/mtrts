@@ -9,7 +9,7 @@
 //   // ... write your page content here ...
 //   require_once '../../includes/footer.php';
 //
-// What it does automatically:
+// It automatically:
 //   1. Starts the session
 //   2. Connects to the database
 //   3. Redirects to login if not logged in
