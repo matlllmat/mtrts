@@ -1,0 +1,264 @@
+# MTRTS — AI Coding Instructions
+## Media Technology Repair Tracker System
+
+---
+
+## What This System Is
+
+A web-based repair ticketing and asset management platform
+for an educational institution (Our Lady of Fatima University).
+It manages the full lifecycle of media/AV equipment repair —
+from submitting a ticket, to fixing the device, to reporting.
+
+---
+
+## Tech Stack
+
+| Concern       | Technology                        |
+|---------------|-----------------------------------|
+| Backend       | PHP 8+ (procedural, no framework) |
+| Frontend      | HTML, Tailwind CSS, Vanilla JS    |
+| Database      | MySQL 8+                          |
+| Local server  | Apache via XAMPP                  |
+| Auth (now)    | Email + password (bcrypt)         |
+| Auth (future) | SSO via Google / Microsoft        |
+
+Do not suggest frameworks like Laravel, Symfony, or React.
+Do not suggest npm, composer, or any package manager.
+Everything must run on a plain XAMPP setup.
+
+---
+
+## Folder Structure
+
+```
+mtrts/
+│
+├── index.php               ← Entry point — redirects to modules/assets/index.php
+│
+├── config/
+│   ├── db.php              ← PDO connection + defines BASE_URL
+│   ├── auth.php            ← Auth functions: attempt_login, can_access, etc.
+│   ├── guard.php           ← Include at top of every page file (auth + layout)
+│   ├── auth_only.php       ← Include at top of POST/AJAX handlers (auth, no layout)
+│   └── *.sql               ← Database schema files
+│
+├── includes/               ← Shared UI components
+│   ├── header.php          ← HTML head, defines $module_labels and $page_title
+│   ├── navbar.php          ← Sidebar navigation + topbar
+│   └── footer.php          ← Closes </main></div></body></html>
+│
+├── modules/                ← One folder per module
+│   ├── assets/             ← Module 2: Asset Management
+│   ├── tickets/            ← Module 1: Request Submission
+│   ├── workorders/         ← Module 3: Work Order & Dispatch
+│   ├── technician/         ← Module 4: Technician Operations
+│   ├── reports/            ← Module 5: SLA, Reporting & Audit
+│   ├── users/              ← Module 6: User Access Control
+│   ├── login.php           ← Login page
+│   └── denied.php          ← Shown when access is denied
+│
+├── docs/                   ← Project documentation
+│
+└── public/
+    ├── css/
+    ├── js/
+    └── uploads/            ← User-uploaded files
+```
+
+---
+
+## File Pattern Inside Each Module
+
+Every module follows this exact structure.
+Use `modules/assets/` as the reference implementation.
+
+```
+modules/{module}/
+  index.php         ← List/landing page — LOGIC only
+  index.view.php    ← List/landing page — HTML only
+  view.php          ← Detail/read-only page — LOGIC only
+  view.view.php     ← Detail page — HTML only
+  add.php           ← Add form — LOGIC only
+  edit.php          ← Edit form — LOGIC only
+  _form.view.php    ← Shared form — HTML only (used by add + edit)
+  save.php          ← POST handler — LOGIC only, no HTML output
+  functions.php     ← All DB queries and helpers for this module
+  _styles.php       ← Module-specific CSS (if needed)
+```
+
+Files prefixed with `_` (underscore) are **partials** — they are
+never visited directly in a browser. They are only `require`d by
+other files.
+
+---
+
+## How to Build a New Module
+
+### Step 1 — Register the module
+
+**`includes/header.php`** — add the label:
+```php
+$module_labels = [
+    'tickets' => 'Request Submission',  // ← add your module here
+];
+```
+
+**Database** — grant role access:
+```sql
+INSERT INTO role_modules (role_id, module_slug) VALUES (1, 'tickets');
+```
+
+### Step 2 — Every page file (index, view, add, edit)
+
+Start with guard, load functions, fetch data, then require the view:
+
+```php
+<?php
+$module = 'tickets';
+require_once __DIR__ . '/../../config/guard.php';
+require_once __DIR__ . '/functions.php';
+
+// fetch data here using $pdo...
+
+require __DIR__ . '/index.view.php';
+require_once __DIR__ . '/../../includes/footer.php';
+```
+
+`guard.php` handles everything automatically:
+- Starts the session
+- Connects to the database (`$pdo` is available after this)
+- Redirects to login if not logged in
+- Blocks access if the user's role cannot access `$module`
+- Outputs the sidebar + topbar and opens `<main>`
+
+### Step 3 — Every POST handler (save.php) and AJAX endpoint
+
+Use `auth_only.php` instead — same auth checks but no HTML output:
+
+```php
+<?php
+$module = 'tickets';
+require_once __DIR__ . '/../../config/auth_only.php';
+require_once __DIR__ . '/functions.php';
+```
+
+### Step 4 — View files (*.view.php)
+
+Pure HTML + PHP output only. No `require`, no DB calls, no redirects.
+All variables they need are set by the logic file before `require`.
+
+### Step 5 — Links between pages
+
+Use relative paths within the same module:
+
+```php
+<a href="index.php">Back to list</a>
+<a href="view.php?id=<?= $id ?>">View</a>
+<a href="edit.php?id=<?= $id ?>">Edit</a>
+<a href="add.php">Add New</a>
+```
+
+For redirects in save.php, use BASE_URL:
+
+```php
+header('Location: ' . BASE_URL . 'modules/tickets/view.php?id=' . $id);
+```
+
+---
+
+## Session Variables Available Everywhere
+
+After `guard.php` or `auth_only.php` runs, these are always set:
+
+```php
+$_SESSION['user_id']   // int
+$_SESSION['role_id']   // int
+$_SESSION['full_name'] // string
+$_SESSION['email']     // string
+```
+
+---
+
+## Database Access
+
+`$pdo` is available automatically after `guard.php` or `auth_only.php`.
+Never create a new database connection inside a module.
+
+Always use prepared statements:
+
+```php
+$stmt = $pdo->prepare('SELECT * FROM tickets WHERE ticket_id = ?');
+$stmt->execute([$id]);
+$row = $stmt->fetch();
+```
+
+---
+
+## Roles and Module Access
+
+| Module      | admin | it_manager | it_staff | technician | faculty | dept_staff | student |
+|-------------|:-----:|:----------:|:--------:|:----------:|:-------:|:----------:|:-------:|
+| assets      |  ✅   |     ✅     |    ✅    |     ❌     |   ❌    |     ❌     |   ❌    |
+| tickets     |  ✅   |     ✅     |    ✅    |     ✅     |   ✅    |     ✅     |   ✅    |
+| workorders  |  ✅   |     ✅     |    ❌    |     ❌     |   ❌    |     ❌     |   ❌    |
+| technician  |  ✅   |     ✅     |    ❌    |     ✅     |   ❌    |     ❌     |   ❌    |
+| reports     |  ✅   |     ✅     |    ❌    |     ❌     |   ❌    |     ❌     |   ❌    |
+| users       |  ✅   |     ❌     |    ❌    |     ❌     |   ❌    |     ❌     |   ❌    |
+
+---
+
+## Login Flow
+
+```
+User visits any page
+  → index.php checks $_SESSION['user_id']
+  → Not set? Redirect to modules/login.php
+  → Set? Redirect to modules/assets/index.php
+
+modules/login.php
+  → User submits email + password
+  → Query users table by email
+  → password_verify() against stored hash
+  → If valid:
+      session_regenerate_id(true)
+      Set $_SESSION['user_id'], ['role_id'], ['full_name'], ['email']
+      Update users.last_login = NOW()
+      Redirect to ../index.php
+  → If invalid: show error message
+```
+
+---
+
+## Security Rules
+
+These are non-negotiable. Follow all of them.
+
+1. Always use prepared statements with PDO. Never raw queries.
+2. Always set `$module` and include `guard.php` at the top of every page.
+3. Never trust `$_GET` or `$_POST` without validation.
+4. Always hash passwords with `password_hash()` (bcrypt).
+5. Always verify passwords with `password_verify()`.
+6. Regenerate session ID after login: `session_regenerate_id(true)`.
+7. Validate file uploads server-side (type and size).
+8. Never expose raw PHP errors to the user.
+9. Never store plain text passwords. Ever.
+10. PII fields (email, phone) must be masked in exported reports
+    unless the user has explicit permission.
+
+---
+
+## Things to Never Do
+
+- Never create a database connection inside a module.
+- Never use `mysqli_*` functions. Use PDO only.
+- Never use `$_GET` or `$_POST` directly in a SQL query.
+- Never delete a user record. Use `is_active = 0`.
+- Never edit another team's module folder.
+- Never put HTML output in a logic file (index.php, view.php, add.php, edit.php, save.php).
+- Never put DB queries or redirects in a view file (*.view.php).
+- Never hardcode a user ID, role ID, or module name in a module file.
+- Never skip the `$module` + `guard.php` include in a page file.
+- Never store passwords in plain text.
+- Never edit `includes/header.php`, `navbar.php`, or `footer.php`
+  without informing the whole team.
