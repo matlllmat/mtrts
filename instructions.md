@@ -248,8 +248,59 @@ These are non-negotiable. Follow all of them.
 
 ---
 
-## Things to Never Do
+## Existing Database Tables
 
+Before creating any new table, check this list to avoid duplicates.
+All schema files are in `config/`.
+
+### `config/users.sql` — Users & Access Control
+
+| Table | Primary Key | Purpose |
+|---|---|---|
+| `departments` | `department_id` | List of university departments |
+| `roles` | `role_id` | User roles (admin, it_manager, it_staff, technician, faculty, department_staff, student) |
+| `users` | `user_id` | All system users — never DELETE, use `is_active = 0` |
+| `user_sso` | `sso_id` | SSO credentials (Google/Microsoft) linked to a user |
+| `role_modules` | `id` | Which modules each role can access (`role_id` + `module_slug`) |
+
+### `config/asset_management.sql` — Asset Management (Module 2)
+
+| Table | Primary Key | Purpose |
+|---|---|---|
+| `asset_categories` | `category_id` | Equipment types (Projector, Sound System, etc.) |
+| `locations` | `location_id` | Rooms in the institution (building + floor + room) |
+| `assets` | `asset_id` | Main asset registry — every piece of equipment |
+| `asset_warranty` | `warranty_id` | Warranty & contract info per asset (one row per asset) |
+| `asset_documents` | `document_id` | Files attached to an asset (full version history) |
+| `asset_audit_log` | `log_id` | Immutable log of every field change on an asset |
+
+### Tables expected from other modules (not yet created)
+
+| Table | Owner Module | Notes |
+|---|---|---|
+| `tickets` | Module 1 (tickets) | Referenced by assets to check open tickets before retiring |
+| `work_orders` | Module 3 (workorders) | Referenced by assets for repair history display |
+
+### Key foreign key relationships at a glance
+
+```
+departments ──── users ──────────────────────────────┐
+roles       ──── users                               │
+roles       ──── role_modules                        │
+                                                     │
+asset_categories ──── assets ◄── asset_warranty      │
+locations        ──── assets ◄── asset_documents ────┤
+assets (self) ───┘ ◄── asset_audit_log               │
+                                                     │
+users ◄── assets.owner_id                           ◄┘
+users ◄── assets.created_by
+users ◄── asset_documents.uploaded_by
+users ◄── asset_audit_log.changed_by
+```
+
+---
+
+## Things to Never Do
 - Never create a database connection inside a module.
 - Never use `mysqli_*` functions. Use PDO only.
 - Never use `$_GET` or `$_POST` directly in a SQL query.
