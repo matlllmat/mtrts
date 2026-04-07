@@ -120,7 +120,17 @@ function get_user_by_id(PDO $pdo, int $id): array|false {
 
 // ── Lookups ───────────────────────────────────────────────────
 
-function get_roles(PDO $pdo): array {
+/**
+ * Returns roles for dropdowns.
+ * $exclude_super_admin = true (default): hides super_admin — used in all create/edit forms.
+ * Pass false only for internal logic checks.
+ */
+function get_roles(PDO $pdo, bool $exclude_super_admin = true): array {
+    if ($exclude_super_admin) {
+        return $pdo->query(
+            "SELECT role_id, role_name FROM roles WHERE role_name != 'super_admin' ORDER BY role_id"
+        )->fetchAll();
+    }
     return $pdo->query("SELECT role_id, role_name FROM roles ORDER BY role_id")->fetchAll();
 }
 
@@ -212,6 +222,7 @@ function set_user_active(PDO $pdo, int $id, int $active): void {
 
 function role_badge(string $role_name): string {
     $styles = [
+        'super_admin'      => 'bg-red-100 text-red-700',
         'admin'            => 'bg-purple-100 text-purple-700',
         'it_manager'       => 'bg-blue-100 text-blue-700',
         'it_staff'         => 'bg-sky-100 text-sky-700',
@@ -221,6 +232,7 @@ function role_badge(string $role_name): string {
         'student'          => 'bg-gray-100 text-gray-600',
     ];
     $labels = [
+        'super_admin'      => 'Super Admin',
         'admin'            => 'Admin',
         'it_manager'       => 'IT Manager',
         'it_staff'         => 'IT Staff',
@@ -256,6 +268,7 @@ function user_time_ago(?string $dt): string {
 
 function role_display_name(string $role_name): string {
     $labels = [
+        'super_admin'      => 'Super Admin',
         'admin'            => 'Admin',
         'it_manager'       => 'IT Manager',
         'it_staff'         => 'IT Staff',
@@ -265,6 +278,31 @@ function role_display_name(string $role_name): string {
         'student'          => 'Student',
     ];
     return $labels[$role_name] ?? ucwords(str_replace('_', ' ', $role_name));
+}
+
+/**
+ * Returns the role_name of the currently logged-in user.
+ * Uses the session role_id — always accurate after login.
+ */
+function current_user_role(PDO $pdo): string {
+    static $cache = null;
+    if ($cache !== null) return $cache;
+    $stmt = $pdo->prepare("SELECT role_name FROM roles WHERE role_id = ?");
+    $stmt->execute([$_SESSION['role_id'] ?? 0]);
+    $cache = $stmt->fetchColumn() ?: '';
+    return $cache;
+}
+
+/**
+ * Permission check: can $actor_role act on $target_role?
+ * Super admins are protected — no one can deactivate them.
+ * Admins cannot act on other admins (only super_admin can).
+ */
+function can_manage_user(string $actor_role, string $target_role): bool {
+    if ($target_role === 'super_admin') return false;          // nobody touches super_admin
+    if ($actor_role === 'super_admin')  return true;           // super_admin can manage everyone else
+    if ($actor_role === 'admin' && $target_role === 'admin') return false; // admin can't touch admin
+    return $actor_role === 'admin';                            // only admins+ reach this point
 }
 
 function user_initials(string $name): string {

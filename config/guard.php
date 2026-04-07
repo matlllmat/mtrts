@@ -42,6 +42,17 @@ if (!empty($module) && !can_access($pdo, $_SESSION['role_id'], $module)) {
 // 3. Expose $page for header.php and navbar.php (active state + breadcrumb)
 $page = $module ?? '';
 
-// 4. Output the full layout shell (header, sidebar, topbar, opens <main>)
+// 4. Run warranty expiry check — throttled to once per hour per session.
+//    Inserts in-app notifications for admin/it_manager/it_staff.
+//    Uses INSERT IGNORE so duplicate thresholds are never re-sent.
+$_now = time();
+if (!isset($_SESSION['last_warranty_check']) || ($_now - $_SESSION['last_warranty_check']) > 3600) {
+    require_once __DIR__ . '/../modules/notifications/functions.php';
+    check_warranty_expiry($pdo);
+    $_SESSION['last_warranty_check'] = $_now;
+}
+unset($_now);
+
+// 5. Output the full layout shell (header, sidebar, topbar, opens <main>)
 require_once __DIR__ . '/../includes/header.php';
 require_once __DIR__ . '/../includes/navbar.php';

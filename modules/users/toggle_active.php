@@ -29,15 +29,28 @@ if ($user_id <= 0) {
     exit;
 }
 
-// Prevent deactivating your own account
+// Prevent acting on your own account
 if ($user_id === (int)$_SESSION['user_id']) {
-    echo json_encode(['success' => false, 'message' => 'You cannot deactivate your own account.']);
+    echo json_encode(['success' => false, 'message' => 'You cannot change your own account status.']);
     exit;
 }
 
-$user = get_user_by_id($pdo, $user_id);
+$user       = get_user_by_id($pdo, $user_id);
 if (!$user) {
     echo json_encode(['success' => false, 'message' => 'User not found.']);
+    exit;
+}
+
+$actor_role  = current_user_role($pdo);
+$target_role = $user['role_name'] ?? '';
+
+if (!can_manage_user($actor_role, $target_role)) {
+    if ($target_role === 'super_admin') {
+        $msg = 'The Super Admin account cannot be deactivated.';
+    } else {
+        $msg = 'Admins cannot change the status of other admin accounts.';
+    }
+    echo json_encode(['success' => false, 'message' => $msg]);
     exit;
 }
 

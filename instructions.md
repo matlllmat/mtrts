@@ -34,7 +34,7 @@ Everything must run on a plain XAMPP setup.
 ```
 mtrts/
 │
-├── index.php               ← Entry point — redirects to modules/assets/index.php
+├── index.php               ← Entry point — redirects to modules/dashboard/index.php
 │
 ├── config/
 │   ├── db.php              ← PDO connection + defines BASE_URL
@@ -49,21 +49,29 @@ mtrts/
 │   └── footer.php          ← Closes </main></div></body></html>
 │
 ├── modules/                ← One folder per module
-│   ├── assets/             ← Module 2: Asset Management
+│   ├── dashboard/          ← Landing page after login (stats + recent activity)
+│   ├── assets/             ← Module 2: Asset Management (fully implemented)
 │   ├── tickets/            ← Module 1: Request Submission
 │   ├── workorders/         ← Module 3: Work Order & Dispatch
 │   ├── technician/         ← Module 4: Technician Operations
 │   ├── reports/            ← Module 5: SLA, Reporting & Audit
-│   ├── users/              ← Module 6: User Access Control
+│   ├── users/              ← Module 6: User Access Control (fully implemented)
+│   ├── profile/            ← Self-service profile page (all roles, accessed via avatar)
+│   ├── notifications/      ← In-app notification inbox (all roles, accessed via bell)
+│   │   ├── index.php       ← Full notification history (logic)
+│   │   ├── index.view.php  ← Full notification history (HTML)
+│   │   ├── functions.php   ← DB helpers + check_warranty_expiry()
+│   │   ├── fetch.php       ← AJAX: returns {count, items} for the bell badge
+│   │   └── mark_read.php   ← AJAX POST: marks one or all notifications as read
 │   ├── login.php           ← Login page
 │   └── denied.php          ← Shown when access is denied
 │
-├── docs/                   ← Project documentation
-│
 └── public/
-    ├── css/
-    ├── js/
-    └── uploads/            ← User-uploaded files
+    ├── assets/css/
+    ├── assets/images/      ← logo.png (OLFU crest)
+    └── uploads/
+        ├── avatars/        ← User profile pictures
+        └── qrcodes/        ← Asset QR codes
 ```
 
 ---
@@ -130,7 +138,12 @@ require_once __DIR__ . '/../../includes/footer.php';
 - Connects to the database (`$pdo` is available after this)
 - Redirects to login if not logged in
 - Blocks access if the user's role cannot access `$module`
+- Runs `check_warranty_expiry()` once per hour (throttled via `$_SESSION['last_warranty_check']`)
 - Outputs the sidebar + topbar and opens `<main>`
+
+> **Special case:** Pages open to all logged-in users (e.g. dashboard, profile, notifications)
+> use their module slug normally — those slugs are registered in `role_modules` for ALL roles
+> via `config/notifications.sql`. Do NOT set `$module = ''` for them.
 
 ### Step 3 — Every POST handler (save.php) and AJAX endpoint
 
@@ -172,10 +185,11 @@ header('Location: ' . BASE_URL . 'modules/tickets/view.php?id=' . $id);
 After `guard.php` or `auth_only.php` runs, these are always set:
 
 ```php
-$_SESSION['user_id']   // int
-$_SESSION['role_id']   // int
-$_SESSION['full_name'] // string
-$_SESSION['email']     // string
+$_SESSION['user_id']         // int
+$_SESSION['role_id']         // int
+$_SESSION['full_name']       // string
+$_SESSION['email']           // string
+$_SESSION['profile_picture'] // string — relative web path, or '' if not set
 ```
 
 ---
@@ -197,14 +211,20 @@ $row = $stmt->fetch();
 
 ## Roles and Module Access
 
-| Module      | admin | it_manager | it_staff | technician | faculty | dept_staff | student |
-|-------------|:-----:|:----------:|:--------:|:----------:|:-------:|:----------:|:-------:|
-| assets      |  ✅   |     ✅     |    ✅    |     ❌     |   ❌    |     ❌     |   ❌    |
-| tickets     |  ✅   |     ✅     |    ✅    |     ✅     |   ✅    |     ✅     |   ✅    |
-| workorders  |  ✅   |     ✅     |    ❌    |     ❌     |   ❌    |     ❌     |   ❌    |
-| technician  |  ✅   |     ✅     |    ❌    |     ✅     |   ❌    |     ❌     |   ❌    |
-| reports     |  ✅   |     ✅     |    ❌    |     ❌     |   ❌    |     ❌     |   ❌    |
-| users       |  ✅   |     ❌     |    ❌    |     ❌     |   ❌    |     ❌     |   ❌    |
+| Module        | admin | it_manager | it_staff | technician | faculty | dept_staff | student |
+|---------------|:-----:|:----------:|:--------:|:----------:|:-------:|:----------:|:-------:|
+| dashboard     |  ✅   |     ✅     |    ✅    |     ✅     |   ✅    |     ✅     |   ✅    |
+| assets        |  ✅   |     ✅     |    ✅    |     ❌     |   ❌    |     ❌     |   ❌    |
+| tickets       |  ✅   |     ✅     |    ✅    |     ✅     |   ✅    |     ✅     |   ✅    |
+| workorders    |  ✅   |     ✅     |    ❌    |     ❌     |   ❌    |     ❌     |   ❌    |
+| technician    |  ✅   |     ✅     |    ❌    |     ✅     |   ❌    |     ❌     |   ❌    |
+| reports       |  ✅   |     ✅     |    ❌    |     ❌     |   ❌    |     ❌     |   ❌    |
+| users         |  ✅   |     ❌     |    ❌    |     ❌     |   ❌    |     ❌     |   ❌    |
+| profile       |  ✅   |     ✅     |    ✅    |     ✅     |   ✅    |     ✅     |   ✅    |
+| notifications |  ✅   |     ✅     |    ✅    |     ✅     |   ✅    |     ✅     |   ✅    |
+
+`profile` and `notifications` are **not shown in the sidebar** (`$nav_exclude` in `navbar.php`).
+They are accessed via the avatar link and the bell icon respectively.
 
 ---
 
@@ -214,7 +234,7 @@ $row = $stmt->fetch();
 User visits any page
   → index.php checks $_SESSION['user_id']
   → Not set? Redirect to modules/login.php
-  → Set? Redirect to modules/assets/index.php
+  → Set? Redirect to modules/dashboard/index.php
 
 modules/login.php
   → User submits email + password
@@ -222,7 +242,7 @@ modules/login.php
   → password_verify() against stored hash
   → If valid:
       session_regenerate_id(true)
-      Set $_SESSION['user_id'], ['role_id'], ['full_name'], ['email']
+      Set $_SESSION['user_id'], ['role_id'], ['full_name'], ['email'], ['profile_picture']
       Update users.last_login = NOW()
       Redirect to ../index.php
   → If invalid: show error message
@@ -263,6 +283,28 @@ All schema files are in `config/`.
 | `user_sso` | `sso_id` | SSO credentials (Google/Microsoft) linked to a user |
 | `role_modules` | `id` | Which modules each role can access (`role_id` + `module_slug`) |
 
+**Notable columns on `users`:** `profile_picture VARCHAR(255)` — relative web path to uploaded avatar (nullable).
+
+### `config/notifications.sql` — Notification System
+
+| Table | Primary Key | Purpose |
+|---|---|---|
+| `notifications` | `notif_id` | In-app notification inbox. One row per recipient per event. |
+
+**Notable columns on `notifications`:**
+- `user_id` — recipient (FK → users)
+- `title`, `body` — notification content
+- `link` — relative URL to navigate to on click (nullable)
+- `is_read` — `0` = unread, `1` = read
+- `notif_key VARCHAR(255)` — deduplication key for automated alerts.
+  Format: `warranty_{asset_id}_{warranty_end}_{threshold}`.
+  `UNIQUE KEY (notif_key, user_id)` + `INSERT IGNORE` ensures each automated
+  threshold fires exactly once per asset per user, even across many page loads.
+  NULL = ad-hoc notification (no dedup enforced).
+- `created_at` — timestamp
+
+This file also grants `notifications` and `profile` module access to **all roles** via `INSERT IGNORE INTO role_modules`.
+
 ### `config/asset_management.sql` — Asset Management (Module 2)
 
 | Table | Primary Key | Purpose |
@@ -296,6 +338,76 @@ users ◄── assets.owner_id                           ◄┘
 users ◄── assets.created_by
 users ◄── asset_documents.uploaded_by
 users ◄── asset_audit_log.changed_by
+users ◄── notifications.user_id (ON DELETE CASCADE)
+```
+
+---
+
+## Notification System
+
+### Overview
+
+In-app only. No email. Notifications are stored in the `notifications` table
+and surfaced via a bell icon in the topbar. The badge shows the unread count,
+updated every 30 seconds via `fetch()`. Clicking the bell opens a dropdown
+showing the 10 most recent items.
+
+### How to send a notification
+
+```php
+require_once BASE_PATH . '/modules/notifications/functions.php';
+
+// One recipient
+notify_user($pdo, $user_id, 'Title', 'Body text', BASE_URL . 'modules/tickets/view.php?id=5');
+
+// Broadcast to a role group (query users first, then loop)
+$recipients = $pdo->query("SELECT user_id FROM users WHERE role_id IN (1,2,3) AND is_active = 1")
+                  ->fetchAll(PDO::FETCH_COLUMN);
+foreach ($recipients as $uid) {
+    notify_user($pdo, (int)$uid, 'Title', 'Body', $link);
+}
+```
+
+For automated alerts that must never be sent twice, pass a `$notif_key`:
+```php
+notify_user($pdo, $uid, $title, $body, $link, 'warranty_12_2026-05-01_30');
+```
+
+`notify_user` uses `INSERT IGNORE` — duplicate keys are silently skipped.
+
+### Automated warranty alerts
+
+`check_warranty_expiry(PDO $pdo)` is called automatically by `guard.php` on
+every page load, throttled to once per hour via `$_SESSION['last_warranty_check']`.
+
+- Scans `asset_warranty` for assets expiring within 60 days
+- Fires three alert tiers: **7-day**, **30-day**, **60-day**
+- Each asset fires only the **most specific (smallest)** applicable tier
+- Recipients: `role_id IN (1, 2, 3, 8)` — admin, it_manager, it_staff, super_admin
+- `notif_key` format: `warranty_{asset_id}_{warranty_end}_{threshold}`
+
+To add alerts for other events (ticket status changes, work order assignments),
+call `notify_user()` inside the relevant `save.php` at the point of the state change.
+
+### AJAX endpoints
+
+| File | Method | Body | Returns |
+|------|--------|------|---------|
+| `modules/notifications/fetch.php` | GET | — | `{count: int, items: [...]}` |
+| `modules/notifications/mark_read.php` | POST | `id=N` | `{ok: true}` |
+| `modules/notifications/mark_read.php` | POST | `all=1` | `{ok: true}` |
+
+Both endpoints require an active session (`$_SESSION['user_id']` must be set).
+They return `401` if the user is not logged in.
+
+### SQL setup order
+
+```
+1. config/users.sql
+2. config/asset_management.sql
+3. config/notifications.sql         ← creates notifications table + role_modules
+4. config/seed_assets.sql           ← optional: sample assets
+5. config/notifications_seed.sql    ← optional: 3 test assets with near-expiry warranties
 ```
 
 ---

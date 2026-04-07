@@ -5,7 +5,10 @@
       "Bash(curl -s \"https://raw.githubusercontent.com/kazuhikoarase/qrcode-generator/master/php/qrcode.php\" -o c:/xampp/htdocs/mtrts/includes/qrcode.php)",
       "Bash(php -r \"echo extension_loaded\\('gd'\\) ? 'GD OK' : 'GD MISSING';\")",
       "Bash(/c/xampp/php/php -r \"echo extension_loaded\\('gd'\\) ? 'GD OK' : 'GD MISSING';\")",
-      "Bash(ls c:/xampp/htdocs/mtrts/modules/assets/*.php)"
+      "Bash(ls c:/xampp/htdocs/mtrts/modules/assets/*.php)",
+      "Bash(mysql -u root mtrts_sql)",
+      "Bash(\"c:/xampp/mysql/bin/mysql.exe\" -u root mtrts_sql)",
+      "Bash(\"c:/xampp/mysql/bin/mysql.exe\" -u root mtrts_sql -e \"SHOW COLUMNS FROM users LIKE 'profile_picture'; SELECT COUNT\\(*\\) as profile_rows FROM role_modules WHERE module_slug='profile';\")"
     ]
   }
 }

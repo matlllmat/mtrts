@@ -7,12 +7,14 @@
 //   $pdo, $_SESSION, $page
 
 $module_labels = [
-    'tickets'    => 'Request Submission',
-    'assets'     => 'Asset Management',
-    'workorders' => 'Work Orders',
-    'technician' => 'Technician Ops',
-    'reports'    => 'Reports & Audit',
-    'users'      => 'User Access Control',
+    'tickets'       => 'Request Submission',
+    'assets'        => 'Asset Management',
+    'workorders'    => 'Work Orders',
+    'technician'    => 'Technician Ops',
+    'reports'       => 'Reports & Audit',
+    'users'         => 'User Access Control',
+    'profile'       => 'My Profile',
+    'notifications' => 'Notifications',
 ];
 
 $page_title = !empty($page) ? ($module_labels[$page] ?? 'MTRTS') : 'Dashboard';

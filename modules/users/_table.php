@@ -22,6 +22,7 @@ $th = function(string $col, string $label) use ($sc, $sd): string {
 };
 
 $logged_in_id = (int)($_SESSION['user_id'] ?? 0);
+$actor_role   = current_user_role($pdo);
 ?>
 <div class="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
   <div class="overflow-x-auto">
@@ -101,8 +102,16 @@ $logged_in_id = (int)($_SESSION['user_id'] ?? 0);
                 <?= date('M j, Y', strtotime($u['created_at'])) ?>
               </td>
               <!-- Actions -->
+              <?php
+              $target_role    = $u['role_name'] ?? '';
+              $is_self        = ($u['user_id'] === $logged_in_id);
+              $is_super_admin = ($target_role === 'super_admin');
+              $can_manage     = !$is_self && can_manage_user($actor_role, $target_role);
+              ?>
               <td class="px-4 py-3 text-center whitespace-nowrap">
                 <div class="flex items-center justify-center gap-1.5">
+                  <!-- Edit: super_admin edits anyone; admin edits non-admin/non-super_admin; self edits self -->
+                  <?php if ($is_self || $actor_role === 'super_admin' || ($actor_role === 'admin' && $target_role !== 'super_admin' && $target_role !== 'admin')): ?>
                   <a href="edit.php?id=<?= $u['user_id'] ?>"
                      title="Edit user"
                      class="row-action">
@@ -110,13 +119,15 @@ $logged_in_id = (int)($_SESSION['user_id'] ?? 0);
                       <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125"/>
                     </svg>
                   </a>
-                  <?php if ($u['user_id'] !== $logged_in_id): ?>
+                  <?php endif; ?>
+
+                  <?php if ($can_manage): ?>
                     <?php if ($u['is_active']): ?>
                       <button type="button" title="Deactivate"
                               onclick="toggleActive(<?= $u['user_id'] ?>, 0, this)"
                               class="row-action danger">
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 115.636 5.636m12.728 12.728L5.636 5.636"/>
                         </svg>
                       </button>
                     <?php else: ?>
@@ -128,6 +139,13 @@ $logged_in_id = (int)($_SESSION['user_id'] ?? 0);
                         </svg>
                       </button>
                     <?php endif; ?>
+                  <?php elseif ($is_super_admin): ?>
+                    <span title="Protected — Super Admin account cannot be deactivated"
+                          class="inline-flex items-center justify-center w-7 h-7 text-red-400 opacity-70 cursor-default">
+                      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"/>
+                      </svg>
+                    </span>
                   <?php endif; ?>
                 </div>
               </td>
@@ -165,6 +183,7 @@ $logged_in_id = (int)($_SESSION['user_id'] ?? 0);
 <?php
 function u_avatar_color(string $role): string {
     $map = [
+        'super_admin'      => '#b91c1c',
         'admin'            => '#7c3aed',
         'it_manager'       => '#1d4ed8',
         'it_staff'         => '#0369a1',

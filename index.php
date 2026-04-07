@@ -5,6 +5,6 @@ session_start();
 if (!isset($_SESSION['user_id'])) {
     header('Location: modules/login.php');
 } else {
-    header('Location: modules/assets/index.php');
+    header('Location: modules/dashboard/index.php');
 }
 exit;

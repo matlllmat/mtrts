@@ -52,9 +52,8 @@ $icons = [
 
   <!-- Brand -->
   <div class="flex items-center gap-3 px-5 py-4 border-b border-gray-100 flex-shrink-0">
-    <div class="w-9 h-9 rounded-lg bg-olfu-green flex items-center justify-center flex-shrink-0">
-      <span class="text-white text-xs font-bold tracking-tight">MT</span>
-    </div>
+    <img src="<?= BASE_URL ?>public/assets/images/logo.png" alt="OLFU Logo"
+         class="w-10 h-10 object-contain flex-shrink-0" />
     <div class="min-w-0">
       <p class="text-sm font-bold text-gray-900 leading-tight">MTRTS</p>
       <p class="text-xs text-gray-400 leading-tight">Media Tech Repair</p>
@@ -73,9 +72,13 @@ $icons = [
         <span>Dashboard</span>
       </a>
 
-      <!-- Module links — gated by role -->
-      <?php foreach ($module_labels as $slug => $label): ?>
-        <?php if (!in_array($slug, $user_modules, true)) continue; ?>
+      <!-- Module links — gated by role (profile is accessed via avatar, not sidebar) -->
+      <?php
+      $nav_exclude = ['profile', 'notifications'];
+      foreach ($module_labels as $slug => $label):
+        if (in_array($slug, $nav_exclude, true)) continue;
+        if (!in_array($slug, $user_modules, true)) continue;
+      ?>
         <a href="<?= BASE_URL ?>modules/<?= $slug ?>/index.php"
            class="<?= (!$is_dashboard && $current_page === $slug) ? $active_cls : $inactive_cls ?>">
           <?= $icons[$slug] ?? '' ?>
@@ -115,20 +118,170 @@ $icons = [
 
     <!-- Right: notification bell + user avatar -->
     <div class="flex items-center gap-2">
-      <button type="button"
-              title="Notifications"
-              class="relative w-9 h-9 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 transition-colors duration-150">
-        <?= $icons['bell'] ?>
-        <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white"></span>
-      </button>
 
-      <div class="w-9 h-9 rounded-full bg-olfu-green flex items-center justify-center cursor-default flex-shrink-0"
-           title="<?= htmlspecialchars($_SESSION['full_name'] ?? '') ?>">
-        <span class="text-white text-sm font-bold leading-none"><?= htmlspecialchars($initials) ?></span>
+      <!-- Bell + dropdown wrapper -->
+      <div class="relative">
+        <button id="notif-bell"
+                type="button"
+                title="Notifications"
+                class="relative w-9 h-9 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 transition-colors duration-150">
+          <?= $icons['bell'] ?>
+          <span id="notif-badge"
+                class="hidden absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-red-500 rounded-full ring-2 ring-white flex items-center justify-center text-[10px] font-bold text-white px-0.5 leading-none">
+          </span>
+        </button>
+
+        <!-- Dropdown -->
+        <div id="notif-dropdown"
+             class="hidden absolute right-0 top-full mt-2 w-80 bg-white rounded-xl shadow-lg border border-gray-100 z-50">
+          <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+            <span class="text-sm font-semibold text-gray-700">Notifications</span>
+            <button id="notif-mark-all"
+                    class="text-xs text-olfu-green hover:underline font-medium">
+              Mark all as read
+            </button>
+          </div>
+          <div id="notif-list"
+               class="divide-y divide-gray-50 max-h-80 overflow-y-auto">
+            <p class="text-sm text-gray-400 text-center py-6">Loading&hellip;</p>
+          </div>
+          <div class="px-4 py-3 border-t border-gray-100">
+            <a href="<?= BASE_URL ?>modules/notifications/index.php"
+               class="text-xs text-olfu-green hover:underline font-medium">
+              View all notifications
+            </a>
+          </div>
+        </div>
       </div>
+
+      <?php
+      $nav_pic   = $_SESSION['profile_picture'] ?? '';
+      $nav_haspic = $nav_pic && is_file(__DIR__ . '/../' . ltrim($nav_pic, '/'));
+      ?>
+      <a href="<?= BASE_URL ?>modules/profile/index.php"
+         title="<?= htmlspecialchars($_SESSION['full_name'] ?? '') ?> — My Profile"
+         class="w-9 h-9 rounded-full overflow-hidden bg-olfu-green flex items-center justify-center flex-shrink-0 hover:ring-2 hover:ring-olfu-green hover:ring-offset-1 transition-all duration-150">
+        <?php if ($nav_haspic): ?>
+          <img src="<?= htmlspecialchars(BASE_URL . $nav_pic) ?>" alt="avatar" class="w-full h-full object-cover" />
+        <?php else: ?>
+          <span class="text-white text-sm font-bold leading-none"><?= htmlspecialchars($initials) ?></span>
+        <?php endif; ?>
+      </a>
     </div>
 
   </header>
+
+  <!-- Notification bell JS -->
+  <script>
+  (function () {
+    const BASE = '<?= BASE_URL ?>';
+    const bell      = document.getElementById('notif-bell');
+    const badge     = document.getElementById('notif-badge');
+    const dropdown  = document.getElementById('notif-dropdown');
+    const listEl    = document.getElementById('notif-list');
+    const markAllBtn = document.getElementById('notif-mark-all');
+    let isOpen = false;
+
+    function esc(str) {
+      const d = document.createElement('div');
+      d.textContent = str || '';
+      return d.innerHTML;
+    }
+
+    function timeAgo(dateStr) {
+      const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+      if (diff < 60)     return 'Just now';
+      if (diff < 3600)   return Math.floor(diff / 60) + 'm ago';
+      if (diff < 86400)  return Math.floor(diff / 3600) + 'h ago';
+      return Math.floor(diff / 86400) + 'd ago';
+    }
+
+    function renderBadge(count) {
+      if (count > 0) {
+        badge.textContent = count > 99 ? '99+' : count;
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+    }
+
+    function renderList(items) {
+      if (!items.length) {
+        listEl.innerHTML = '<p class="text-sm text-gray-400 text-center py-6">No notifications</p>';
+        return;
+      }
+      listEl.innerHTML = items.map(n => `
+        <a href="${n.link || '#'}"
+           class="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 transition-colors${n.is_read ? '' : ' bg-green-50'}"
+           data-notif-id="${n.id}">
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-semibold text-gray-800 leading-snug">${esc(n.title)}</p>
+            ${n.body ? `<p class="text-xs text-gray-500 mt-0.5 line-clamp-2">${esc(n.body)}</p>` : ''}
+            <p class="text-xs text-gray-400 mt-1">${timeAgo(n.created_at)}</p>
+          </div>
+          ${!n.is_read ? '<span class="w-2 h-2 rounded-full bg-olfu-green flex-shrink-0 mt-1.5"></span>' : ''}
+        </a>
+      `).join('');
+    }
+
+    function fetchAndRender(updateList) {
+      fetch(BASE + 'modules/notifications/fetch.php')
+        .then(r => r.json())
+        .then(data => {
+          renderBadge(data.count);
+          if (updateList) renderList(data.items);
+        })
+        .catch(() => {});
+    }
+
+    function openDropdown() {
+      isOpen = true;
+      dropdown.classList.remove('hidden');
+      listEl.innerHTML = '<p class="text-sm text-gray-400 text-center py-6">Loading&hellip;</p>';
+      fetchAndRender(true);
+    }
+
+    function closeDropdown() {
+      isOpen = false;
+      dropdown.classList.add('hidden');
+    }
+
+    // Bell toggle
+    bell.addEventListener('click', e => {
+      e.stopPropagation();
+      isOpen ? closeDropdown() : openDropdown();
+    });
+
+    // Close on outside click
+    document.addEventListener('click', e => {
+      if (isOpen && !dropdown.contains(e.target)) closeDropdown();
+    });
+
+    // Mark all as read
+    markAllBtn.addEventListener('click', () => {
+      fetch(BASE + 'modules/notifications/mark_read.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'all=1',
+      }).then(() => fetchAndRender(true));
+    });
+
+    // Mark individual as read when clicked
+    listEl.addEventListener('click', e => {
+      const link = e.target.closest('[data-notif-id]');
+      if (!link) return;
+      fetch(BASE + 'modules/notifications/mark_read.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'id=' + link.dataset.notifId,
+      });
+    });
+
+    // Initial load + poll every 30 seconds
+    fetchAndRender(false);
+    setInterval(() => fetchAndRender(isOpen), 30000);
+  })();
+  </script>
 
   <!-- Module content is rendered here by index.php -->
   <main class="flex-1 overflow-y-auto p-6">

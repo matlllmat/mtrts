@@ -64,7 +64,7 @@ function attempt_login(PDO $pdo, string $email, string $password): array|string 
     }
 
     $stmt = $pdo->prepare(
-        "SELECT user_id, role_id, full_name, email, password_hash, is_active
+        "SELECT user_id, role_id, full_name, email, password_hash, is_active, profile_picture
          FROM users WHERE email = ? LIMIT 1"
     );
     $stmt->execute([strtolower(trim($email))]);
@@ -88,10 +88,11 @@ function attempt_login(PDO $pdo, string $email, string $password): array|string 
 function create_session(PDO $pdo, array $user): void {
     session_regenerate_id(true);
 
-    $_SESSION['user_id']   = $user['user_id'];
-    $_SESSION['role_id']   = $user['role_id'];
-    $_SESSION['full_name'] = $user['full_name'];
-    $_SESSION['email']     = $user['email'];
+    $_SESSION['user_id']         = $user['user_id'];
+    $_SESSION['role_id']         = $user['role_id'];
+    $_SESSION['full_name']       = $user['full_name'];
+    $_SESSION['email']           = $user['email'];
+    $_SESSION['profile_picture'] = $user['profile_picture'] ?? '';
 
     $pdo->prepare("UPDATE users SET last_login = NOW() WHERE user_id = ?")
         ->execute([$user['user_id']]);

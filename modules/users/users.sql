@@ -25,7 +25,7 @@ INSERT INTO departments (department_name) VALUES
 
 -- ------------------------------------------------------------
 -- TABLE 2: roles
--- Six roles. Seeded on setup, rarely changed.
+-- Eight roles. Seeded on setup, rarely changed.
 -- Referenced by: users.role_id, role_modules.role_id
 -- ------------------------------------------------------------
 CREATE TABLE roles (
@@ -40,7 +40,12 @@ INSERT INTO roles (role_name) VALUES
   ('technician'),
   ('faculty'),
   ('department_staff'),
-  ('student');
+  ('student'),
+  ('super_admin');
+  -- super_admin: protected system account. Cannot be deactivated by anyone.
+  -- Cannot be selected in create/edit user forms.
+  -- Can manage (activate/deactivate) admin accounts; admins cannot.
+  -- See: config/add_super_admin.sql for migration on existing databases.
 
 
 -- ------------------------------------------------------------
@@ -64,6 +69,9 @@ CREATE TABLE users (
   -- Profile
   contact_number  VARCHAR(20)   NULL,
   position        VARCHAR(100)  NULL,
+  profile_picture VARCHAR(255)  NULL,
+    -- Relative web path: 'public/uploads/avatars/avatar_N_TIMESTAMP.ext'
+    -- NULL = use initials avatar. See: modules/profile/upload_avatar.php
 
   department_id   INT           NULL,
 
@@ -84,14 +92,15 @@ CREATE TABLE users (
   last_login      DATETIME      NULL
 );
 
--- Seed: default admin account (change password immediately after setup)
+-- Seed: default system administrator account (super_admin role — role_id 8)
+-- Change password immediately after setup.
 INSERT INTO users (
   email, password_hash, full_name, role_id, is_active
 ) VALUES (
   'admin@olfu.edu.ph',
   '$2y$10$placeholderHashReplaceThisOnFirstLogin.........',
   'System Administrator',
-  1,
+  8,
   1
 );
 
@@ -184,6 +193,15 @@ INSERT INTO role_modules (role_id, module_slug) VALUES
 -- role_id 7 = student
 INSERT INTO role_modules (role_id, module_slug) VALUES
   (7, 'tickets');
+
+-- role_id 8 = super_admin (all modules, same as admin)
+INSERT INTO role_modules (role_id, module_slug) VALUES
+  (8, 'assets'),
+  (8, 'tickets'),
+  (8, 'workorders'),
+  (8, 'technician'),
+  (8, 'reports'),
+  (8, 'users');
 
 
 -- ============================================================

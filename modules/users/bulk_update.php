@@ -44,13 +44,14 @@ if (!array_key_exists($field, $col_map)) {
     exit;
 }
 
-// Validate value for role_id — must be a valid role
+// Validate value for role_id — must be a valid non-super_admin role
 if ($field === 'role_id') {
     if (!$value) {
         echo json_encode(['success' => false, 'message' => 'Role is required.']);
         exit;
     }
-    $roles = get_roles($pdo);
+    // exclude_super_admin = true: prevents bulk-assigning the super_admin role
+    $roles       = get_roles($pdo, true);
     $valid_roles = array_column($roles, 'role_id');
     if (!in_array((int)$value, $valid_roles, true)) {
         echo json_encode(['success' => false, 'message' => 'Invalid role.']);
@@ -68,19 +69,31 @@ if ($field === 'is_active' && !in_array($value, ['0', '1'], true)) {
 $nullable = ['department_id'];
 $db_val   = (in_array($field, $nullable) && $value === '') ? null : ($value === '' ? null : $value);
 
-$col     = $col_map[$field];
-$updated = 0;
-$skipped = [];
+$col        = $col_map[$field];
+$actor_role = current_user_role($pdo);
+$updated    = 0;
+$skipped    = [];
 
 foreach ($user_ids as $uid) {
-    // Prevent deactivating your own account via bulk
-    if ($field === 'is_active' && $value === '0' && $uid === $self_id) {
-        $skipped[] = 'Your own account (cannot deactivate yourself)';
+    // Never touch your own account via bulk
+    if ($uid === $self_id) {
+        $skipped[] = 'Your own account';
         continue;
     }
 
-    $user = get_user_by_id($pdo, $uid);
+    $user        = get_user_by_id($pdo, $uid);
     if (!$user) continue;
+    $target_role = $user['role_name'] ?? '';
+
+    // Permission check: applies to status changes AND role reassignment
+    if (!can_manage_user($actor_role, $target_role)) {
+        if ($target_role === 'super_admin') {
+            $skipped[] = $user['full_name'] . ' (Super Admin is protected)';
+        } else {
+            $skipped[] = $user['full_name'] . ' (insufficient permission)';
+        }
+        continue;
+    }
 
     $pdo->prepare("UPDATE users SET `{$col}` = ? WHERE user_id = ?")
         ->execute([$db_val, $uid]);
