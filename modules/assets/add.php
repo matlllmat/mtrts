@@ -13,10 +13,11 @@ $parent_id = (int)($_GET['parent_id'] ?? 0);
 $asset     = null;
 $warranty  = null;
 
-$categories = get_categories($pdo);
-$locations  = get_all_locations($pdo);
-$owners     = get_owners($pdo);
-$parents    = get_top_level_assets($pdo, 0);
+$categories  = get_categories($pdo);
+$locations   = get_all_locations($pdo);
+$owners      = get_owners($pdo);
+$parents     = get_top_level_assets($pdo, 0);
+$departments = get_departments($pdo);
 
 // Re-populate from POST on validation failure
 $old    = $_SESSION['form_data']  ?? [];

@@ -13,6 +13,8 @@ $filters = [
     'category_id' => (int)($_GET['category_id'] ?? 0),
     'building'    => trim($_GET['building']     ?? ''),
     'floor'       => trim($_GET['floor']        ?? ''),
+    'sort_col'    => trim($_GET['sort_col']     ?? 'updated_at'),
+    'sort_dir'    => trim($_GET['sort_dir']     ?? 'DESC'),
 ];
 $current_page = max(1, (int)($_GET['p'] ?? 1));
 $per_page     = 10;

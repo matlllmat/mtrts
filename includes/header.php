@@ -23,11 +23,15 @@ $page_title = !empty($page) ? ($module_labels[$page] ?? 'MTRTS') : 'Dashboard';
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title><?= htmlspecialchars($page_title) ?> — MTRTS</title>
+  <link rel="stylesheet" href="<?= BASE_URL ?>public/assets/css/typography.css">
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
       theme: {
         extend: {
+          fontFamily: {
+            sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif'],
+          },
           colors: {
             olfu: {
               green:      '#1a5c2a',

@@ -45,6 +45,13 @@
           </p>
         </div>
         <div class="flex gap-2 flex-wrap">
+          <button onclick="openQrModal()"
+                  class="inline-flex items-center gap-1.5 bg-gray-50 border border-gray-300 text-gray-700 hover:bg-gray-100 text-sm font-semibold px-3 py-1.5 rounded-lg transition-colors">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/>
+            </svg>
+            QR Code
+          </button>
           <a href="edit.php?id=<?= $id ?>"
              class="inline-flex items-center gap-1.5 bg-amber-50 border border-amber-300 text-amber-700 hover:bg-amber-100 text-sm font-semibold px-3 py-1.5 rounded-lg transition-colors">
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -142,7 +149,7 @@
           </div>
           <div>
             <div class="vf-lbl">Cost Center</div>
-            <div class="vf-val"><?= $asset['cost_center'] ? htmlspecialchars($asset['cost_center']) : '<span class="vf-empty">Not set</span>' ?></div>
+            <div class="vf-val"><?= $asset['department_name'] ? htmlspecialchars($asset['department_name']) : '<span class="vf-empty">Not assigned</span>' ?></div>
           </div>
           <div>
             <div class="vf-lbl">Owner</div>
@@ -214,29 +221,118 @@
 
       <!-- Documents tab -->
       <div id="tab-documents" class="p-5 <?= $active_tab !== 'documents' ? 'hidden' : '' ?>">
-        <?php if ($documents): ?>
-          <div class="flex flex-col gap-2 mb-4">
+
+        <!-- Document list -->
+        <div id="doc-list" class="flex flex-col gap-2 mb-4">
+          <?php if ($documents): ?>
             <?php foreach ($documents as $doc): ?>
-              <div class="doc-row">
-                <div class="doc-ic"><?= strtoupper(htmlspecialchars($doc['file_type'])) ?></div>
+              <?php
+              $ic_colors = [
+                'pdf'  => 'bg-red-100 text-red-600',
+                'jpg'  => 'bg-blue-100 text-blue-600',
+                'jpeg' => 'bg-blue-100 text-blue-600',
+                'png'  => 'bg-blue-100 text-blue-600',
+                'dwg'  => 'bg-purple-100 text-purple-600',
+                'zip'  => 'bg-yellow-100 text-yellow-600',
+              ];
+              $ic       = $ic_colors[$doc['file_type']] ?? 'bg-gray-100 text-gray-600';
+              $size_fmt = $doc['file_size_kb'] >= 1024
+                ? round($doc['file_size_kb'] / 1024, 1) . ' MB'
+                : number_format($doc['file_size_kb']) . ' KB';
+              $viewable = in_array($doc['file_type'], ['pdf','jpg','jpeg','png']);
+              ?>
+              <div class="doc-row" data-doc-id="<?= $doc['document_id'] ?>">
+                <div class="doc-ic <?= $ic ?>"><?= strtoupper(htmlspecialchars($doc['file_type'])) ?></div>
                 <div class="flex-1 min-w-0">
-                  <div class="text-sm font-medium text-gray-800 truncate"><?= htmlspecialchars($doc['document_name']) ?></div>
-                  <div class="doc-meta"><?= (new DateTime($doc['uploaded_at']))->format('M j, Y') ?> · <?= number_format($doc['file_size_kb']) ?> KB</div>
+                  <!-- Name display / edit toggle -->
+                  <div class="flex items-center gap-1 group">
+                    <span class="doc-name text-sm font-medium text-gray-800 truncate">
+                      <?= htmlspecialchars($doc['document_name']) ?>
+                    </span>
+                    <button onclick="startRename(<?= $doc['document_id'] ?>, this)"
+                            class="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-gray-700 transition-all flex-shrink-0" title="Rename">
+                      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                      </svg>
+                    </button>
+                  </div>
+                  <div class="doc-meta">
+                    <?= (new DateTime($doc['uploaded_at']))->format('M j, Y') ?>
+                    · <?= $size_fmt ?>
+                  </div>
                 </div>
-                <span class="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full flex-shrink-0">v<?= $doc['version'] ?></span>
+                <div class="flex items-center gap-2 flex-shrink-0">
+                  <span class="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">v<?= $doc['version'] ?></span>
+                  <?php if ($viewable): ?>
+                  <a href="doc_view.php?id=<?= $doc['document_id'] ?>" target="_blank"
+                     class="text-gray-400 hover:text-blue-500 transition-colors" title="View">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                    </svg>
+                  </a>
+                  <?php endif; ?>
+                  <a href="doc_download.php?id=<?= $doc['document_id'] ?>"
+                     class="text-olfu-green hover:text-olfu-green-md transition-colors" title="Download">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                    </svg>
+                  </a>
+                  <button onclick="deleteDoc(<?= $doc['document_id'] ?>, this)"
+                          class="text-gray-400 hover:text-red-500 transition-colors" title="Delete">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    </svg>
+                  </button>
+                </div>
               </div>
             <?php endforeach; ?>
-          </div>
-        <?php else: ?>
-          <p class="text-sm text-gray-400 italic mb-4">No documents uploaded yet.</p>
-        <?php endif; ?>
-        <div class="upzone">
+          <?php else: ?>
+            <p id="doc-empty" class="text-sm text-gray-400 italic">No documents uploaded yet.</p>
+          <?php endif; ?>
+        </div>
+
+        <!-- Upload area -->
+        <div id="doc-dropzone"
+             class="upzone cursor-pointer transition-colors"
+             ondragover="docDragOver(event)" ondragleave="docDragLeave(event)" ondrop="docDrop(event)"
+             onclick="document.getElementById('doc-file-input').click()">
           <svg class="w-6 h-6 mx-auto mb-2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
           </svg>
-          <p class="text-sm font-semibold text-gray-600">Drag & drop or <span class="text-olfu-green underline cursor-pointer">browse</span></p>
+          <p class="text-sm font-semibold text-gray-600">Drag & drop or <span class="text-olfu-green underline">browse</span></p>
           <p class="text-xs text-gray-400 mt-1">PDF, JPG, PNG, DWG, ZIP — Max 50 MB</p>
         </div>
+        <input type="file" id="doc-file-input" class="hidden"
+               accept=".pdf,.jpg,.jpeg,.png,.dwg,.zip"
+               onchange="docFileSelected(this.files)">
+
+        <!-- Upload panel -->
+        <div id="doc-upload-panel" class="hidden mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+          <div class="flex items-center gap-3">
+            <svg class="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+            <span id="doc-selected-name" class="text-sm text-gray-700 truncate flex-1"></span>
+            <button onclick="docSubmitUpload()" id="doc-upload-btn"
+                    class="bg-olfu-green text-white text-sm font-semibold px-4 py-1.5 rounded-lg hover:bg-olfu-green-md transition-colors whitespace-nowrap">
+              Upload
+            </button>
+            <button onclick="docCancelUpload()" class="text-gray-400 hover:text-gray-600">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+          <div id="doc-upload-bar" class="hidden mt-2">
+            <div class="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+              <div id="doc-upload-fill" class="h-full bg-olfu-green rounded-full transition-all" style="width:0%"></div>
+            </div>
+            <p id="doc-upload-status" class="text-xs text-gray-500 mt-1"></p>
+          </div>
+        </div>
+
+        <p id="doc-upload-msg" class="text-xs mt-2 hidden"></p>
       </div>
 
       <!-- Repair history tab -->
@@ -393,12 +489,298 @@
 
 </div><!-- /grid -->
 
+<!-- QR Code Modal -->
+<div id="qr-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4"
+     style="background:rgba(0,0,0,0.45)" onclick="if(event.target===this)closeQrModal()">
+  <div class="bg-white rounded-2xl shadow-xl w-80 overflow-hidden">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+      <h3 class="text-sm font-bold text-gray-800">QR Code — <?= htmlspecialchars($asset['asset_tag']) ?></h3>
+      <button onclick="closeQrModal()" class="text-gray-400 hover:text-gray-700 transition-colors">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <div class="flex flex-col items-center gap-4 px-5 py-6">
+      <div id="qr-canvas-wrap" class="w-52 h-52 flex items-center justify-center bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
+        <!-- JS renders canvas here on open -->
+      </div>
+      <p class="text-xs text-gray-400 text-center">Scan to open this asset's page.<br>Print and attach to the physical device.</p>
+      <button onclick="printQr()"
+              class="w-full bg-olfu-green text-white text-sm font-semibold py-2 rounded-lg hover:bg-olfu-green-md transition-colors">
+        Print Label
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
+const _qrUrl  = <?= json_encode('http://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . BASE_URL . 'modules/assets/view.php?id=' . $id) ?>;
+const _qrTag  = <?= json_encode($asset['asset_tag']) ?>;
+let   _qrInst = null;
+
 function switchTab(key) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('tab-on'));
   document.querySelectorAll('[id^="tab-"]').forEach(p => p.classList.add('hidden'));
   event.currentTarget.classList.add('tab-on');
   const panel = document.getElementById('tab-' + key);
   if (panel) panel.classList.remove('hidden');
+}
+
+// ── Document upload ───────────────────────────────────────────
+const _assetId  = <?= $id ?>;
+const _csrfToken = <?= json_encode($_SESSION['csrf_token'] ?? '') ?>;
+let   _docFile  = null;
+
+const docIcColors = {
+  pdf: 'bg-red-100 text-red-600', jpg: 'bg-blue-100 text-blue-600',
+  jpeg:'bg-blue-100 text-blue-600', png:'bg-blue-100 text-blue-600',
+  dwg: 'bg-purple-100 text-purple-600', zip:'bg-yellow-100 text-yellow-600',
+};
+
+function docDragOver(e) {
+  e.preventDefault();
+  document.getElementById('doc-dropzone').classList.add('border-olfu-green','bg-green-50');
+}
+function docDragLeave(e) {
+  document.getElementById('doc-dropzone').classList.remove('border-olfu-green','bg-green-50');
+}
+function docDrop(e) {
+  e.preventDefault();
+  docDragLeave(e);
+  if (e.dataTransfer.files.length) docFileSelected(e.dataTransfer.files);
+}
+function docFileSelected(files) {
+  if (!files.length) return;
+  _docFile = files[0];
+  document.getElementById('doc-selected-name').textContent = _docFile.name;
+  document.getElementById('doc-upload-panel').classList.remove('hidden');
+  document.getElementById('doc-upload-msg').classList.add('hidden');
+}
+function docCancelUpload() {
+  _docFile = null;
+  document.getElementById('doc-file-input').value = '';
+  document.getElementById('doc-upload-panel').classList.add('hidden');
+  document.getElementById('doc-upload-bar').classList.add('hidden');
+  document.getElementById('doc-upload-fill').style.width = '0%';
+}
+function docSubmitUpload() {
+  if (!_docFile) return;
+  const btn  = document.getElementById('doc-upload-btn');
+  const bar  = document.getElementById('doc-upload-bar');
+  const fill = document.getElementById('doc-upload-fill');
+  const stat = document.getElementById('doc-upload-status');
+  const msg  = document.getElementById('doc-upload-msg');
+
+  btn.disabled = true;
+  bar.classList.remove('hidden');
+  stat.textContent = 'Uploading…';
+  fill.style.width = '0%';
+
+  const fd = new FormData();
+  fd.append('csrf_token', _csrfToken);
+  fd.append('asset_id',   _assetId);
+  fd.append('file',       _docFile);
+
+  const xhr = new XMLHttpRequest();
+  xhr.upload.onprogress = e => {
+    if (e.lengthComputable) fill.style.width = Math.round(e.loaded / e.total * 100) + '%';
+  };
+  xhr.onload = () => {
+    btn.disabled = false;
+    let data;
+    try { data = JSON.parse(xhr.responseText); } catch { data = {success:false,message:'Invalid server response.'}; }
+    if (data.success) {
+      stat.textContent = 'Done.';
+      docCancelUpload();
+      docAppendRow(data);
+      msg.textContent = 'File uploaded successfully.';
+      msg.className = 'text-xs mt-2 text-green-600';
+      msg.classList.remove('hidden');
+      document.getElementById('doc-empty')?.remove();
+    } else {
+      stat.textContent = '';
+      msg.textContent = data.message || 'Upload failed.';
+      msg.className = 'text-xs mt-2 text-red-500';
+      msg.classList.remove('hidden');
+    }
+  };
+  xhr.onerror = () => {
+    btn.disabled = false;
+    msg.textContent = 'Network error. Please try again.';
+    msg.className = 'text-xs mt-2 text-red-500';
+    msg.classList.remove('hidden');
+  };
+  xhr.open('POST', 'doc_upload.php');
+  xhr.send(fd);
+}
+
+function docAppendRow(d) {
+  const list = document.getElementById('doc-list');
+  const ic   = docIcColors[d.file_type] || 'bg-gray-100 text-gray-600';
+  const size = d.file_size_kb >= 1024
+    ? (d.file_size_kb/1024).toFixed(1) + ' MB'
+    : d.file_size_kb.toLocaleString() + ' KB';
+  const row  = document.createElement('div');
+  row.className = 'doc-row';
+  row.dataset.docId = d.document_id;
+  const viewable = ['pdf','jpg','jpeg','png'].includes(d.file_type.toLowerCase());
+  const viewBtn  = viewable
+    ? `<a href="doc_view.php?id=${d.document_id}" target="_blank"
+          class="text-gray-400 hover:text-blue-500 transition-colors" title="View">
+         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+           <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+           <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+         </svg>
+       </a>` : '';
+  row.innerHTML = `
+    <div class="doc-ic ${ic}">${d.file_type.toUpperCase()}</div>
+    <div class="flex-1 min-w-0">
+      <div class="flex items-center gap-1 group">
+        <span class="doc-name text-sm font-medium text-gray-800 truncate">${d.document_name}</span>
+        <button onclick="startRename(${d.document_id}, this)"
+                class="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-gray-700 transition-all flex-shrink-0" title="Rename">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+          </svg>
+        </button>
+      </div>
+      <div class="doc-meta">${d.uploaded_at} · ${size}</div>
+    </div>
+    <div class="flex items-center gap-2 flex-shrink-0">
+      <span class="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">v${d.version}</span>
+      ${viewBtn}
+      <a href="doc_download.php?id=${d.document_id}"
+         class="text-olfu-green hover:text-olfu-green-md transition-colors" title="Download">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+        </svg>
+      </a>
+      <button onclick="deleteDoc(${d.document_id}, this)"
+              class="text-gray-400 hover:text-red-500 transition-colors" title="Delete">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+        </svg>
+      </button>
+    </div>`;
+  list.prepend(row);
+}
+
+function startRename(docId, btn) {
+  const row      = btn.closest('.doc-row');
+  const nameSpan = row.querySelector('.doc-name');
+  const current  = nameSpan.textContent.trim();
+
+  // Replace span with input
+  const input = document.createElement('input');
+  input.type      = 'text';
+  input.value     = current;
+  input.className = 'text-sm font-medium text-gray-800 border border-olfu-green rounded px-1.5 py-0.5 w-full outline-none';
+  nameSpan.replaceWith(input);
+  input.focus();
+  input.select();
+  btn.classList.add('hidden');
+
+  const commit = () => {
+    const newName = input.value.trim();
+    if (!newName || newName === current) {
+      input.replaceWith(nameSpan);
+      btn.classList.remove('hidden');
+      return;
+    }
+    const fd = new FormData();
+    fd.append('csrf_token',   _csrfToken);
+    fd.append('document_id',  docId);
+    fd.append('document_name', newName);
+    fetch('doc_rename.php', { method: 'POST', body: fd })
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) {
+          nameSpan.textContent = data.document_name;
+        }
+        input.replaceWith(nameSpan);
+        btn.classList.remove('hidden');
+      });
+  };
+
+  input.addEventListener('blur',  commit);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter')  { e.preventDefault(); input.blur(); }
+    if (e.key === 'Escape') { input.value = current; input.blur(); }
+  });
+}
+
+function deleteDoc(docId, btn) {
+  if (!confirm('Delete this document? This cannot be undone.')) return;
+  btn.disabled = true;
+  const fd = new FormData();
+  fd.append('csrf_token',  _csrfToken);
+  fd.append('document_id', docId);
+  fetch('doc_delete.php', { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        const row = document.querySelector(`[data-doc-id="${docId}"]`);
+        if (row) row.remove();
+        if (!document.querySelector('#doc-list .doc-row')) {
+          const p = document.createElement('p');
+          p.id = 'doc-empty';
+          p.className = 'text-sm text-gray-400 italic';
+          p.textContent = 'No documents uploaded yet.';
+          document.getElementById('doc-list').prepend(p);
+        }
+      } else {
+        btn.disabled = false;
+        alert(data.message || 'Delete failed.');
+      }
+    });
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    if (!document.getElementById('qr-modal').classList.contains('hidden')) closeQrModal();
+  }
+});
+
+// ── QR Code ───────────────────────────────────────────────────
+function openQrModal() {
+  document.getElementById('qr-modal').classList.remove('hidden');
+  if (!_qrInst) {
+    const wrap = document.getElementById('qr-canvas-wrap');
+    wrap.innerHTML = '';
+    _qrInst = new QRCode(wrap, {
+      text:         _qrUrl,
+      width:         208,
+      height:        208,
+      colorDark:    '#000000',
+      colorLight:   '#f9fafb',
+      correctLevel:  QRCode.CorrectLevel.M
+    });
+  }
+}
+
+function closeQrModal() {
+  document.getElementById('qr-modal').classList.add('hidden');
+}
+
+function printQr() {
+  const canvas = document.querySelector('#qr-canvas-wrap canvas');
+  const img    = document.querySelector('#qr-canvas-wrap img');
+  const src    = canvas ? canvas.toDataURL('image/png') : (img ? img.src : null);
+  if (!src) return;
+
+  const win = window.open('', '_blank', 'width=400,height=400');
+  win.document.write(`<!DOCTYPE html><html><head><style>
+    body { margin:0; display:flex; flex-direction:column; align-items:center;
+           justify-content:center; height:100vh; font-family:monospace; }
+    img  { width:200px; height:200px; }
+    p    { margin:8px 0 0; font-size:14px; font-weight:bold; letter-spacing:1px; }
+  </style></head><body>
+    <img src="${src}">
+    <p>${_qrTag}</p>
+    <script>window.onload=()=>{window.print();}<\/script>
+  </body></html>`);
+  win.document.close();
 }
 </script>

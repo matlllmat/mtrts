@@ -286,10 +286,16 @@
             </select>
           </div>
           <div>
-            <label class="flbl" for="cost_center">Cost Center</label>
-            <input type="text" id="cost_center" name="cost_center"
-                   value="<?= htmlspecialchars((string)$v('cost_center')) ?>"
-                   class="fin" placeholder="e.g. CC-ITAV-001">
+            <label class="flbl" for="department_id">Cost Center</label>
+            <select id="department_id" name="department_id" class="fsel">
+              <option value="">— Not assigned —</option>
+              <?php foreach ($departments as $dept): ?>
+                <option value="<?= $dept['department_id'] ?>"
+                  <?= (int)$v('department_id') === (int)$dept['department_id'] ? 'selected' : '' ?>>
+                  <?= htmlspecialchars($dept['department_name']) ?>
+                </option>
+              <?php endforeach; ?>
+            </select>
           </div>
           <div>
             <label class="flbl" for="parent_asset_id">Parent Asset</label>

@@ -131,9 +131,12 @@ CREATE TABLE assets (
     -- NULL for all other categories.
     -- Enforced at application layer.
 
-  -- Ownership & Cost
-  cost_center     VARCHAR(100)  NULL,
-    -- e.g. 'CC-ITAV-001'
+  -- Ownership & Department
+  department_id   INT           NULL,
+    -- Which department is financially responsible for this asset.
+    -- FK to departments.department_id (defined in users.sql).
+  FOREIGN KEY (department_id)
+    REFERENCES departments(department_id),
   owner_id        INT           NULL,
     -- The user responsible for this asset.
   FOREIGN KEY (owner_id)
@@ -305,37 +308,5 @@ CREATE TABLE asset_audit_log (
 -- 13. Warranty alerts are sent at 60, 30, and 7 days before
 --     warranty_end. Logic runs on application layer (cron job or
 --     checked on page load).
---
--- ============================================================
-
-
--- ============================================================
--- TABLE RELATIONSHIPS SUMMARY
--- ============================================================
---
---  users (Module 6)
---    |
---    |--- assets.owner_id
---    |--- assets.created_by
---    |--- asset_documents.uploaded_by
---    |--- asset_audit_log.changed_by
---
---  asset_categories
---    |--- assets.category_id
---
---  locations
---    |--- assets.location_id
---
---  assets
---    |--- assets.parent_asset_id  (self-reference)
---    |--- asset_warranty.asset_id
---    |--- asset_documents.asset_id
---    |--- asset_audit_log.asset_id
---
---  tickets (Module 1 — not owned by this team)
---    |--- referenced to check open tickets before retiring
---
---  work_orders (Module 3 — not owned by this team)
---    |--- referenced for repair history display
 --
 -- ============================================================

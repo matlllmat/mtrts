@@ -19,10 +19,11 @@ if (!$asset) {
     exit;
 }
 
-$categories = get_categories($pdo);
-$locations  = get_all_locations($pdo);
-$owners     = get_owners($pdo);
-$parents    = get_top_level_assets($pdo, $edit_id);
+$categories  = get_categories($pdo);
+$locations   = get_all_locations($pdo);
+$owners      = get_owners($pdo);
+$parents     = get_top_level_assets($pdo, $edit_id);
+$departments = get_departments($pdo);
 
 // Re-populate from POST on validation failure
 $old    = $_SESSION['form_data']  ?? [];

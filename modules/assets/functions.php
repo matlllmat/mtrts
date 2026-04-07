@@ -3,6 +3,29 @@
 // All database queries and helpers for the Assets module.
 // $pdo is provided by the hub; never create a new connection here.
 
+// ── QR Code ───────────────────────────────────────────────────
+
+function generate_asset_qr(PDO $pdo, int $asset_id): string|false {
+    require_once __DIR__ . '/../../includes/qrcode.php';
+
+    $url     = 'http://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . BASE_URL . 'modules/assets/view.php?id=' . $asset_id;
+    $dir     = __DIR__ . '/../../public/uploads/qr/';
+    $file    = $dir . 'asset-' . $asset_id . '.png';
+    $webpath = BASE_URL . 'public/uploads/qr/asset-' . $asset_id . '.png';
+
+    if (!is_dir($dir)) mkdir($dir, 0755, true);
+
+    $qr = QRCode::getMinimumQRCode($url, QR_ERROR_CORRECT_LEVEL_M);
+    $im = $qr->createImage(6, 2);          // cell size 6px, margin 2 cells
+    imagepng($im, $file);
+    imagedestroy($im);
+
+    $pdo->prepare("UPDATE assets SET qr_code_path = ? WHERE asset_id = ?")
+        ->execute([$webpath, $asset_id]);
+
+    return $webpath;
+}
+
 // ── Stats ─────────────────────────────────────────────────────
 
 function get_asset_stats(PDO $pdo): array {
@@ -28,6 +51,21 @@ function get_assets(PDO $pdo, array $f = [], int $page = 1, int $per = 10): arra
     [$where, $params] = _asset_where($f);
     $offset = ($page - 1) * $per;
 
+    // Whitelist sortable columns — prevents SQL injection via $f['sort_col']
+    $sort_map = [
+        'asset_tag'     => 'a.asset_tag',
+        'manufacturer'  => 'a.manufacturer',
+        'category_name' => 'c.category_name',
+        'building'      => 'l.building',
+        'floor'         => 'l.floor',
+        'room'          => 'l.room',
+        'status'        => 'a.status',
+        'warranty_end'  => 'w.warranty_end',
+        'updated_at'    => 'a.updated_at',
+    ];
+    $sort_col = $sort_map[$f['sort_col'] ?? ''] ?? 'a.updated_at';
+    $sort_dir = strtoupper($f['sort_dir'] ?? '') === 'ASC' ? 'ASC' : 'DESC';
+
     $stmt = $pdo->prepare("
         SELECT a.asset_id, a.asset_tag, a.manufacturer, a.model, a.status, a.updated_at,
                c.category_name,
@@ -38,7 +76,7 @@ function get_assets(PDO $pdo, array $f = [], int $page = 1, int $per = 10): arra
         LEFT JOIN locations        l ON a.location_id  = l.location_id
         LEFT JOIN asset_warranty   w ON a.asset_id     = w.asset_id
         WHERE $where
-        ORDER BY a.updated_at DESC
+        ORDER BY $sort_col $sort_dir
         LIMIT ? OFFSET ?
     ");
     $stmt->execute(array_merge($params, [$per, $offset]));
@@ -97,11 +135,13 @@ function get_asset_by_id(PDO $pdo, int $id): array|false {
         SELECT a.*, c.category_name, c.has_bulb_hours,
                l.building, l.floor, l.room,
                u.full_name AS owner_name,
+               d.department_name,
                p.asset_tag AS parent_tag
         FROM assets a
         LEFT JOIN asset_categories c ON a.category_id     = c.category_id
         LEFT JOIN locations        l ON a.location_id     = l.location_id
         LEFT JOIN users            u ON a.owner_id        = u.user_id
+        LEFT JOIN departments      d ON a.department_id   = d.department_id
         LEFT JOIN assets           p ON a.parent_asset_id = p.asset_id
         WHERE a.asset_id = ?
     ");
@@ -139,6 +179,10 @@ function get_asset_children(PDO $pdo, int $id): array {
 function get_asset_repair_history(PDO $pdo, int $id): array {
     // Wire up when Module 1 (tickets) and Module 3 (work_orders) are built.
     return [];
+}
+
+function get_departments(PDO $pdo): array {
+    return $pdo->query("SELECT department_id, department_name FROM departments ORDER BY department_name")->fetchAll();
 }
 
 // ── Lookups ───────────────────────────────────────────────────
@@ -184,13 +228,13 @@ function create_asset(PDO $pdo, array $d): int {
         INSERT INTO assets
             (asset_tag, serial_number, manufacturer, model, category_id, status,
              location_id, parent_asset_id, install_date, firmware_version,
-             network_info, bulb_hours, cost_center, owner_id, created_by)
+             network_info, bulb_hours, department_id, owner_id, created_by)
         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ")->execute([
         $d['asset_tag'],       $d['serial_number'],    $d['manufacturer'], $d['model'],
         $d['category_id'],     $d['status'],           $d['location_id'],  $d['parent_asset_id'],
         $d['install_date'],    $d['firmware_version'],  $d['network_info'],
-        $d['bulb_hours'],      $d['cost_center'],       $d['owner_id'],     $d['created_by'],
+        $d['bulb_hours'],      $d['department_id'],     $d['owner_id'],     $d['created_by'],
     ]);
     return (int) $pdo->lastInsertId();
 }
@@ -200,12 +244,12 @@ function update_asset(PDO $pdo, int $id, array $d): void {
         UPDATE assets SET
             serial_number=?, manufacturer=?, model=?, category_id=?, status=?,
             location_id=?, parent_asset_id=?, install_date=?, firmware_version=?,
-            network_info=?, bulb_hours=?, cost_center=?, owner_id=?
+            network_info=?, bulb_hours=?, department_id=?, owner_id=?
         WHERE asset_id=?
     ")->execute([
         $d['serial_number'],   $d['manufacturer'],  $d['model'],        $d['category_id'],
         $d['status'],          $d['location_id'],   $d['parent_asset_id'], $d['install_date'],
-        $d['firmware_version'], $d['network_info'], $d['bulb_hours'],   $d['cost_center'],
+        $d['firmware_version'], $d['network_info'], $d['bulb_hours'],   $d['department_id'],
         $d['owner_id'],        $id,
     ]);
 }
@@ -242,7 +286,7 @@ function log_asset_changes(PDO $pdo, int $id, array $old, array $new, int $by): 
     $fields = [
         'serial_number','manufacturer','model','category_id','status',
         'location_id','parent_asset_id','install_date','firmware_version',
-        'network_info','bulb_hours','cost_center','owner_id',
+        'network_info','bulb_hours','department_id','owner_id',
     ];
     foreach ($fields as $f) {
         if ((string)($old[$f] ?? '') !== (string)($new[$f] ?? '')) {
@@ -356,7 +400,7 @@ function sanitize_asset_post(array $post, int $created_by): array {
         'firmware_version'  => $str('firmware_version'),
         'network_info'      => $str('network_info'),
         'bulb_hours'        => !empty($post['bulb_hours']) ? (int)$post['bulb_hours'] : null,
-        'cost_center'       => $str('cost_center'),
+        'department_id'     => $int('department_id'),
         'owner_id'          => $int('owner_id'),
         'created_by'        => $created_by,
         // Warranty
