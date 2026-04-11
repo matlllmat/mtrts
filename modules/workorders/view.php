@@ -1,0 +1,34 @@
+<?php
+// modules/workorders/view.php — Work order detail page.
+// Logic only: guard, data fetch, then hands off to the view.
+
+$module = 'workorders';
+require_once __DIR__ . '/../../config/guard.php';
+require_once __DIR__ . '/functions.php';
+require_once __DIR__ . '/_styles.php';
+
+$id = (int)($_GET['id'] ?? 0);
+if ($id < 1) { header('Location: index.php'); exit; }
+
+$wo = get_wo_by_id($pdo, $id);
+if (!$wo) { header('Location: index.php'); exit; }
+
+$checklist    = get_wo_checklist($pdo, $id, $wo['category_id'] ?? null);
+$cl_name      = get_checklist_name($pdo, $wo['category_id'] ?? null);
+$parts        = get_wo_parts($pdo, $id);
+$time_logs    = get_wo_time_logs($pdo, $id);
+$total_time   = compute_total_time($time_logs);
+$media        = get_wo_media($pdo, $id);
+$signoff      = get_wo_signoff($pdo, $id);
+$assignments  = get_wo_assignment_history($pdo, $id);
+$technicians  = get_all_technicians($pdo);
+
+$active_tab   = $_GET['tab'] ?? 'checklist';
+
+// Overdue check
+$is_overdue = $wo['scheduled_end']
+    && strtotime($wo['scheduled_end']) < time()
+    && !in_array($wo['status'], ['resolved','closed']);
+
+require __DIR__ . '/view.view.php';
+require_once __DIR__ . '/../../includes/footer.php';

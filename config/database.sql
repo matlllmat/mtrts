@@ -416,7 +416,7 @@ CREATE TABLE ticket_dynamic_fields (
 CREATE TABLE work_orders (
   wo_id            INT           PRIMARY KEY AUTO_INCREMENT,
   wo_number        VARCHAR(20)   NOT NULL UNIQUE,
-  ticket_id        INT           NOT NULL,
+  ticket_id        INT           NULL,
   wo_type          ENUM('diagnosis','repair','maintenance','follow_up') NOT NULL DEFAULT 'repair',
   assigned_to      INT           NULL,
   assigned_by      INT           NULL,
