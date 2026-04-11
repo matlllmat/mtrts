@@ -52,7 +52,7 @@ mtrts/
 │   ├── dashboard/          ← Landing page after login (stats + recent activity)
 │   ├── assets/             ← Module 2: Asset Management (fully implemented)
 │   ├── tickets/            ← Module 1: Request Submission
-│   ├── workorders/         ← Module 3: Work Order & Dispatch
+│   ├── workorders/         ← Module 3: Work Order & Dispatch (fully implemented)
 │   ├── technician/         ← Module 4: Technician Operations
 │   ├── reports/            ← Module 5: SLA, Reporting & Audit
 │   ├── users/              ← Module 6: User Access Control (fully implemented)
@@ -321,7 +321,6 @@ This file also grants `notifications` and `profile` module access to **all roles
 | Table | Owner Module | Notes |
 |---|---|---|
 | `tickets` | Module 1 (tickets) | Referenced by assets to check open tickets before retiring |
-| `work_orders` | Module 3 (workorders) | Referenced by assets for repair history display |
 
 ### Key foreign key relationships at a glance
 
