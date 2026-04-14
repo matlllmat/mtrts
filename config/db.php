@@ -21,7 +21,6 @@ $options = [
 try {
   $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
 } catch (PDOException $e) {
-  // We need to create a designed error for this like the @moduless/denied.php
-  die("Database connection failed. Please contact the administrator.");
+  die("Database connection failed: " . $e->getMessage());
 }
 ?>
