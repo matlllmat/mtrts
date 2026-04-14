@@ -1,10 +1,14 @@
 <?php
 // modules/tickets/_table.php — Included by index.php and search_ajax.php
 
+// Sorting/filtering state with defaults
+$sc = $filters['sort_col'] ?? 'updated_at';
+$sd = $filters['sort_dir'] ?? 'DESC';
+
 // Helper to render sortable column headers
-$render_th = function(string $col_key, string $label) use ($filters) {
-    $is_active = ($filters['sort_col'] === $col_key);
-    $dir       = $is_active ? $filters['sort_dir'] : 'DESC';
+$render_th = function(string $col_key, string $label) use ($sc, $sd) {
+    $is_active = ($sc === $col_key);
+    $dir       = $is_active ? $sd : 'DESC';
     $next_dir  = ($is_active && $dir === 'DESC') ? 'ASC' : 'DESC';
     
     $arrow = '';
