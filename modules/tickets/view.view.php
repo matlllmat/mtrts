@@ -52,7 +52,7 @@
       <div class="p-5">
         <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
           <?php foreach ($attachments as $att): ?>
-          <a href="<?= BASE_URL ?>public/uploads/tickets/<?= htmlspecialchars($att['file_name']) ?>" target="_blank" class="block border border-gray-200 rounded-lg p-3 hover:bg-gray-50 transition">
+          <a href="<?= BASE_URL . htmlspecialchars($att['file_path']) ?>" target="_blank" class="block border border-gray-200 rounded-lg p-3 hover:bg-gray-50 transition">
             <div class="flex items-center gap-2 mb-1">
               <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
               <span class="text-sm font-semibold text-olfu-green truncate" title="<?= htmlspecialchars($att['file_name']) ?>">

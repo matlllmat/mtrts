@@ -107,13 +107,12 @@
     <?php if (!$is_edit): ?>
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 p-md-6">
       <h3 class="text-base font-bold text-gray-900 mb-4 pb-2 border-b border-gray-100">Attach Photos/Videos</h3>
-      <div class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:bg-gray-50 transition">
-        <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48"><path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+      <div id="drop-zone" class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:bg-gray-50 transition-all cursor-pointer group">
+        <svg class="mx-auto h-12 w-12 text-gray-400 group-hover:text-olfu-green transition-colors" stroke="currentColor" fill="none" viewBox="0 0 48 48"><path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
         <div class="mt-4 flex text-sm text-gray-600 justify-center">
           <label class="relative cursor-pointer bg-white rounded-md font-medium text-olfu-green hover:text-olfu-green-md focus-within:outline-none">
-            <span>Upload files</span>
-            <input type="file" name="attachments[]" multiple class="sr-only" accept="image/*,video/*,.pdf" 
-                   onchange="document.getElementById('upload-preview').innerText = this.files.length + ' file(s) selected'">
+            <span id="browse-label">Upload files</span>
+            <input type="file" id="file-input" name="attachments[]" multiple class="sr-only" accept="image/*,video/*,.pdf">
           </label>
           <p class="pl-1">or drag and drop</p>
         </div>
@@ -273,14 +272,61 @@ function updateDynamicFields() {
   }
 }
 
-categorySelect.addEventListener('change', updateDynamicFields);
-
-// Run on load
+if (categorySelect) categorySelect.addEventListener('change', updateDynamicFields);
 updateDynamicFields();
+
+// --- Attachment Handlers ---
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+const previewText = document.getElementById('upload-preview');
+
+if (dropZone && fileInput) {
+  // Click to open file dialog
+  dropZone.addEventListener('click', () => fileInput.click());
+
+  // Prevent default behavior for drag events
+  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(evt => {
+    dropZone.addEventListener(evt, e => {
+      e.preventDefault();
+      e.stopPropagation();
+    }, false);
+  });
+
+  // Visual cues for dragging
+  ['dragenter', 'dragover'].forEach(evt => {
+    dropZone.addEventListener(evt, () => dropZone.classList.add('bg-green-50', 'border-olfu-green'), false);
+  });
+  ['dragleave', 'drop'].forEach(evt => {
+    dropZone.addEventListener(evt, () => dropZone.classList.remove('bg-green-50', 'border-olfu-green'), false);
+  });
+
+  // Handle dropped files
+  dropZone.addEventListener('drop', e => {
+    const dt = e.dataTransfer;
+    fileInput.files = dt.files;
+    updateFilePreview();
+  });
+
+  // Handle selected files
+  fileInput.addEventListener('change', updateFilePreview);
+
+  function updateFilePreview() {
+    const files = fileInput.files;
+    if (files.length > 0) {
+      previewText.innerHTML = `<span class="text-olfu-green font-bold">${files.length} file(s) selected</span><br>` + 
+                             Array.from(files).map(f => f.name).join(', ');
+      previewText.classList.remove('text-gray-500');
+    } else {
+      previewText.innerText = 'PNG, JPG, MP4, PDF up to 10MB';
+      previewText.classList.add('text-gray-500');
+    }
+  }
+}
 
 // Auto-trigger descriptive triage logic if editing
 setTimeout(() => {
-  document.querySelector('textarea[name="description"]').dispatchEvent(new Event('input'));
+  const descTxt = document.querySelector('textarea[name="description"]');
+  if (descTxt) descTxt.dispatchEvent(new Event('input'));
 }, 500);
 
 </script>
