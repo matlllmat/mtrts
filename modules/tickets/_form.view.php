@@ -103,23 +103,52 @@
       </div>
     </div>
     
-    <!-- Attachments (Create Only to simplify) -->
-    <?php if (!$is_edit): ?>
+    <!-- Attachments (Now available in Edit too) -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 p-md-6">
       <h3 class="text-base font-bold text-gray-900 mb-4 pb-2 border-b border-gray-100">Attach Photos/Videos</h3>
-      <div id="drop-zone" class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:bg-gray-50 transition-all cursor-pointer group">
-        <svg class="mx-auto h-12 w-12 text-gray-400 group-hover:text-olfu-green transition-colors" stroke="currentColor" fill="none" viewBox="0 0 48 48"><path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
-        <div class="mt-4 flex text-sm text-gray-600 justify-center">
-          <label class="relative cursor-pointer bg-white rounded-md font-medium text-olfu-green hover:text-olfu-green-md focus-within:outline-none">
-            <span id="browse-label">Upload files</span>
-            <input type="file" id="file-input" name="attachments[]" multiple class="sr-only" accept="image/*,video/*,.pdf">
-          </label>
-          <p class="pl-1">or drag and drop</p>
+      
+      <!-- Upload Zone -->
+      <div id="drop-zone" class="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:bg-gray-50 transition-all cursor-pointer group mb-4">
+        <svg class="mx-auto h-10 w-10 text-gray-400 group-hover:text-olfu-green transition-colors" stroke="currentColor" fill="none" viewBox="0 0 48 48"><path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+        <div class="mt-2 text-sm text-gray-600">
+          <span class="font-medium text-olfu-green">Upload files</span> or drag and drop
+          <input type="file" id="file-input" name="attachments[]" multiple class="sr-only" accept="image/*,video/*,.pdf">
         </div>
-        <p class="text-xs text-gray-500 mt-2" id="upload-preview">PNG, JPG, MP4, PDF up to 10MB</p>
+        <p class="text-xs text-gray-400 mt-1">PNG, JPG, MP4, PDF up to 10MB</p>
       </div>
+
+      <!-- Preview Grid -->
+      <div id="attachments-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+        <?php 
+        // Show Existing Attachments (if editing)
+        if ($is_edit && !empty($attachments)): 
+          foreach ($attachments as $att):
+        ?>
+          <div class="relative group aspect-square rounded-lg border border-gray-200 overflow-hidden bg-gray-50 attachment-item" data-att-id="<?= $att['attachment_id'] ?>">
+            <?php if (in_array($att['file_type'], ['jpg','jpeg','png','webp'])): ?>
+              <img src="<?= BASE_URL . $att['file_path'] ?>" class="w-full h-full object-cover">
+            <?php else: ?>
+              <div class="w-full h-full flex flex-col items-center justify-center p-2 text-center">
+                <svg class="w-8 h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" stroke-width="2"/></svg>
+                <div class="text-[10px] font-medium text-gray-500 truncate w-full mt-1 px-1"><?= htmlspecialchars($att['file_name']) ?></div>
+              </div>
+            <?php endif; ?>
+            <button type="button" onclick="removeExistingAttachment(<?= $att['attachment_id'] ?>, this)" class="absolute top-1 right-1 w-6 h-6 bg-red-600/90 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+            <div class="absolute inset-0 bg-red-500/10 hidden deleted-overlay items-center justify-center">
+              <span class="bg-red-600 text-[10px] text-white font-bold px-1.5 py-0.5 rounded shadow">DELETED</span>
+            </div>
+          </div>
+        <?php 
+          endforeach; 
+        endif; 
+        ?>
+      </div>
+      
+      <!-- Hidden container for deleted IDs -->
+      <div id="deleted-attachments-ids"></div>
     </div>
-    <?php endif; ?>
     
   </div>
 
@@ -206,39 +235,42 @@ const kbArticles = [
   { keywords: ['feedback', 'squeal', 'microphone', 'audio', 'sound'], title: 'Sound System: Feedback / High-Pitched Squeal' }
 ];
 
-document.querySelector('textarea[name="description"]').addEventListener('input', function(e) {
-  const text = e.target.value.toLowerCase();
-  const triageContainer = document.getElementById('triage-helper');
-  const triageContent = document.getElementById('triage-content');
-  
-  if (text.length < 10) {
-    triageContainer.classList.add('hidden');
-    return;
-  }
-  
-  let suggestions = new Set();
-  kbArticles.forEach(kb => {
-    let matchCount = kb.keywords.filter(k => text.includes(k)).length;
-    if (matchCount >= 2) {
-      suggestions.add(kb.title);
+const descTextArea = document.querySelector('textarea[name="description"]');
+if (descTextArea) {
+  descTextArea.addEventListener('input', function(e) {
+    const text = e.target.value.toLowerCase();
+    const triageContainer = document.getElementById('triage-helper');
+    const triageContent = document.getElementById('triage-content');
+    
+    if (text.length < 10) {
+      triageContainer.classList.add('hidden');
+      return;
+    }
+    
+    let suggestions = new Set();
+    kbArticles.forEach(kb => {
+      let matchCount = kb.keywords.filter(k => text.includes(k)).length;
+      if (matchCount >= 2) {
+        suggestions.add(kb.title);
+      }
+    });
+    
+    if (suggestions.size > 0) {
+      triageContainer.classList.remove('hidden');
+      triageContent.innerHTML = Array.from(suggestions).map(s => 
+        `<span class="bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full text-xs font-semibold shadow-sm">${s}</span>`
+      ).join('');
+    } else {
+      triageContainer.classList.add('hidden');
     }
   });
-  
-  if (suggestions.size > 0) {
-    triageContainer.classList.remove('hidden');
-    triageContent.innerHTML = Array.from(suggestions).map(s => 
-      `<span class="bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full text-xs font-semibold shadow-sm">${s}</span>`
-    ).join('');
-  } else {
-    triageContainer.classList.add('hidden');
-  }
-});
+}
 
 // Dynamic Fields logic
 const categorySelect = document.getElementById('category-select');
 function updateDynamicFields() {
-  const cSel = categorySelect;
-  const selOpt = cSel.options[cSel.selectedIndex];
+  if (!categorySelect) return;
+  const selOpt = categorySelect.options[categorySelect.selectedIndex];
   if (!selOpt || !selOpt.value) {
     document.getElementById('dynamic-fields-container').classList.add('hidden');
     return;
@@ -246,7 +278,6 @@ function updateDynamicFields() {
   
   const text = selOpt.text.toLowerCase();
   const hasBulb = selOpt.getAttribute('data-bulb') === '1';
-  
   let showAny = false;
   
   const bDiv = document.getElementById('df-bulb-hours');
@@ -265,26 +296,25 @@ function updateDynamicFields() {
     iDiv.classList.add('hidden');
   }
   
-  if (showAny) {
-    document.getElementById('dynamic-fields-container').classList.remove('hidden');
-  } else {
-    document.getElementById('dynamic-fields-container').classList.add('hidden');
-  }
+  const container = document.getElementById('dynamic-fields-container');
+  if (showAny) container.classList.remove('hidden');
+  else container.classList.add('hidden');
 }
 
 if (categorySelect) categorySelect.addEventListener('change', updateDynamicFields);
 updateDynamicFields();
 
-// --- Attachment Handlers ---
+// --- ATTACHMENT MANAGEMENT ---
+
+let selectedFiles = [];
 const dropZone = document.getElementById('drop-zone');
 const fileInput = document.getElementById('file-input');
-const previewText = document.getElementById('upload-preview');
+const attachmentsGrid = document.getElementById('attachments-grid');
+const deletedIdsContainer = document.getElementById('deleted-attachments-ids');
 
 if (dropZone && fileInput) {
-  // Click to open file dialog
   dropZone.addEventListener('click', () => fileInput.click());
 
-  // Prevent default behavior for drag events
   ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(evt => {
     dropZone.addEventListener(evt, e => {
       e.preventDefault();
@@ -292,7 +322,6 @@ if (dropZone && fileInput) {
     }, false);
   });
 
-  // Visual cues for dragging
   ['dragenter', 'dragover'].forEach(evt => {
     dropZone.addEventListener(evt, () => dropZone.classList.add('bg-green-50', 'border-olfu-green'), false);
   });
@@ -300,27 +329,89 @@ if (dropZone && fileInput) {
     dropZone.addEventListener(evt, () => dropZone.classList.remove('bg-green-50', 'border-olfu-green'), false);
   });
 
-  // Handle dropped files
   dropZone.addEventListener('drop', e => {
-    const dt = e.dataTransfer;
-    fileInput.files = dt.files;
-    updateFilePreview();
+    handleFiles(e.dataTransfer.files);
   });
 
-  // Handle selected files
-  fileInput.addEventListener('change', updateFilePreview);
+  fileInput.addEventListener('change', () => {
+    handleFiles(fileInput.files);
+  });
+}
 
-  function updateFilePreview() {
-    const files = fileInput.files;
-    if (files.length > 0) {
-      previewText.innerHTML = `<span class="text-olfu-green font-bold">${files.length} file(s) selected</span><br>` + 
-                             Array.from(files).map(f => f.name).join(', ');
-      previewText.classList.remove('text-gray-500');
-    } else {
-      previewText.innerText = 'PNG, JPG, MP4, PDF up to 10MB';
-      previewText.classList.add('text-gray-500');
-    }
+function handleFiles(files) {
+  const newFiles = Array.from(files);
+  selectedFiles = selectedFiles.concat(newFiles);
+  syncFileInput();
+  renderPreviews();
+}
+
+function removeSelectedFile(index) {
+  selectedFiles.splice(index, 1);
+  syncFileInput();
+  renderPreviews();
+}
+
+function removeExistingAttachment(id, btn) {
+  const card = btn.closest('.attachment-item');
+  const overlay = card.querySelector('.deleted-overlay');
+  
+  if (card.classList.contains('marked-deleted')) {
+    card.classList.remove('marked-deleted');
+    overlay.classList.add('hidden');
+    overlay.classList.remove('flex');
+    const input = document.getElementById('del-att-' + id);
+    if (input) input.remove();
+    btn.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path d="M6 18L18 6M6 6l12 12"/></svg>';
+    btn.classList.replace('bg-green-600', 'bg-red-600');
+  } else {
+    card.classList.add('marked-deleted');
+    overlay.classList.remove('hidden');
+    overlay.classList.add('flex');
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'deleted_attachments[]';
+    input.value = id;
+    input.id = 'del-att-' + id;
+    deletedIdsContainer.appendChild(input);
+    btn.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg>';
+    btn.classList.replace('bg-red-600', 'bg-green-600');
   }
+}
+
+function syncFileInput() {
+  const dt = new DataTransfer();
+  selectedFiles.forEach(file => dt.items.add(file));
+  fileInput.files = dt.files;
+}
+
+function renderPreviews() {
+  // Clear only newly added previews (keep existing ones)
+  const existingNew = document.querySelectorAll('.new-attachment-preview');
+  existingNew.forEach(el => el.remove());
+
+  selectedFiles.forEach((file, index) => {
+    const reader = new FileReader();
+    const card = document.createElement('div');
+    card.className = 'relative group aspect-square rounded-lg border border-olfu-green bg-green-50/30 overflow-hidden new-attachment-preview';
+    
+    const removeBtn = `<button type="button" onclick="removeSelectedFile(${index})" class="absolute top-1 right-1 w-6 h-6 bg-red-600/90 text-white rounded-full flex items-center justify-center shadow-md z-10"><svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path d="M6 18L18 6M6 6l12 12"/></svg></button>`;
+    card.innerHTML = removeBtn;
+
+    if (file.type.startsWith('image/')) {
+      const img = document.createElement('img');
+      img.className = 'w-full h-full object-cover';
+      card.appendChild(img);
+      reader.onload = (e) => img.src = e.target.result;
+      reader.readAsDataURL(file);
+    } else {
+      card.innerHTML += `
+        <div class="w-full h-full flex flex-col items-center justify-center p-2 text-center">
+          <svg class="w-8 h-8 text-olfu-green/60" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" stroke-width="2"/></svg>
+          <div class="text-[10px] font-bold text-olfu-green truncate w-full mt-1 px-1">${file.name}</div>
+        </div>`;
+    }
+    attachmentsGrid.appendChild(card);
+  });
 }
 
 // Auto-trigger descriptive triage logic if editing

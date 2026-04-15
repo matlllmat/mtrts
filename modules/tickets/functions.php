@@ -314,6 +314,39 @@ function check_duplicate_ticket(PDO $pdo, int $asset_id, string $description, in
     return $stmt->fetchColumn() ?: null;
 }
 
+function handle_ticket_uploads(PDO $pdo, int $ticket_id, int $user_id): void {
+    if (!empty($_FILES['attachments']['name'][0])) {
+        $upload_dir = __DIR__ . '/../../public/uploads/tickets/';
+        if (!is_dir($upload_dir)) mkdir($upload_dir, 0777, true);
+        
+        $stmt_att = $pdo->prepare("INSERT INTO ticket_attachments (ticket_id, file_name, file_path, file_type, file_size_kb, uploaded_by) VALUES (?, ?, ?, ?, ?, ?)");
+        
+        for ($i = 0; $i < count($_FILES['attachments']['name']); $i++) {
+            $tmp_name = $_FILES['attachments']['tmp_name'][$i];
+            $name     = basename($_FILES['attachments']['name'][$i]);
+            $size     = $_FILES['attachments']['size'][$i];
+            $error    = $_FILES['attachments']['error'][$i];
+
+            if ($error === UPLOAD_ERR_OK && $size > 0) {
+                $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+                $safe_name = $ticket_id . '_' . time() . '_' . rand(100,999) . '.' . $ext;
+                $dest = $upload_dir . $safe_name;
+                
+                if (move_uploaded_file($tmp_name, $dest)) {
+                    $stmt_att->execute([
+                        $ticket_id, 
+                        $name, 
+                        'public/uploads/tickets/' . $safe_name, 
+                        $ext, 
+                        round($size / 1024), 
+                        $user_id
+                    ]);
+                }
+            }
+        }
+    }
+}
+
 // ── Render Helpers ────────────────────────────────────────────
 
 function ticket_status_badge(string $status): string {
