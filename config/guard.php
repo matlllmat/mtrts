@@ -30,6 +30,14 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
+// 1b. Session must carry a valid role_id (guards against stale sessions
+//     or users with NULL role_id in the DB). Force re-login to refresh it.
+if (!isset($_SESSION['role_id'])) {
+    session_destroy();
+    header('Location: ' . BASE_URL . 'modules/login.php');
+    exit;
+}
+
 // 2. Check module access (skip if $module is empty — e.g. dashboard)
 if (!empty($module) && !can_access($pdo, $_SESSION['role_id'], $module)) {
     http_response_code(403);
