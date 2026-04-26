@@ -1,5 +1,5 @@
 <?php
-define('DB_HOST', '127.0.0.1:3306'); // CHANGE this depending on your database specifications
+define('DB_HOST', '127.0.0.1:3307'); // CHANGE this depending on your database specifications
 define('DB_NAME', 'mtrts_sql');
 define('DB_USER', 'root');
 define('DB_PASS', '');
