@@ -256,6 +256,23 @@ function get_wo_signoff(PDO $pdo, int $wo_id): array|false {
     return $stmt->fetch();
 }
 
+function check_wo_conflict(PDO $pdo, int $assigned_to, string $start, string $end, int $exclude_wo_id = 0): array|false {
+    // Check if the given technician has any WOs overlapping with [start, end]
+    // Overlap logic: A_start < B_end AND A_end > B_start
+    $stmt = $pdo->prepare("
+        SELECT wo_id, wo_number, wo_type, scheduled_start, scheduled_end
+        FROM work_orders
+        WHERE assigned_to = ?
+          AND wo_id != ?
+          AND status NOT IN ('closed', 'cancelled')
+          AND scheduled_start < ?
+          AND scheduled_end > ?
+        LIMIT 1
+    ");
+    $stmt->execute([$assigned_to, $exclude_wo_id, $end, $start]);
+    return $stmt->fetch();
+}
+
 // ── Assignment History ────────────────────────────────────────
 
 function get_wo_assignment_history(PDO $pdo, int $wo_id): array {
@@ -303,6 +320,19 @@ function get_available_tickets(PDO $pdo): array {
         WHERE t.status NOT IN ('closed','cancelled')
         ORDER BY t.created_at DESC
     ")->fetchAll();
+}
+
+function get_related_kb_articles(PDO $pdo, ?int $category_id): array {
+    if (!$category_id) return [];
+    $stmt = $pdo->prepare("
+        SELECT article_id, title, content, updated_at
+        FROM kb_articles
+        WHERE category_id = ?
+        ORDER BY updated_at DESC
+        LIMIT 5
+    ");
+    $stmt->execute([$category_id]);
+    return $stmt->fetchAll();
 }
 
 // ── Write Operations ──────────────────────────────────────────

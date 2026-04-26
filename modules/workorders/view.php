@@ -22,6 +22,7 @@ $media        = get_wo_media($pdo, $id);
 $signoff      = get_wo_signoff($pdo, $id);
 $assignments  = get_wo_assignment_history($pdo, $id);
 $technicians  = get_all_technicians($pdo);
+$kb_articles  = get_related_kb_articles($pdo, $wo['category_id'] ?? null);
 
 $active_tab   = $_GET['tab'] ?? 'checklist';
 

@@ -87,7 +87,7 @@ $e = fn($k) => isset($errors[$k]) ? 'fin-err' : '';
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div>
         <label class="flbl">Assign To</label>
-        <select name="assigned_to" class="fsel">
+        <select name="assigned_to" id="f-assigned-to" class="fsel <?= $e('assigned_to') ?>">
           <option value="">— Unassigned —</option>
           <?php foreach ($technicians as $t): ?>
             <option value="<?= $t['user_id'] ?>" <?= ($v('assigned_to') ?: '') == $t['user_id'] ? 'selected' : '' ?>>
@@ -117,15 +117,23 @@ $e = fn($k) => isset($errors[$k]) ? 'fin-err' : '';
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div>
         <label class="flbl">Scheduled Start</label>
-        <input type="datetime-local" name="scheduled_start" class="fin <?= $e('scheduled_start') ?>"
+        <input type="datetime-local" id="f-start" name="scheduled_start" class="fin <?= $e('scheduled_start') ?>"
                value="<?= $v('scheduled_start') ? (new DateTime($v('scheduled_start')))->format('Y-m-d\TH:i') : '' ?>" />
       </div>
       <div>
         <label class="flbl">Scheduled End</label>
-        <input type="datetime-local" name="scheduled_end" class="fin <?= $e('scheduled_end') ?>"
+        <input type="datetime-local" id="f-end" name="scheduled_end" class="fin <?= $e('scheduled_end') ?>"
                value="<?= $v('scheduled_end') ? (new DateTime($v('scheduled_end')))->format('Y-m-d\TH:i') : '' ?>" />
         <?php if (isset($errors['scheduled_end'])): ?><p class="ferr-msg"><?= $errors['scheduled_end'] ?></p><?php endif; ?>
       </div>
+    </div>
+    
+    <!-- Conflict Warning -->
+    <div id="conflict-warning" class="wo-banner banner-warn mt-4 hidden">
+      <svg class="flex-shrink-0 w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+      </svg>
+      <span id="conflict-msg"></span>
     </div>
   </div>
 
@@ -137,11 +145,12 @@ $e = fn($k) => isset($errors[$k]) ? 'fin-err' : '';
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div>
         <label class="flbl">Status <span class="text-red-400">*</span></label>
-        <select name="status" id="wo-status" class="fsel" onchange="toggleHoldReason()">
+        <select name="status" id="wo-status" class="fsel <?= $e('status') ?>" onchange="toggleHoldReason()">
           <?php foreach (['new'=>'New','assigned'=>'Assigned','scheduled'=>'Scheduled','in_progress'=>'In Progress','on_hold'=>'On Hold','resolved'=>'Resolved','closed'=>'Closed'] as $k=>$label): ?>
             <option value="<?= $k ?>" <?= ($v('status') ?: 'new') === $k ? 'selected' : '' ?>><?= $label ?></option>
           <?php endforeach; ?>
         </select>
+        <?php if (isset($errors['status'])): ?><p class="ferr-msg"><?= $errors['status'] ?></p><?php endif; ?>
       </div>
       <div id="hold-reason-wrap" class="<?= ($v('status') ?: '') !== 'on_hold' ? 'hidden' : '' ?>">
         <label class="flbl">On Hold Reason</label>
@@ -200,5 +209,49 @@ function toggleHoldReason() {
   if (wrap && sel) {
     wrap.classList.toggle('hidden', sel.value !== 'on_hold');
   }
+}
+
+// Double booking conflict checker
+const fAssigned = document.getElementById('f-assigned-to');
+const fStart    = document.getElementById('f-start');
+const fEnd      = document.getElementById('f-end');
+const warnBox   = document.getElementById('conflict-warning');
+const warnMsg   = document.getElementById('conflict-msg');
+const woId      = <?= $is_edit ? $wo['wo_id'] : '0' ?>;
+
+function checkConflict() {
+  const assigned = fAssigned.value;
+  const start    = fStart.value;
+  const end      = fEnd.value;
+  
+  if (!assigned || !start || !end) {
+    warnBox.classList.add('hidden');
+    return;
+  }
+  
+  const params = new URLSearchParams({
+    assigned_to: assigned,
+    start: start,
+    end: end,
+    wo_id: woId
+  });
+  
+  fetch('check_conflicts_ajax.php?' + params.toString())
+    .then(r => r.json())
+    .then(data => {
+      if (data.conflict) {
+        warnMsg.textContent = data.message;
+        warnBox.classList.remove('hidden');
+      } else {
+        warnBox.classList.add('hidden');
+      }
+    })
+    .catch(err => console.error(err));
+}
+
+if (fAssigned && fStart && fEnd) {
+  fAssigned.addEventListener('change', checkConflict);
+  fStart.addEventListener('change', checkConflict);
+  fEnd.addEventListener('change', checkConflict);
 }
 </script>

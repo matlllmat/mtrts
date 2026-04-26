@@ -35,6 +35,34 @@ if ($is_edit && $data['status'] === 'on_hold' && empty($data['on_hold_reason']))
     $errors['on_hold_reason'] = 'Please select a reason for putting this on hold.';
 }
 
+// Double booking prevention
+if ($data['assigned_to'] && $data['scheduled_start'] && $data['scheduled_end']) {
+    $conflict = check_wo_conflict($pdo, $data['assigned_to'], $data['scheduled_start'], $data['scheduled_end'], $wo_id);
+    if ($conflict) {
+        $c_start = (new DateTime($conflict['scheduled_start']))->format('M j, g:ia');
+        $c_end = (new DateTime($conflict['scheduled_end']))->format('M j, g:ia');
+        $errors['assigned_to'] = "Conflict: Technician is already booked for {$conflict['wo_number']} from $c_start to $c_end.";
+    }
+}
+
+if ($is_edit) {
+    $old_wo = get_wo_by_id($pdo, $wo_id);
+    
+    // Checklist enforcement: If resolving, all mandatory items must be done
+    if ($data['status'] === 'resolved') {
+        $checklist = get_wo_checklist($pdo, $wo_id, $old_wo['category_id'] ?? null);
+        $incomplete = 0;
+        foreach ($checklist as $item) {
+            if ($item['is_mandatory'] && !$item['is_done']) {
+                $incomplete++;
+            }
+        }
+        if ($incomplete > 0) {
+            $errors['status'] = "Cannot resolve: $incomplete mandatory checklist item(s) are not complete.";
+        }
+    }
+}
+
 // ── If errors, redirect back ──────────────────────────────────
 
 if ($errors) {
