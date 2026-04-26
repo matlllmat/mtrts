@@ -35,7 +35,7 @@ $render_th = function(string $col_key, string $label) use ($sc, $sd) {
 </div>
 <?php else: ?>
 
-<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto hidden md:block">
   <table class="wo-table">
     <thead>
       <tr>
@@ -89,6 +89,29 @@ $render_th = function(string $col_key, string $label) use ($sc, $sd) {
       <?php endforeach; ?>
     </tbody>
   </table>
+</div>
+
+<!-- Mobile Card View -->
+<div class="md:hidden space-y-2">
+  <?php foreach ($tickets as $t): ?>
+  <a href="view.php?id=<?= $t['ticket_id'] ?>" class="block bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:border-olfu-green/30 transition-colors">
+    <div class="flex items-center justify-between mb-2">
+      <span class="font-mono text-xs font-bold text-olfu-green"><?= htmlspecialchars($t['ticket_number']) ?></span>
+      <?= ticket_status_badge($t['status']) ?>
+    </div>
+    <div class="font-medium text-gray-900 text-sm mb-1.5">
+      <?php if ($t['is_event_support']): ?><span class="text-red-600 font-bold mr-1">⚡</span><?php endif; ?>
+      <?= htmlspecialchars($t['title']) ?>
+    </div>
+    <div class="flex items-center justify-between text-xs text-gray-500">
+      <span><?= htmlspecialchars($t['requester_name'] ?: 'System') ?></span>
+      <div class="flex items-center gap-2">
+        <?= ticket_priority_badge($t['priority']) ?>
+        <span><?= ticket_time_ago($t['updated_at']) ?></span>
+      </div>
+    </div>
+  </a>
+  <?php endforeach; ?>
 </div>
 
 <?php

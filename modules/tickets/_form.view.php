@@ -18,6 +18,18 @@
   
   <input type="hidden" name="requester_id" value="<?= htmlspecialchars($t['requester_id'] ?? $_SESSION['user_id']) ?>">
 
+  <!-- Duplicate detection warning -->
+  <div id="dup-warning" class="hidden lg:col-span-3 p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
+    <div class="flex items-start gap-3">
+      <svg class="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"/></svg>
+      <div>
+        <p class="font-bold text-sm text-yellow-800">Possible duplicate ticket found</p>
+        <p id="dup-detail" class="text-xs text-yellow-700 mt-1"></p>
+        <a id="dup-link" href="#" target="_blank" class="text-xs text-olfu-green font-semibold hover:underline mt-1 inline-block">View existing ticket →</a>
+      </div>
+    </div>
+  </div>
+
   <!-- Main Column -->
   <div class="lg:col-span-2 space-y-5">
     
@@ -41,6 +53,14 @@
             <div class="font-bold flex items-center gap-1"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Suggested KB Article</div>
             <div id="triage-content" class="mt-1 flex gap-2 flex-wrap"></div>
           </div>
+          <!-- Safety/Urgent Tag Detection Banner -->
+          <div id="safety-alert" class="mt-2 hidden p-3 bg-red-50 rounded-lg border border-red-200 text-sm text-red-800">
+            <div class="font-bold flex items-center gap-1.5">
+              <svg class="w-4 h-4 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"/></svg>
+              ⚠️ Safety concern detected — this ticket will be fast-tracked.
+            </div>
+            <p class="mt-1 text-xs text-red-600">Impact and urgency have been set to Critical automatically.</p>
+          </div>
         </div>
       </div>
     </div>
@@ -63,7 +83,13 @@
         </div>
         
         <div>
-           <label class="block text-sm font-medium text-gray-700 mb-1">Asset Tag (Optional)</label>
+           <div class="flex items-center justify-between mb-1">
+             <label class="block text-sm font-medium text-gray-700">Asset Tag (Optional)</label>
+             <button type="button" id="qr-scan-btn" onclick="openQrScanner()" class="inline-flex items-center gap-1 text-xs font-semibold text-olfu-green hover:text-olfu-green-md transition-colors">
+               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z"/><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75v-.75zM16.5 6.75h.75v.75h-.75v-.75zM13.5 13.5h.75v.75h-.75v-.75zM13.5 19.5h.75v.75h-.75v-.75zM19.5 13.5h.75v.75h-.75v-.75zM19.5 19.5h.75v.75h-.75v-.75zM16.5 16.5h.75v.75h-.75v-.75z"/></svg>
+               📷 Scan QR
+             </button>
+           </div>
            <select name="asset_id" id="asset-select" class="fsel w-full">
              <option value="">-- No specific asset / Unknown --</option>
              <?php foreach ($assets as $a): ?>
@@ -236,17 +262,23 @@ const kbArticles = [
 ];
 
 const descTextArea = document.querySelector('textarea[name="description"]');
+// Safety/Urgent keywords for auto-escalation
+const safetyKeywords = ['fire', 'smoke', 'sparking', 'flooding', 'power outage', 'electrical', 'burning', 'explosion', 'gas leak', 'exposed wire', 'short circuit', 'electrocution', 'water damage'];
+
 if (descTextArea) {
   descTextArea.addEventListener('input', function(e) {
     const text = e.target.value.toLowerCase();
     const triageContainer = document.getElementById('triage-helper');
     const triageContent = document.getElementById('triage-content');
+    const safetyAlert = document.getElementById('safety-alert');
     
     if (text.length < 10) {
       triageContainer.classList.add('hidden');
+      safetyAlert.classList.add('hidden');
       return;
     }
     
+    // KB Article suggestions
     let suggestions = new Set();
     kbArticles.forEach(kb => {
       let matchCount = kb.keywords.filter(k => text.includes(k)).length;
@@ -262,6 +294,21 @@ if (descTextArea) {
       ).join('');
     } else {
       triageContainer.classList.add('hidden');
+    }
+
+    // Safety/Urgent tag detection
+    const hasSafetyConcern = safetyKeywords.some(kw => text.includes(kw));
+    if (hasSafetyConcern) {
+      safetyAlert.classList.remove('hidden');
+      // Auto-set impact and urgency to critical
+      const impactSel = document.querySelector('select[name="impact"]');
+      const urgencySel = document.querySelector('select[name="urgency"]');
+      const eventChk = document.getElementById('is_event_support');
+      if (impactSel) impactSel.value = 'critical';
+      if (urgencySel) urgencySel.value = 'critical';
+      if (eventChk) eventChk.checked = true;
+    } else {
+      safetyAlert.classList.add('hidden');
     }
   });
 }
@@ -420,4 +467,144 @@ setTimeout(() => {
   if (descTxt) descTxt.dispatchEvent(new Event('input'));
 }, 500);
 
+// --- DUPLICATE DETECTION ---
+let _dupDebounce = null;
+const assetSelect = document.getElementById('asset-select');
+const descField = document.querySelector('textarea[name="description"]');
+const dupWarning = document.getElementById('dup-warning');
+
+function checkDuplicate() {
+  const assetId = assetSelect ? assetSelect.value : '';
+  const desc = descField ? descField.value : '';
+  if (!assetId || desc.length < 10) {
+    dupWarning.classList.add('hidden');
+    return;
+  }
+  const params = new URLSearchParams({ asset_id: assetId, description: desc });
+  fetch('check_duplicate_ajax.php?' + params.toString())
+    .then(r => r.json())
+    .then(data => {
+      if (data.duplicate) {
+        document.getElementById('dup-detail').textContent = 
+          `Ticket ${data.ticket_number}: "${data.title}" (Status: ${data.status})`;
+        document.getElementById('dup-link').href = 'view.php?id=' + data.ticket_id;
+        dupWarning.classList.remove('hidden');
+      } else {
+        dupWarning.classList.add('hidden');
+      }
+    })
+    .catch(() => dupWarning.classList.add('hidden'));
+}
+
+if (assetSelect) assetSelect.addEventListener('change', checkDuplicate);
+if (descField) {
+  descField.addEventListener('input', () => {
+    clearTimeout(_dupDebounce);
+    _dupDebounce = setTimeout(checkDuplicate, 600);
+  });
+}
+
+</script>
+
+<!-- QR Scanner Modal -->
+<div id="qr-modal" class="fixed inset-0 z-50 hidden">
+  <div class="absolute inset-0 bg-black/60" onclick="closeQrScanner()"></div>
+  <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl shadow-xl w-[90vw] max-w-md overflow-hidden">
+    <div class="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+      <h3 class="font-bold text-gray-900 text-sm">📷 Scan Asset QR Code</h3>
+      <button type="button" onclick="closeQrScanner()" class="text-gray-400 hover:text-gray-600">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div id="qr-reader" class="w-full" style="min-height:280px"></div>
+    <div id="qr-status" class="px-5 py-3 text-center text-sm text-gray-500">Point your camera at the QR code on the equipment.</div>
+  </div>
+</div>
+
+<!-- Asset prefill preview -->
+<div id="qr-prefill-preview" class="hidden mt-3 p-3 bg-green-50 rounded-lg border border-green-200 text-sm">
+  <div class="font-bold text-green-800 mb-1 flex items-center gap-1">
+    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    Asset scanned successfully
+  </div>
+  <div id="qr-asset-info" class="text-xs text-green-700"></div>
+</div>
+
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script>
+let html5QrCode = null;
+
+function openQrScanner() {
+  document.getElementById('qr-modal').classList.remove('hidden');
+  document.getElementById('qr-status').textContent = 'Starting camera...';
+  
+  html5QrCode = new Html5Qrcode("qr-reader");
+  html5QrCode.start(
+    { facingMode: "environment" },
+    { fps: 10, qrbox: { width: 220, height: 220 } },
+    onQrCodeScanned,
+    () => {} // ignore scan failures
+  ).catch(err => {
+    document.getElementById('qr-status').textContent = 'Camera error: ' + err;
+  });
+}
+
+function closeQrScanner() {
+  if (html5QrCode) {
+    html5QrCode.stop().catch(() => {});
+    html5QrCode = null;
+  }
+  document.getElementById('qr-modal').classList.add('hidden');
+}
+
+function onQrCodeScanned(decodedText) {
+  closeQrScanner();
+  document.getElementById('qr-status').textContent = 'Looking up asset...';
+  
+  // The QR code should contain the asset tag
+  const tag = decodedText.trim();
+  
+  fetch('asset_lookup_ajax.php?tag=' + encodeURIComponent(tag))
+    .then(r => r.json())
+    .then(data => {
+      if (data.found) {
+        // Prefill asset dropdown
+        const asel = document.getElementById('asset-select');
+        if (asel) {
+          for (let opt of asel.options) {
+            if (opt.value == data.asset_id) { opt.selected = true; break; }
+          }
+        }
+        // Prefill category
+        const csel = document.getElementById('category-select');
+        if (csel && data.category_id) {
+          for (let opt of csel.options) {
+            if (opt.value == data.category_id) { opt.selected = true; break; }
+          }
+          updateDynamicFields();
+        }
+        // Prefill location
+        const lsel = document.querySelector('select[name="location_id"]');
+        if (lsel && data.location_id) {
+          for (let opt of lsel.options) {
+            if (opt.value == data.location_id) { opt.selected = true; break; }
+          }
+        }
+        // Show preview
+        const preview = document.getElementById('qr-prefill-preview');
+        document.getElementById('qr-asset-info').textContent = 
+          `${data.manufacturer} ${data.model} (${data.asset_tag}) — ${data.location}`;
+        preview.classList.remove('hidden');
+        
+        // Move preview after the asset select
+        const assetDiv = document.getElementById('asset-select').closest('div');
+        if (assetDiv && assetDiv.parentElement) {
+          assetDiv.parentElement.appendChild(preview);
+        }
+      } else {
+        alert('Asset tag "' + tag + '" not found in the system.');
+      }
+    })
+    .catch(() => alert('Error looking up asset. Please try again.'));
+}
 </script>

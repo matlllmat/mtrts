@@ -223,6 +223,26 @@ function create_ticket(PDO $pdo, array $d): int {
 
     $ticket_id = (int) $pdo->lastInsertId();
     
+    // Auto-route: assign team based on category name
+    if ($d['category_id']) {
+        $cat_name = $pdo->prepare("SELECT category_name FROM asset_categories WHERE category_id = ?");
+        $cat_name->execute([$d['category_id']]);
+        $cat = strtolower($cat_name->fetchColumn() ?: '');
+        
+        $team = 'General IT';
+        if (str_contains($cat, 'projector') || str_contains($cat, 'display') || str_contains($cat, 'screen')) {
+            $team = 'AV Team';
+        } elseif (str_contains($cat, 'sound') || str_contains($cat, 'audio') || str_contains($cat, 'microphone')) {
+            $team = 'Audio Team';
+        } elseif (str_contains($cat, 'network') || str_contains($cat, 'switch') || str_contains($cat, 'router')) {
+            $team = 'Network Team';
+        } elseif (str_contains($cat, 'computer') || str_contains($cat, 'laptop') || str_contains($cat, 'desktop')) {
+            $team = 'Desktop Support';
+        }
+        
+        $pdo->prepare("UPDATE tickets SET assigned_team = ? WHERE ticket_id = ?")->execute([$team, $ticket_id]);
+    }
+
     // Save dynamic fields if any
     if (!empty($d['dynamic_fields']) && is_array($d['dynamic_fields'])) {
         $stmt = $pdo->prepare("INSERT INTO ticket_dynamic_fields (ticket_id, field_name, field_value) VALUES (?, ?, ?)");
@@ -315,6 +335,10 @@ function check_duplicate_ticket(PDO $pdo, int $asset_id, string $description, in
 }
 
 function handle_ticket_uploads(PDO $pdo, int $ticket_id, int $user_id): void {
+    // Allowed file extensions and max size (10MB)
+    $allowed_extensions = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'mp4', 'mov', 'pdf'];
+    $max_file_size = 10 * 1024 * 1024; // 10MB in bytes
+
     if (!empty($_FILES['attachments']['name'][0])) {
         $upload_dir = __DIR__ . '/../../public/uploads/tickets/';
         if (!is_dir($upload_dir)) mkdir($upload_dir, 0777, true);
@@ -329,6 +353,12 @@ function handle_ticket_uploads(PDO $pdo, int $ticket_id, int $user_id): void {
 
             if ($error === UPLOAD_ERR_OK && $size > 0) {
                 $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+
+                // Server-side validation: reject invalid file types
+                if (!in_array($ext, $allowed_extensions, true)) continue;
+                // Server-side validation: reject files exceeding 10MB
+                if ($size > $max_file_size) continue;
+
                 $safe_name = $ticket_id . '_' . time() . '_' . rand(100,999) . '.' . $ext;
                 $dest = $upload_dir . $safe_name;
                 

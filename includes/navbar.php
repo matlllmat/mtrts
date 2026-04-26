@@ -47,8 +47,11 @@ $icons = [
 ];
 ?>
 
+<!-- ── MOBILE OVERLAY ──────────────────────────────────────── -->
+<div id="sidebar-overlay" class="fixed inset-0 bg-black/40 z-40 hidden lg:hidden" onclick="closeSidebar()"></div>
+
 <!-- ── SIDEBAR ───────────────────────────────────────────────── -->
-<aside class="w-64 bg-white border-r border-gray-100 flex flex-col flex-shrink-0">
+<aside id="sidebar" class="w-64 bg-white border-r border-gray-100 flex flex-col flex-shrink-0 fixed inset-y-0 left-0 z-50 -translate-x-full lg:translate-x-0 lg:static lg:z-auto transition-transform duration-200">
 
   <!-- Brand -->
   <div class="flex items-center gap-3 px-5 py-4 border-b border-gray-100 flex-shrink-0">
@@ -107,14 +110,21 @@ $icons = [
 <div class="flex-1 flex flex-col overflow-hidden">
 
   <!-- Top bar -->
-  <header class="bg-white border-b border-gray-100 px-6 h-14 flex items-center justify-between flex-shrink-0">
+  <header class="bg-white border-b border-gray-100 px-4 lg:px-6 h-14 flex items-center justify-between flex-shrink-0">
 
-    <!-- Breadcrumb -->
-    <nav class="flex items-center gap-1.5 text-sm">
-      <span class="text-gray-400 font-medium">MTRTS</span>
-      <?= mtrts_icon('m8.25 4.5 7.5 7.5-7.5 7.5', 'text-gray-300') ?>
-      <span class="text-gray-700 font-semibold"><?= htmlspecialchars($page_title) ?></span>
-    </nav>
+    <div class="flex items-center gap-2">
+      <!-- Hamburger (mobile only) -->
+      <button id="hamburger-btn" type="button" onclick="openSidebar()" class="lg:hidden w-9 h-9 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-500 transition-colors">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/></svg>
+      </button>
+
+      <!-- Breadcrumb -->
+      <nav class="flex items-center gap-1.5 text-sm">
+        <span class="text-gray-400 font-medium hidden sm:inline">MTRTS</span>
+        <?= mtrts_icon('m8.25 4.5 7.5 7.5-7.5 7.5', 'text-gray-300 hidden sm:block') ?>
+        <span class="text-gray-700 font-semibold"><?= htmlspecialchars($page_title) ?></span>
+      </nav>
+    </div>
 
     <!-- Right: notification bell + user avatar -->
     <div class="flex items-center gap-2">
@@ -283,5 +293,18 @@ $icons = [
   })();
   </script>
 
+  <!-- Sidebar toggle JS -->
+  <script>
+  function openSidebar() {
+    document.getElementById('sidebar').classList.remove('-translate-x-full');
+    document.getElementById('sidebar-overlay').classList.remove('hidden');
+  }
+  function closeSidebar() {
+    document.getElementById('sidebar').classList.add('-translate-x-full');
+    document.getElementById('sidebar-overlay').classList.add('hidden');
+  }
+  </script>
+
   <!-- Module content is rendered here by index.php -->
-  <main class="flex-1 overflow-y-auto p-6">
+  <main class="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6">
+

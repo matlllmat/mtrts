@@ -1,8 +1,8 @@
 <!-- Page header -->
-<div class="bg-white rounded-xl shadow-sm border border-gray-100 px-6 py-4 mb-4 flex flex-wrap items-center justify-between gap-3">
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 px-4 sm:px-6 py-3 sm:py-4 mb-3 sm:mb-4 flex flex-wrap items-center justify-between gap-3">
   <div>
-    <h2 class="text-xl font-bold text-gray-900 tracking-tight">Request Submission & Intake</h2>
-    <p class="text-sm text-gray-400 mt-0.5">Submit and track media technology repair requests.</p>
+    <h2 class="text-lg sm:text-xl font-bold text-gray-900 tracking-tight">Request Submission & Intake</h2>
+    <p class="text-xs sm:text-sm text-gray-400 mt-0.5">Submit and track media technology repair requests.</p>
   </div>
   <div class="flex gap-2 flex-wrap">
     <a href="add.php"
@@ -42,8 +42,8 @@
 <?php endif; ?>
 
 <!-- Filter bar -->
-<div class="bg-white rounded-xl shadow-sm border border-gray-100 px-4 py-3 mb-3 flex flex-wrap items-center gap-2">
-  <div class="relative flex-1 min-w-48">
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 px-3 sm:px-4 py-3 mb-3 flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2">
+  <div class="relative flex-1 min-w-0 sm:min-w-48">
     <svg class="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
       <circle cx="11" cy="11" r="8"/><path stroke-linecap="round" d="M21 21l-4.35-4.35"/>
     </svg>
