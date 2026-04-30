@@ -14,81 +14,145 @@ USE mtrts_sql;
 
 SET FOREIGN_KEY_CHECKS = 0;
 
-DROP TABLE IF EXISTS audit_log;
+DROP TABLE IF EXISTS wo_time_logs;
 DROP TABLE IF EXISTS wo_signoff;
 DROP TABLE IF EXISTS wo_media;
-DROP TABLE IF EXISTS wo_time_logs;
+DROP TABLE IF EXISTS wo_notes;
 DROP TABLE IF EXISTS wo_parts_used;
-DROP TABLE IF EXISTS parts_inventory;
+DROP TABLE IF EXISTS wo_safety_completions;
+DROP TABLE IF EXISTS wo_assignment_log;
 DROP TABLE IF EXISTS wo_checklist_completions;
 DROP TABLE IF EXISTS wo_checklist_items;
 DROP TABLE IF EXISTS wo_checklists;
-DROP TABLE IF EXISTS wo_assignment_log;
 DROP TABLE IF EXISTS work_orders;
+DROP TABLE IF EXISTS offline_sync_queue;
 DROP TABLE IF EXISTS ticket_sla;
-DROP TABLE IF EXISTS sla_policies;
 DROP TABLE IF EXISTS ticket_dynamic_fields;
 DROP TABLE IF EXISTS ticket_comments;
 DROP TABLE IF EXISTS ticket_attachments;
 DROP TABLE IF EXISTS tickets;
+DROP TABLE IF EXISTS sla_policies;
 DROP TABLE IF EXISTS kb_articles;
-DROP TABLE IF EXISTS business_hours;
-DROP TABLE IF EXISTS holidays;
-DROP TABLE IF EXISTS asset_audit_log;
+DROP TABLE IF EXISTS parts_low_stock_alerts;
+DROP TABLE IF EXISTS parts_inventory_audit;
+DROP TABLE IF EXISTS parts_inventory;
 DROP TABLE IF EXISTS asset_documents;
+DROP TABLE IF EXISTS asset_audit_log;
 DROP TABLE IF EXISTS asset_warranty;
 DROP TABLE IF EXISTS assets;
 DROP TABLE IF EXISTS locations;
 DROP TABLE IF EXISTS asset_categories;
+DROP TABLE IF EXISTS wo_safety_checks;
 DROP TABLE IF EXISTS notifications;
-DROP TABLE IF EXISTS role_modules;
 DROP TABLE IF EXISTS user_sso;
+DROP TABLE IF EXISTS role_modules;
 DROP TABLE IF EXISTS users;
 DROP TABLE IF EXISTS departments;
 DROP TABLE IF EXISTS roles;
+DROP TABLE IF EXISTS business_hours;
+DROP TABLE IF EXISTS holidays;
+DROP TABLE IF EXISTS audit_log;
 
 SET FOREIGN_KEY_CHECKS = 1;
 
-
 -- ============================================================
--- MODULE 0: USERS & ACCESS CONTROL
+-- MODULE 0: BASE TABLES (NO FOREIGN KEYS)
 -- ============================================================
 
--- Institutional departments. Referenced by users and assets.
-CREATE TABLE departments (
-  department_id   INT           PRIMARY KEY AUTO_INCREMENT,
-  department_name VARCHAR(100)  NOT NULL UNIQUE
-);
-
-INSERT INTO departments (department_name) VALUES
-  ('IT Department'),
-  ('College of Nursing'),
-  ('College of Engineering'),
-  ('College of Education'),
-  ('College of Business'),
-  ('Registrar'),
-  ('Library'),
-  ('Administration');
-
-
--- System-defined roles. Seeded at setup, never managed in-app.
 CREATE TABLE roles (
   role_id   INT          PRIMARY KEY AUTO_INCREMENT,
   role_name VARCHAR(50)  NOT NULL UNIQUE
 );
 
-INSERT INTO roles (role_name) VALUES
-  ('admin'),
-  ('it_manager'),
-  ('it_staff'),
-  ('technician'),
-  ('faculty'),
-  ('department_staff'),
-  ('student'),
-  ('super_admin');
+CREATE TABLE departments (
+  department_id   INT           PRIMARY KEY AUTO_INCREMENT,
+  department_name VARCHAR(100)  NOT NULL UNIQUE
+);
 
+CREATE TABLE asset_categories (
+  category_id    INT           PRIMARY KEY AUTO_INCREMENT,
+  category_name  VARCHAR(100)  NOT NULL UNIQUE,
+  has_bulb_hours TINYINT(1)    NOT NULL DEFAULT 0,
+  description    VARCHAR(255)  NULL,
+  created_at     DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at     DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
 
--- All system users. Never deleted — set is_active = 0 to deactivate.
+CREATE TABLE locations (
+  location_id INT           PRIMARY KEY AUTO_INCREMENT,
+  building    VARCHAR(100)  NOT NULL,
+  floor       VARCHAR(50)   NOT NULL,
+  room        VARCHAR(100)  NOT NULL,
+  created_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  UNIQUE (building, floor, room)
+);
+
+CREATE TABLE business_hours (
+  hour_id     INT        PRIMARY KEY AUTO_INCREMENT,
+  day_of_week TINYINT    NOT NULL,
+  start_time  TIME       NOT NULL,
+  end_time    TIME       NOT NULL,
+  is_working  TINYINT(1) NOT NULL DEFAULT 1,
+
+  UNIQUE (day_of_week)
+);
+
+CREATE TABLE holidays (
+  holiday_id   INT           PRIMARY KEY AUTO_INCREMENT,
+  holiday_name VARCHAR(100)  NOT NULL,
+  holiday_date DATE          NOT NULL UNIQUE,
+  is_recurring TINYINT(1)    NOT NULL DEFAULT 0,
+  created_at   DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE wo_safety_checks (
+  safety_id   INT           PRIMARY KEY AUTO_INCREMENT,
+  check_text  VARCHAR(255)  NOT NULL,
+  is_mandatory TINYINT(1)   NOT NULL DEFAULT 1,
+  sort_order  INT           NOT NULL DEFAULT 0,
+  is_active   TINYINT(1)    NOT NULL DEFAULT 1,
+  created_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE sla_policies (
+  policy_id          INT           PRIMARY KEY AUTO_INCREMENT,
+  policy_name        VARCHAR(150)  NOT NULL,
+  priority           ENUM('low','medium','high','critical') NULL,
+  category_id        INT           NULL,
+  is_event_support   TINYINT(1)    NOT NULL DEFAULT 0,
+  response_minutes   INT           NOT NULL,
+  diagnosis_minutes  INT           NOT NULL,
+  resolution_minutes INT           NOT NULL,
+  uses_business_hours TINYINT(1)  NOT NULL DEFAULT 1,
+  is_active          TINYINT(1)   NOT NULL DEFAULT 1,
+  created_at         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  FOREIGN KEY (category_id) REFERENCES asset_categories(category_id)
+);
+
+CREATE TABLE parts_inventory (
+  part_id          INT           PRIMARY KEY AUTO_INCREMENT,
+  part_number      VARCHAR(100)  NOT NULL UNIQUE,
+  part_name        VARCHAR(150)  NOT NULL,
+  description      VARCHAR(255)  NULL,
+  manufacturer     VARCHAR(100)  NULL,
+  category         VARCHAR(100)  NULL,
+  compatible_with  VARCHAR(500)  NULL,
+  quantity_on_hand INT           NOT NULL DEFAULT 0,
+  reorder_level    INT           NOT NULL DEFAULT 5,
+  unit_cost        DECIMAL(10,2) NULL,
+  unit_price       DECIMAL(10,2) NULL,
+  storage_location VARCHAR(100)  NULL,
+  is_active        TINYINT(1)    NOT NULL DEFAULT 1,
+  created_at       DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at       DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- ============================================================
+-- MODULE 0: USERS & ACCESS CONTROL
+-- ============================================================
+
 CREATE TABLE users (
   user_id         INT           PRIMARY KEY AUTO_INCREMENT,
   email           VARCHAR(150)  NOT NULL UNIQUE,
@@ -109,12 +173,6 @@ CREATE TABLE users (
   FOREIGN KEY (role_id) REFERENCES roles(role_id)
 );
 
--- Default system account (super_admin). Change password immediately after setup.
-INSERT INTO users (email, password_hash, full_name, role_id, is_active) VALUES
-  ('admin@olfu.edu.ph', '$2y$10$placeholdchrerHashReplaceThisOnFirstLogin.........', 'System Administrator', 8, 1);
-
-
--- SSO links for users who authenticate via Google or Microsoft.
 CREATE TABLE user_sso (
   sso_id        INT           PRIMARY KEY AUTO_INCREMENT,
   user_id       INT           NOT NULL UNIQUE,
@@ -126,8 +184,6 @@ CREATE TABLE user_sso (
   FOREIGN KEY (user_id) REFERENCES users(user_id)
 );
 
-
--- Maps which module slugs each role may access. Checked on every page load.
 CREATE TABLE role_modules (
   id          INT          PRIMARY KEY AUTO_INCREMENT,
   role_id     INT          NOT NULL,
@@ -137,92 +193,39 @@ CREATE TABLE role_modules (
   FOREIGN KEY (role_id) REFERENCES roles(role_id)
 );
 
--- role_id 1 = admin
-INSERT INTO role_modules (role_id, module_slug) VALUES
-  (1,'dashboard'),(1,'assets'),(1,'tickets'),(1,'workorders'),
-  (1,'technician'),(1,'reports'),(1,'users'),(1,'inventory'),
-  (1,'kb'),(1,'profile'),(1,'notifications');
+CREATE TABLE notifications (
+  notif_id   INT           PRIMARY KEY AUTO_INCREMENT,
+  user_id    INT           NOT NULL,
+  title      VARCHAR(255)  NOT NULL,
+  body       TEXT          NULL,
+  link       VARCHAR(500)  NULL,
+  is_read    TINYINT(1)    NOT NULL DEFAULT 0,
+  notif_key  VARCHAR(255)  NULL,
+  created_at DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
--- role_id 2 = it_manager
-INSERT INTO role_modules (role_id, module_slug) VALUES
-  (2,'dashboard'),(2,'assets'),(2,'tickets'),(2,'workorders'),
-  (2,'reports'),(2,'inventory'),(2,'kb'),(2,'profile'),(2,'notifications');
+  FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+  UNIQUE KEY uq_notif_key_user (notif_key, user_id)
+);
 
--- role_id 3 = it_staff
-INSERT INTO role_modules (role_id, module_slug) VALUES
-  (3,'dashboard'),(3,'assets'),(3,'tickets'),(3,'inventory'),
-  (3,'kb'),(3,'profile'),(3,'notifications');
+CREATE TABLE audit_log (
+  log_id      BIGINT        PRIMARY KEY AUTO_INCREMENT,
+  user_id     INT           NULL,
+  action      VARCHAR(50)   NOT NULL,
+  object_type VARCHAR(50)   NOT NULL,
+  object_id   INT           NULL,
+  old_values  JSON          NULL,
+  new_values  JSON          NULL,
+  ip_address  VARCHAR(45)   NULL,
+  user_agent  VARCHAR(500)  NULL,
+  created_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
--- role_id 4 = technician
-INSERT INTO role_modules (role_id, module_slug) VALUES
-  (4,'technician'),(4,'tickets'),(4,'kb'),(4,'profile'),(4,'notifications');
-
--- role_id 5 = faculty
-INSERT INTO role_modules (role_id, module_slug) VALUES
-  (5,'tickets'),(5,'profile'),(5,'notifications');
-
--- role_id 6 = department_staff
-INSERT INTO role_modules (role_id, module_slug) VALUES
-  (6,'tickets'),(6,'profile'),(6,'notifications');
-
--- role_id 7 = student
-INSERT INTO role_modules (role_id, module_slug) VALUES
-  (7,'tickets'),(7,'profile'),(7,'notifications');
-
--- role_id 8 = super_admin (all modules)
-INSERT INTO role_modules (role_id, module_slug) VALUES
-  (8,'dashboard'),(8,'assets'),(8,'tickets'),(8,'workorders'),
-  (8,'technician'),(8,'reports'),(8,'users'),(8,'inventory'),
-  (8,'kb'),(8,'profile'),(8,'notifications');
-
+  FOREIGN KEY (user_id) REFERENCES users(user_id)
+);
 
 -- ============================================================
 -- MODULE 2: ASSET & CONFIGURATION MANAGEMENT
 -- ============================================================
 
--- Equipment categories. has_bulb_hours drives conditional fields on forms.
-CREATE TABLE asset_categories (
-  category_id    INT           PRIMARY KEY AUTO_INCREMENT,
-  category_name  VARCHAR(100)  NOT NULL UNIQUE,
-  has_bulb_hours TINYINT(1)    NOT NULL DEFAULT 0,
-  description    VARCHAR(255)  NULL,
-  created_at     DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at     DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
-
-INSERT INTO asset_categories (category_name, has_bulb_hours) VALUES
-  ('Projector',    1),
-  ('Sound System', 0),
-  ('AV Switcher',  0),
-  ('Display',      0),
-  ('Microphone',   0),
-  ('AV Rack',      0),
-  ('Camera',       0),
-  ('Amplifier',    0);
-
-
--- Physical rooms. Combination of building + floor + room must be unique.
-CREATE TABLE locations (
-  location_id INT           PRIMARY KEY AUTO_INCREMENT,
-  building    VARCHAR(100)  NOT NULL,
-  floor       VARCHAR(50)   NOT NULL,
-  room        VARCHAR(100)  NOT NULL,
-  created_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-  UNIQUE (building, floor, room)
-);
-
-INSERT INTO locations (building, floor, room) VALUES
-  ('Main Building', '1st Floor',    'Room 101'),
-  ('Main Building', '1st Floor',    'Room 102'),
-  ('Main Building', '2nd Floor',    'Room 201'),
-  ('Main Building', '2nd Floor',    'Media Lab A'),
-  ('Science Hall',  'Ground Floor', 'Auditorium'),
-  ('Science Hall',  '2nd Floor',    'Room 204'),
-  ('Annex',         '1st Floor',    'Library');
-
-
--- Core asset registry. Self-references via parent_asset_id for rack/component grouping.
 CREATE TABLE assets (
   asset_id         INT           PRIMARY KEY AUTO_INCREMENT,
   asset_tag        VARCHAR(50)   NOT NULL UNIQUE,
@@ -252,8 +255,6 @@ CREATE TABLE assets (
   FOREIGN KEY (created_by)      REFERENCES users(user_id)
 );
 
-
--- Warranty and vendor contract details. One record per asset.
 CREATE TABLE asset_warranty (
   warranty_id        INT           PRIMARY KEY AUTO_INCREMENT,
   asset_id           INT           NOT NULL UNIQUE,
@@ -268,8 +269,6 @@ CREATE TABLE asset_warranty (
   FOREIGN KEY (asset_id) REFERENCES assets(asset_id)
 );
 
-
--- Manuals, wiring diagrams, config backups attached to assets. Versioned — never overwritten.
 CREATE TABLE asset_documents (
   document_id   INT           PRIMARY KEY AUTO_INCREMENT,
   asset_id      INT           NOT NULL,
@@ -287,8 +286,6 @@ CREATE TABLE asset_documents (
   FOREIGN KEY (uploaded_by) REFERENCES users(user_id)
 );
 
-
--- Immutable field-level change log for all asset records. INSERT only.
 CREATE TABLE asset_audit_log (
   log_id        INT           PRIMARY KEY AUTO_INCREMENT,
   asset_id      INT           NOT NULL,
@@ -303,32 +300,10 @@ CREATE TABLE asset_audit_log (
   FOREIGN KEY (changed_by) REFERENCES users(user_id)
 );
 
-
--- ============================================================
--- MODULE: NOTIFICATIONS
--- ============================================================
-
--- In-app notification inbox. notif_key prevents duplicate automated alerts.
-CREATE TABLE notifications (
-  notif_id   INT           PRIMARY KEY AUTO_INCREMENT,
-  user_id    INT           NOT NULL,
-  title      VARCHAR(255)  NOT NULL,
-  body       TEXT          NULL,
-  link       VARCHAR(500)  NULL,
-  is_read    TINYINT(1)    NOT NULL DEFAULT 0,
-  notif_key  VARCHAR(255)  NULL,
-  created_at DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-  FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
-  UNIQUE KEY uq_notif_key_user (notif_key, user_id)
-);
-
-
 -- ============================================================
 -- MODULE 1: REQUEST SUBMISSION & INTAKE (TICKETS)
 -- ============================================================
 
--- Repair/service requests submitted by users via web, email, or QR scan.
 CREATE TABLE tickets (
   ticket_id        INT           PRIMARY KEY AUTO_INCREMENT,
   ticket_number    VARCHAR(20)   NOT NULL UNIQUE,
@@ -365,8 +340,6 @@ CREATE TABLE tickets (
   FOREIGN KEY (approved_by)     REFERENCES users(user_id)
 );
 
-
--- Photos, videos, and files attached to a ticket at submission or during updates.
 CREATE TABLE ticket_attachments (
   attachment_id INT           PRIMARY KEY AUTO_INCREMENT,
   ticket_id     INT           NOT NULL,
@@ -381,8 +354,6 @@ CREATE TABLE ticket_attachments (
   FOREIGN KEY (uploaded_by) REFERENCES users(user_id)
 );
 
-
--- Threaded comments and internal staff notes on tickets.
 CREATE TABLE ticket_comments (
   comment_id   INT        PRIMARY KEY AUTO_INCREMENT,
   ticket_id    INT        NOT NULL,
@@ -395,8 +366,6 @@ CREATE TABLE ticket_comments (
   FOREIGN KEY (user_id)   REFERENCES users(user_id)
 );
 
-
--- Category-specific dynamic fields (e.g., bulb_hours for projectors, input_source for switchers).
 CREATE TABLE ticket_dynamic_fields (
   field_id    INT           PRIMARY KEY AUTO_INCREMENT,
   ticket_id   INT           NOT NULL,
@@ -407,252 +376,27 @@ CREATE TABLE ticket_dynamic_fields (
   FOREIGN KEY (ticket_id) REFERENCES tickets(ticket_id)
 );
 
+CREATE TABLE ticket_sla (
+  sla_id                  INT        PRIMARY KEY AUTO_INCREMENT,
+  ticket_id               INT        NOT NULL UNIQUE,
+  policy_id               INT        NOT NULL,
+  response_due            DATETIME   NULL,
+  diagnosis_due           DATETIME   NULL,
+  resolution_due          DATETIME   NULL,
+  responded_at            DATETIME   NULL,
+  diagnosed_at            DATETIME   NULL,
+  resolved_at             DATETIME   NULL,
+  is_response_breached    TINYINT(1) NOT NULL DEFAULT 0,
+  is_diagnosis_breached   TINYINT(1) NOT NULL DEFAULT 0,
+  is_resolution_breached  TINYINT(1) NOT NULL DEFAULT 0,
+  paused_at               DATETIME   NULL,
+  total_paused_minutes    INT        NOT NULL DEFAULT 0,
+  pause_reason            VARCHAR(100) NULL,
 
--- ============================================================
--- MODULE 3: WORK ORDER & DISPATCH MANAGEMENT
--- ============================================================
-
--- Work orders generated from tickets. One ticket can have multiple WOs.
-CREATE TABLE work_orders (
-  wo_id            INT           PRIMARY KEY AUTO_INCREMENT,
-  wo_number        VARCHAR(20)   NOT NULL UNIQUE,
-  ticket_id        INT           NULL,
-  wo_type          ENUM('diagnosis','repair','maintenance','follow_up') NOT NULL DEFAULT 'repair',
-  assigned_to      INT           NULL,
-  assigned_by      INT           NULL,
-  status           ENUM('new','assigned','scheduled','in_progress','on_hold','resolved','closed') NOT NULL DEFAULT 'new',
-  on_hold_reason   ENUM('waiting_parts','waiting_vendor','waiting_access','other') NULL,
-  is_rma           TINYINT(1)    NOT NULL DEFAULT 0,
-  scheduled_start  DATETIME      NULL,
-  scheduled_end    DATETIME      NULL,
-  actual_start     DATETIME      NULL,
-  actual_end       DATETIME      NULL,
-  notes            TEXT          NULL,
-  resolution_notes TEXT          NULL,
-  created_by       INT           NULL,
-  created_at       DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at       DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-
-  FOREIGN KEY (ticket_id)   REFERENCES tickets(ticket_id),
-  FOREIGN KEY (assigned_to) REFERENCES users(user_id),
-  FOREIGN KEY (assigned_by) REFERENCES users(user_id),
-  FOREIGN KEY (created_by)  REFERENCES users(user_id)
+  FOREIGN KEY (ticket_id) REFERENCES tickets(ticket_id),
+  FOREIGN KEY (policy_id) REFERENCES sla_policies(policy_id)
 );
 
-
--- History of technician reassignments per work order.
-CREATE TABLE wo_assignment_log (
-  log_id        INT           PRIMARY KEY AUTO_INCREMENT,
-  wo_id         INT           NOT NULL,
-  assigned_from INT           NULL,
-  assigned_to   INT           NULL,
-  assigned_by   INT           NULL,
-  reason        VARCHAR(255)  NULL,
-  assigned_at   DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-  FOREIGN KEY (wo_id)         REFERENCES work_orders(wo_id),
-  FOREIGN KEY (assigned_from) REFERENCES users(user_id),
-  FOREIGN KEY (assigned_to)   REFERENCES users(user_id),
-  FOREIGN KEY (assigned_by)   REFERENCES users(user_id)
-);
-
-
--- Reusable checklist templates, optionally scoped to an asset category.
-CREATE TABLE wo_checklists (
-  checklist_id   INT           PRIMARY KEY AUTO_INCREMENT,
-  category_id    INT           NULL,
-  checklist_name VARCHAR(150)  NOT NULL,
-  description    VARCHAR(255)  NULL,
-  is_active      TINYINT(1)    NOT NULL DEFAULT 1,
-  created_at     DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-  FOREIGN KEY (category_id) REFERENCES asset_categories(category_id)
-);
-
-
--- Individual steps within a checklist template.
-CREATE TABLE wo_checklist_items (
-  item_id        INT           PRIMARY KEY AUTO_INCREMENT,
-  checklist_id   INT           NOT NULL,
-  item_text      VARCHAR(255)  NOT NULL,
-  is_mandatory   TINYINT(1)    NOT NULL DEFAULT 0,
-  requires_photo TINYINT(1)    NOT NULL DEFAULT 0,
-  sort_order     INT           NOT NULL DEFAULT 0,
-
-  FOREIGN KEY (checklist_id) REFERENCES wo_checklists(checklist_id)
-);
-
-
--- Completion state of each checklist item per work order instance.
-CREATE TABLE wo_checklist_completions (
-  completion_id INT           PRIMARY KEY AUTO_INCREMENT,
-  wo_id         INT           NOT NULL,
-  item_id       INT           NOT NULL,
-  is_done       TINYINT(1)    NOT NULL DEFAULT 0,
-  notes         VARCHAR(255)  NULL,
-  completed_by  INT           NULL,
-  completed_at  DATETIME      NULL,
-
-  UNIQUE (wo_id, item_id),
-  FOREIGN KEY (wo_id)         REFERENCES work_orders(wo_id),
-  FOREIGN KEY (item_id)       REFERENCES wo_checklist_items(item_id),
-  FOREIGN KEY (completed_by)  REFERENCES users(user_id)
-);
-
-
--- Seed: default checklists per category
-INSERT INTO wo_checklists (category_id, checklist_name, description) VALUES
-  (1, 'Projector Repair Checklist',    'Standard steps for diagnosing and repairing projectors'),
-  (2, 'Sound System Repair Checklist', 'Standard steps for diagnosing and repairing sound systems'),
-  (3, 'AV Switcher Repair Checklist',  'Standard steps for diagnosing and repairing AV switchers'),
-  (4, 'Display Repair Checklist',      'Standard steps for diagnosing and repairing display units'),
-  (NULL, 'General Repair Checklist',   'Generic checklist applicable to any equipment type');
-
--- Projector checklist items (checklist_id = 1)
-INSERT INTO wo_checklist_items (checklist_id, item_text, is_mandatory, requires_photo, sort_order) VALUES
-  (1, 'Record current bulb hours',            1, 0, 1),
-  (1, 'Inspect lamp/bulb for damage',         1, 1, 2),
-  (1, 'Clean or replace air filter',          1, 0, 3),
-  (1, 'Test all input sources (HDMI, VGA)',   1, 0, 4),
-  (1, 'Check and adjust focus, zoom, keystone', 0, 0, 5),
-  (1, 'Test remote control functionality',    0, 0, 6),
-  (1, 'Capture after-repair photo',           1, 1, 7);
-
--- Sound System checklist items (checklist_id = 2)
-INSERT INTO wo_checklist_items (checklist_id, item_text, is_mandatory, requires_photo, sort_order) VALUES
-  (2, 'Capture before-repair photo',          1, 1, 1),
-  (2, 'Inspect all cables and connectors',    1, 0, 2),
-  (2, 'Test speaker output (left and right)', 1, 0, 3),
-  (2, 'Check mixer and amplifier settings',   1, 0, 4),
-  (2, 'Test for audio feedback and noise',    1, 0, 5),
-  (2, 'Verify microphone inputs if present',  0, 0, 6),
-  (2, 'Capture after-repair photo',           1, 1, 7);
-
--- AV Switcher checklist items (checklist_id = 3)
-INSERT INTO wo_checklist_items (checklist_id, item_text, is_mandatory, requires_photo, sort_order) VALUES
-  (3, 'Capture before-repair photo',          1, 1, 1),
-  (3, 'Test all input ports',                 1, 0, 2),
-  (3, 'Test all output ports',                1, 0, 3),
-  (3, 'Verify input-switching functionality', 1, 0, 4),
-  (3, 'Check and record firmware version',    0, 0, 5),
-  (3, 'Inspect network connection if applicable', 0, 0, 6),
-  (3, 'Capture after-repair photo',           1, 1, 7);
-
--- Display checklist items (checklist_id = 4)
-INSERT INTO wo_checklist_items (checklist_id, item_text, is_mandatory, requires_photo, sort_order) VALUES
-  (4, 'Capture before-repair photo',              1, 1, 1),
-  (4, 'Test display at all available inputs',     1, 0, 2),
-  (4, 'Inspect panel for dead pixels or damage',  1, 1, 3),
-  (4, 'Check cables and mounting hardware',       1, 0, 4),
-  (4, 'Verify network/smart features if present', 0, 0, 5),
-  (4, 'Capture after-repair photo',               1, 1, 6);
-
--- General checklist items (checklist_id = 5)
-INSERT INTO wo_checklist_items (checklist_id, item_text, is_mandatory, requires_photo, sort_order) VALUES
-  (5, 'Capture before-repair photo',   1, 1, 1),
-  (5, 'Perform visual inspection',     1, 0, 2),
-  (5, 'Perform power-on test',         1, 0, 3),
-  (5, 'Verify core functionality',     1, 0, 4),
-  (5, 'Document findings and actions', 1, 0, 5),
-  (5, 'Capture after-repair photo',    1, 1, 6);
-
-
--- ============================================================
--- MODULE 4: TECHNICIAN OPERATIONS
--- ============================================================
-
--- Time tracking per work order. Each row is a start/pause/resume/stop event.
-CREATE TABLE wo_time_logs (
-  log_id        INT           PRIMARY KEY AUTO_INCREMENT,
-  wo_id         INT           NOT NULL,
-  technician_id INT           NOT NULL,
-  action        ENUM('start','pause','resume','stop') NOT NULL,
-  labor_type    ENUM('travel','diagnosis','repair','cleanup','other') NULL,
-  notes         VARCHAR(255)  NULL,
-  logged_at     DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-  FOREIGN KEY (wo_id)         REFERENCES work_orders(wo_id),
-  FOREIGN KEY (technician_id) REFERENCES users(user_id)
-);
-
-
--- Before/after photos and evidence media captured during work order execution.
-CREATE TABLE wo_media (
-  media_id    INT           PRIMARY KEY AUTO_INCREMENT,
-  wo_id       INT           NOT NULL,
-  media_type  ENUM('before','after','evidence','other') NOT NULL,
-  file_path   VARCHAR(500)  NOT NULL,
-  file_type   VARCHAR(10)   NOT NULL,
-  file_size_kb INT          NOT NULL,
-  caption     VARCHAR(255)  NULL,
-  uploaded_by INT           NULL,
-  uploaded_at DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-  FOREIGN KEY (wo_id)       REFERENCES work_orders(wo_id),
-  FOREIGN KEY (uploaded_by) REFERENCES users(user_id)
-);
-
-
--- Digital sign-off and satisfaction rating captured from the requester at completion.
-CREATE TABLE wo_signoff (
-  signoff_id        INT           PRIMARY KEY AUTO_INCREMENT,
-  wo_id             INT           NOT NULL UNIQUE,
-  signed_by_user_id INT           NULL,
-  signer_name       VARCHAR(150)  NOT NULL,
-  signature_path    VARCHAR(500)  NOT NULL,
-  satisfaction      TINYINT       NULL,
-  feedback          TEXT          NULL,
-  signed_at         DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-  FOREIGN KEY (wo_id)             REFERENCES work_orders(wo_id),
-  FOREIGN KEY (signed_by_user_id) REFERENCES users(user_id)
-);
-
-
--- ============================================================
--- MODULE: PARTS INVENTORY
--- ============================================================
-
--- Spare parts and consumables stock. Quantity decremented when used on a WO.
-CREATE TABLE parts_inventory (
-  part_id          INT           PRIMARY KEY AUTO_INCREMENT,
-  part_number      VARCHAR(100)  NOT NULL UNIQUE,
-  part_name        VARCHAR(150)  NOT NULL,
-  description      VARCHAR(255)  NULL,
-  manufacturer     VARCHAR(100)  NULL,
-  compatible_with  VARCHAR(500)  NULL,
-  quantity_on_hand INT           NOT NULL DEFAULT 0,
-  reorder_level    INT           NOT NULL DEFAULT 5,
-  unit_cost        DECIMAL(10,2) NULL,
-  storage_location VARCHAR(100)  NULL,
-  is_active        TINYINT(1)    NOT NULL DEFAULT 1,
-  created_at       DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at       DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
-
-
--- Parts consumed per work order. Records quantity used and decrements inventory.
-CREATE TABLE wo_parts_used (
-  usage_id      INT           PRIMARY KEY AUTO_INCREMENT,
-  wo_id         INT           NOT NULL,
-  part_id       INT           NOT NULL,
-  quantity_used INT           NOT NULL DEFAULT 1,
-  serial_number VARCHAR(100)  NULL,
-  is_warranty   TINYINT(1)    NOT NULL DEFAULT 0,
-  used_by       INT           NULL,
-  used_at       DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-  FOREIGN KEY (wo_id)   REFERENCES work_orders(wo_id),
-  FOREIGN KEY (part_id) REFERENCES parts_inventory(part_id),
-  FOREIGN KEY (used_by) REFERENCES users(user_id)
-);
-
-
--- ============================================================
--- MODULE: KNOWLEDGE BASE
--- ============================================================
-
--- Help articles and triage guides. Suggested to requesters based on ticket description.
 CREATE TABLE kb_articles (
   article_id  INT           PRIMARY KEY AUTO_INCREMENT,
   title       VARCHAR(255)  NOT NULL,
@@ -668,6 +412,375 @@ CREATE TABLE kb_articles (
   FOREIGN KEY (category_id) REFERENCES asset_categories(category_id),
   FOREIGN KEY (created_by)  REFERENCES users(user_id)
 );
+
+-- ============================================================
+-- MODULE 3: WORK ORDER & DISPATCH MANAGEMENT
+-- ============================================================
+
+CREATE TABLE work_orders (
+  wo_id            INT           PRIMARY KEY AUTO_INCREMENT,
+  wo_number        VARCHAR(20)   NOT NULL UNIQUE,
+  ticket_id        INT           NULL,
+  wo_type          ENUM('diagnosis','repair','maintenance','follow_up') NOT NULL DEFAULT 'repair',
+  assigned_role_id INT           NULL,
+  assigned_to      INT           NULL,
+  assigned_by      INT           NULL,
+  claimed_at       DATETIME      NULL,
+  claimed_by       INT           NULL,
+  status           ENUM('new','assigned','scheduled','in_progress','on_hold','resolved','closed') NOT NULL DEFAULT 'new',
+  on_hold_reason   ENUM('waiting_parts','waiting_vendor','waiting_access','other') NULL,
+  is_rma           TINYINT(1)    NOT NULL DEFAULT 0,
+  scheduled_start  DATETIME      NULL,
+  scheduled_end    DATETIME      NULL,
+  actual_start     DATETIME      NULL,
+  actual_end       DATETIME      NULL,
+  notes            TEXT          NULL,
+  resolution_notes TEXT          NULL,
+  findings         TEXT          NULL,
+  actions_taken    TEXT          NULL,
+  created_by       INT           NULL,
+  created_at       DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at       DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  last_synced_at   DATETIME      NULL COMMENT 'Timestamp of last successful sync from offline',
+  sync_hash        VARCHAR(64)   NULL COMMENT 'SHA256 hash of synced state for conflict detection',
+
+  FOREIGN KEY (ticket_id)   REFERENCES tickets(ticket_id),
+  FOREIGN KEY (assigned_role_id) REFERENCES roles(role_id),
+  FOREIGN KEY (assigned_to) REFERENCES users(user_id),
+  FOREIGN KEY (assigned_by) REFERENCES users(user_id),
+  FOREIGN KEY (claimed_by) REFERENCES users(user_id),
+  FOREIGN KEY (created_by)  REFERENCES users(user_id),
+  INDEX idx_work_orders_last_synced (last_synced_at)
+);
+
+CREATE TABLE wo_assignment_log (
+  log_id        INT           PRIMARY KEY AUTO_INCREMENT,
+  wo_id         INT           NOT NULL,
+  assigned_from INT           NULL,
+  assigned_to   INT           NULL,
+  assigned_by   INT           NULL,
+  reason        VARCHAR(255)  NULL,
+  assigned_at   DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  FOREIGN KEY (wo_id)         REFERENCES work_orders(wo_id),
+  FOREIGN KEY (assigned_from) REFERENCES users(user_id),
+  FOREIGN KEY (assigned_to)   REFERENCES users(user_id),
+  FOREIGN KEY (assigned_by)   REFERENCES users(user_id)
+);
+
+CREATE TABLE wo_checklists (
+  checklist_id   INT           PRIMARY KEY AUTO_INCREMENT,
+  category_id    INT           NULL,
+  checklist_name VARCHAR(150)  NOT NULL,
+  description    VARCHAR(255)  NULL,
+  is_active      TINYINT(1)    NOT NULL DEFAULT 1,
+  created_at     DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  FOREIGN KEY (category_id) REFERENCES asset_categories(category_id)
+);
+
+CREATE TABLE wo_checklist_items (
+  item_id           INT           PRIMARY KEY AUTO_INCREMENT,
+  checklist_id      INT           NOT NULL,
+  item_text         VARCHAR(255)  NOT NULL,
+  is_mandatory      TINYINT(1)    NOT NULL DEFAULT 0,
+  requires_photo    TINYINT(1)    NOT NULL DEFAULT 0,
+  is_verifiable     TINYINT(1)    NOT NULL DEFAULT 0,
+  verification_type VARCHAR(50)   NULL,
+  sort_order        INT           NOT NULL DEFAULT 0,
+
+  FOREIGN KEY (checklist_id) REFERENCES wo_checklists(checklist_id)
+);
+
+CREATE TABLE wo_checklist_completions (
+  completion_id INT           PRIMARY KEY AUTO_INCREMENT,
+  wo_id         INT           NOT NULL,
+  item_id       INT           NOT NULL,
+  is_done       TINYINT(1)    NOT NULL DEFAULT 0,
+  notes         VARCHAR(255)  NULL,
+  completed_by  INT           NULL,
+  completed_at  DATETIME      NULL,
+  photo_path    VARCHAR(500)  NULL COMMENT 'Path to uploaded photo for auto-verification',
+  auto_verified TINYINT(1)    NOT NULL DEFAULT 0 COMMENT 'Whether this item was auto-verified by photo upload',
+
+  UNIQUE (wo_id, item_id),
+  FOREIGN KEY (wo_id)         REFERENCES work_orders(wo_id),
+  FOREIGN KEY (item_id)       REFERENCES wo_checklist_items(item_id),
+  FOREIGN KEY (completed_by)  REFERENCES users(user_id)
+);
+
+CREATE TABLE wo_notes (
+  note_id     INT           PRIMARY KEY AUTO_INCREMENT,
+  wo_id       INT           NOT NULL,
+  note_type   ENUM('diagnosis','repair','general','system','voice') NOT NULL DEFAULT 'general',
+  note_text   TEXT          NOT NULL,
+  is_private  TINYINT(1)    NOT NULL DEFAULT 0 COMMENT 'Private notes only visible to technicians',
+  is_voice    TINYINT(1)    NOT NULL DEFAULT 0,
+  voice_path  VARCHAR(500)  NULL,
+  added_by    INT           NULL,
+  added_at    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  FOREIGN KEY (wo_id)    REFERENCES work_orders(wo_id),
+  FOREIGN KEY (added_by) REFERENCES users(user_id)
+);
+
+CREATE TABLE wo_media (
+  media_id    INT           PRIMARY KEY AUTO_INCREMENT,
+  wo_id       INT           NOT NULL,
+  media_type  ENUM('before','after','evidence','other','photo_before','photo_after','image','config','video') NOT NULL DEFAULT 'evidence',
+  file_path   VARCHAR(500)  NOT NULL,
+  file_type   VARCHAR(50)   NOT NULL,
+  file_size_kb INT          NOT NULL DEFAULT 0,
+  caption     VARCHAR(255)  NULL,
+  uploaded_by INT           NULL,
+  uploaded_at DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  FOREIGN KEY (wo_id)       REFERENCES work_orders(wo_id),
+  FOREIGN KEY (uploaded_by) REFERENCES users(user_id)
+);
+
+CREATE TABLE wo_time_logs (
+  log_id        INT           PRIMARY KEY AUTO_INCREMENT,
+  wo_id         INT           NOT NULL,
+  technician_id INT           NOT NULL,
+  action        ENUM('start','pause','resume','stop','draft','segment') NOT NULL,
+  labor_type    ENUM('travel','diagnosis','repair','cleanup','other') NULL,
+  notes         VARCHAR(255)  NULL,
+  elapsed_ms    INT           NOT NULL DEFAULT 0,
+  logged_at     DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  FOREIGN KEY (wo_id)         REFERENCES work_orders(wo_id),
+  FOREIGN KEY (technician_id) REFERENCES users(user_id)
+);
+
+CREATE TABLE wo_safety_completions (
+  completion_id INT           PRIMARY KEY AUTO_INCREMENT,
+  wo_id         INT           NOT NULL,
+  safety_id     INT           NOT NULL,
+  is_done       TINYINT(1)    NOT NULL DEFAULT 0,
+  completed_by  INT           NULL,
+  completed_at  DATETIME      NULL,
+  notes         TEXT          NULL COMMENT 'Technician notes explaining why check passed/failed',
+  notes_by      INT           NULL COMMENT 'User who added notes',
+
+  UNIQUE (wo_id, safety_id),
+  FOREIGN KEY (wo_id)         REFERENCES work_orders(wo_id),
+  FOREIGN KEY (safety_id)     REFERENCES wo_safety_checks(safety_id),
+  FOREIGN KEY (completed_by)  REFERENCES users(user_id),
+  FOREIGN KEY (notes_by)      REFERENCES users(user_id)
+);
+
+CREATE TABLE wo_parts_used (
+  usage_id      INT           PRIMARY KEY AUTO_INCREMENT,
+  wo_id         INT           NOT NULL,
+  part_id       INT           NOT NULL,
+  quantity_used INT           NOT NULL DEFAULT 1,
+  serial_number VARCHAR(100)  NULL,
+  is_warranty   TINYINT(1)    NOT NULL DEFAULT 0,
+  used_by       INT           NULL,
+  used_at       DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  FOREIGN KEY (wo_id)   REFERENCES work_orders(wo_id),
+  FOREIGN KEY (part_id) REFERENCES parts_inventory(part_id),
+  FOREIGN KEY (used_by) REFERENCES users(user_id)
+);
+
+CREATE TABLE wo_signoff (
+  signoff_id        INT           PRIMARY KEY AUTO_INCREMENT,
+  wo_id             INT           NOT NULL UNIQUE,
+  signed_by_user_id INT           NULL,
+  signer_name       VARCHAR(150)  NOT NULL,
+  signature_path    VARCHAR(500)  NOT NULL,
+  satisfaction      TINYINT       NULL,
+  feedback          TEXT          NULL,
+  signed_at         DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  FOREIGN KEY (wo_id)             REFERENCES work_orders(wo_id),
+  FOREIGN KEY (signed_by_user_id) REFERENCES users(user_id)
+);
+
+CREATE TABLE offline_sync_queue (
+  sync_id       INT           PRIMARY KEY AUTO_INCREMENT,
+  technician_id INT           NOT NULL,
+  action_type   ENUM('wo_start','wo_pause','wo_resume','wo_stop','wo_complete','wo_note','wo_photo','wo_checklist','wo_safety','parts_used') NOT NULL,
+  payload       JSON          NOT NULL,
+  created_at    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  synced_at     DATETIME      NULL,
+  sync_status   ENUM('pending','processing','completed','failed') NOT NULL DEFAULT 'pending',
+  error_message VARCHAR(500)  NULL,
+
+  FOREIGN KEY (technician_id) REFERENCES users(user_id)
+);
+
+CREATE TABLE parts_inventory_audit (
+  audit_id        INT           PRIMARY KEY AUTO_INCREMENT,
+  part_id         INT           NOT NULL,
+  wo_id           INT           NULL COMMENT 'WO reference',
+  change_type     ENUM('add','subtract','adjust','initial','usage') NOT NULL,
+  action          VARCHAR(50)   NULL COMMENT 'Alias for change_type used in some queries',
+  quantity_change INT           NOT NULL,
+  new_quantity    INT           NOT NULL DEFAULT 0,
+  reason          VARCHAR(255)  NULL,
+  notes           VARCHAR(500)  NULL,
+  reference_id    INT           NULL COMMENT 'WO ID or other reference',
+  changed_by      INT           NULL,
+  technician_id   INT           NULL,
+  changed_at      DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  FOREIGN KEY (part_id)    REFERENCES parts_inventory(part_id),
+  FOREIGN KEY (changed_by) REFERENCES users(user_id)
+);
+
+CREATE TABLE parts_low_stock_alerts (
+  alert_id      INT           PRIMARY KEY AUTO_INCREMENT,
+  part_id       INT           NOT NULL,
+  alert_type    ENUM('low_stock','out_of_stock') NOT NULL,
+  threshold     INT           NOT NULL,
+  current_stock INT           NOT NULL,
+  is_acknowledged TINYINT(1)  NOT NULL DEFAULT 0,
+  acknowledged_by INT         NULL,
+  acknowledged_at DATETIME    NULL,
+  created_at    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  FOREIGN KEY (part_id)         REFERENCES parts_inventory(part_id),
+  FOREIGN KEY (acknowledged_by) REFERENCES users(user_id)
+);
+
+-- ============================================================
+-- SEED DATA: ROLES
+-- ============================================================
+
+INSERT INTO roles (role_name) VALUES
+  ('admin'),
+  ('it_manager'),
+  ('it_staff'),
+  ('technician'),
+  ('faculty'),
+  ('department_staff'),
+  ('student'),
+  ('super_admin');
+
+-- ============================================================
+-- SEED DATA: DEPARTMENTS
+-- ============================================================
+
+INSERT INTO departments (department_name) VALUES
+  ('IT Department'),
+  ('College of Nursing'),
+  ('College of Engineering'),
+  ('College of Education'),
+  ('College of Business'),
+  ('Registrar'),
+  ('Library'),
+  ('Administration');
+
+-- ============================================================
+-- SEED DATA: ASSET CATEGORIES
+-- ============================================================
+
+INSERT INTO asset_categories (category_name, has_bulb_hours) VALUES
+  ('Projector',    1),
+  ('Sound System', 0),
+  ('AV Switcher',  0),
+  ('Display',      0),
+  ('Microphone',   0),
+  ('AV Rack',      0),
+  ('Camera',       0),
+  ('Amplifier',    0);
+
+-- ============================================================
+-- SEED DATA: LOCATIONS
+-- ============================================================
+
+INSERT INTO locations (building, floor, room) VALUES
+  ('Main Building', '1st Floor',    'Room 101'),
+  ('Main Building', '1st Floor',    'Room 102'),
+  ('Main Building', '2nd Floor',    'Room 201'),
+  ('Main Building', '2nd Floor',    'Media Lab A'),
+  ('Science Hall',  'Ground Floor', 'Auditorium'),
+  ('Science Hall',  '2nd Floor',    'Room 204'),
+  ('Annex',         '1st Floor',    'Library');
+
+-- ============================================================
+-- SEED DATA: BUSINESS HOURS
+-- ============================================================
+
+INSERT INTO business_hours (day_of_week, start_time, end_time, is_working) VALUES
+  (0, '08:00:00', '17:00:00', 0),
+  (1, '08:00:00', '17:00:00', 1),
+  (2, '08:00:00', '17:00:00', 1),
+  (3, '08:00:00', '17:00:00', 1),
+  (4, '08:00:00', '17:00:00', 1),
+  (5, '08:00:00', '17:00:00', 1),
+  (6, '08:00:00', '17:00:00', 0);
+
+-- ============================================================
+-- SEED DATA: HOLIDAYS
+-- ============================================================
+
+INSERT INTO holidays (holiday_name, holiday_date, is_recurring) VALUES
+  ('New Year''s Day',          '2026-01-01', 1),
+  ('People Power Anniversary', '2026-02-25', 1),
+  ('Maundy Thursday',          '2026-04-02', 0),
+  ('Good Friday',              '2026-04-03', 0),
+  ('Araw ng Kagitingan',       '2026-04-09', 1),
+  ('Labor Day',                '2026-05-01', 1),
+  ('Independence Day',         '2026-06-12', 1),
+  ('Ninoy Aquino Day',         '2026-08-21', 1),
+  ('National Heroes Day',      '2026-08-31', 0),
+  ('All Saints'' Day',         '2026-11-01', 1),
+  ('Bonifacio Day',            '2026-11-30', 1),
+  ('Christmas Day',            '2026-12-25', 1),
+  ('Rizal Day',                '2026-12-30', 1);
+
+-- ============================================================
+-- SEED DATA: USERS
+-- ============================================================
+
+INSERT INTO users (email, password_hash, full_name, role_id, is_active) VALUES
+  ('admin@olfu.edu.ph', '$2y$10$placeholdchrerHashReplaceThisOnFirstLogin.........', 'System Administrator', 8, 1);
+
+-- ============================================================
+-- SEED DATA: ROLE MODULES
+-- ============================================================
+
+INSERT INTO role_modules (role_id, module_slug) VALUES
+  (1,'dashboard'),(1,'assets'),(1,'tickets'),(1,'workorders'),
+  (1,'technician'),(1,'reports'),(1,'users'),(1,'inventory'),
+  (1,'kb'),(1,'profile'),(1,'notifications');
+INSERT INTO role_modules (role_id, module_slug) VALUES
+  (2,'dashboard'),(2,'assets'),(2,'tickets'),(2,'workorders'),
+  (2,'reports'),(2,'inventory'),(2,'kb'),(2,'profile'),(2,'notifications');
+INSERT INTO role_modules (role_id, module_slug) VALUES
+  (3,'dashboard'),(3,'assets'),(3,'tickets'),(3,'inventory'),
+  (3,'kb'),(3,'profile'),(3,'notifications');
+INSERT INTO role_modules (role_id, module_slug) VALUES
+  (4,'technician'),(4,'tickets'),(4,'kb'),(4,'profile'),(4,'notifications');
+INSERT INTO role_modules (role_id, module_slug) VALUES
+  (5,'tickets'),(5,'profile'),(5,'notifications');
+INSERT INTO role_modules (role_id, module_slug) VALUES
+  (6,'tickets'),(6,'profile'),(6,'notifications');
+INSERT INTO role_modules (role_id, module_slug) VALUES
+  (7,'tickets'),(7,'profile'),(7,'notifications');
+INSERT INTO role_modules (role_id, module_slug) VALUES
+  (8,'dashboard'),(8,'assets'),(8,'tickets'),(8,'workorders'),
+  (8,'technician'),(8,'reports'),(8,'users'),(8,'inventory'),
+  (8,'kb'),(8,'profile'),(8,'notifications');
+
+-- ============================================================
+-- SEED DATA: SLA POLICIES
+-- ============================================================
+
+INSERT INTO sla_policies (policy_name, priority, is_event_support, response_minutes, diagnosis_minutes, resolution_minutes, uses_business_hours) VALUES
+  ('Critical Priority SLA',      'critical', 0,  30,  120,   240, 0),
+  ('High Priority SLA',          'high',     0, 120,  480,  1440, 1),
+  ('Medium Priority SLA',        'medium',   0, 240, 1440,  2880, 1),
+  ('Low Priority SLA',           'low',      0, 480, 2880,  4320, 1),
+  ('Event Support (Urgent) SLA', 'critical', 1,  15,   60,   120, 0);
+
+-- ============================================================
+-- SEED DATA: KNOWLEDGE BASE ARTICLES
+-- ============================================================
 
 INSERT INTO kb_articles (title, content, category_id, tags, created_by) VALUES
   (
@@ -701,119 +814,69 @@ INSERT INTO kb_articles (title, content, category_id, tags, created_by) VALUES
     NULL, 'ticket,submit,request,help desk,how to', 1
   );
 
+-- ============================================================
+-- SEED DATA: WO CHECKLISTS & ITEMS
+-- ============================================================
+
+INSERT INTO wo_checklists (category_id, checklist_name, description) VALUES
+  (1, 'Projector Repair Checklist',    'Standard steps for diagnosing and repairing projectors'),
+  (2, 'Sound System Repair Checklist', 'Standard steps for diagnosing and repairing sound systems'),
+  (3, 'AV Switcher Repair Checklist',  'Standard steps for diagnosing and repairing AV switchers'),
+  (4, 'Display Repair Checklist',      'Standard steps for diagnosing and repairing display units'),
+  (NULL, 'General Repair Checklist',   'Generic checklist applicable to any equipment type');
+
+INSERT INTO wo_checklist_items (checklist_id, item_text, is_mandatory, requires_photo, sort_order) VALUES
+  (1, 'Record current bulb hours',            1, 0, 1),
+  (1, 'Inspect lamp/bulb for damage',         1, 1, 2),
+  (1, 'Clean or replace air filter',          1, 0, 3),
+  (1, 'Test all input sources (HDMI, VGA)',   1, 0, 4),
+  (1, 'Check and adjust focus, zoom, keystone', 0, 0, 5),
+  (1, 'Test remote control functionality',    0, 0, 6),
+  (1, 'Capture after-repair photo',           1, 1, 7);
+INSERT INTO wo_checklist_items (checklist_id, item_text, is_mandatory, requires_photo, sort_order) VALUES
+  (2, 'Capture before-repair photo',          1, 1, 1),
+  (2, 'Inspect all cables and connectors',    1, 0, 2),
+  (2, 'Test speaker output (left and right)', 1, 0, 3),
+  (2, 'Check mixer and amplifier settings',   1, 0, 4),
+  (2, 'Test for audio feedback and noise',    1, 0, 5),
+  (2, 'Verify microphone inputs if present',  0, 0, 6),
+  (2, 'Capture after-repair photo',           1, 1, 7);
+INSERT INTO wo_checklist_items (checklist_id, item_text, is_mandatory, requires_photo, sort_order) VALUES
+  (3, 'Capture before-repair photo',          1, 1, 1),
+  (3, 'Test all input ports',                 1, 0, 2),
+  (3, 'Test all output ports',                1, 0, 3),
+  (3, 'Verify input-switching functionality', 1, 0, 4),
+  (3, 'Check and record firmware version',    0, 0, 5),
+  (3, 'Inspect network connection if applicable', 0, 0, 6),
+  (3, 'Capture after-repair photo',           1, 1, 7);
+INSERT INTO wo_checklist_items (checklist_id, item_text, is_mandatory, requires_photo, sort_order) VALUES
+  (4, 'Capture before-repair photo',              1, 1, 1),
+  (4, 'Test display at all available inputs',     1, 0, 2),
+  (4, 'Inspect panel for dead pixels or damage',  1, 1, 3),
+  (4, 'Check cables and mounting hardware',       1, 0, 4),
+  (4, 'Verify network/smart features if present', 0, 0, 5),
+  (4, 'Capture after-repair photo',               1, 1, 6);
+INSERT INTO wo_checklist_items (checklist_id, item_text, is_mandatory, requires_photo, sort_order) VALUES
+  (5, 'Capture before-repair photo',   1, 1, 1),
+  (5, 'Perform visual inspection',     1, 0, 2),
+  (5, 'Perform power-on test',         1, 0, 3),
+  (5, 'Verify core functionality',     1, 0, 4),
+  (5, 'Document findings and actions', 1, 0, 5),
+  (5, 'Capture after-repair photo',    1, 1, 6);
 
 -- ============================================================
--- MODULE 5: SLA, REPORTING & AUDIT
+-- SEED DATA: SAFETY CHECKS
 -- ============================================================
 
--- Working days and hours used by the SLA engine to calculate response deadlines.
-CREATE TABLE business_hours (
-  hour_id     INT        PRIMARY KEY AUTO_INCREMENT,
-  day_of_week TINYINT    NOT NULL,
-  start_time  TIME       NOT NULL,
-  end_time    TIME       NOT NULL,
-  is_working  TINYINT(1) NOT NULL DEFAULT 1,
-
-  UNIQUE (day_of_week)
-);
-
--- 0=Sunday, 1=Monday, ..., 6=Saturday. Office hours: Mon–Fri 8:00–17:00.
-INSERT INTO business_hours (day_of_week, start_time, end_time, is_working) VALUES
-  (0, '08:00:00', '17:00:00', 0),
-  (1, '08:00:00', '17:00:00', 1),
-  (2, '08:00:00', '17:00:00', 1),
-  (3, '08:00:00', '17:00:00', 1),
-  (4, '08:00:00', '17:00:00', 1),
-  (5, '08:00:00', '17:00:00', 1),
-  (6, '08:00:00', '17:00:00', 0);
-
-
--- Non-working days excluded from SLA clock calculations.
-CREATE TABLE holidays (
-  holiday_id   INT           PRIMARY KEY AUTO_INCREMENT,
-  holiday_name VARCHAR(100)  NOT NULL,
-  holiday_date DATE          NOT NULL UNIQUE,
-  is_recurring TINYINT(1)    NOT NULL DEFAULT 0,
-  created_at   DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
--- Philippine national and regular holidays for 2026
-INSERT INTO holidays (holiday_name, holiday_date, is_recurring) VALUES
-  ('New Year\'s Day',          '2026-01-01', 1),
-  ('People Power Anniversary', '2026-02-25', 1),
-  ('Maundy Thursday',          '2026-04-02', 0),
-  ('Good Friday',              '2026-04-03', 0),
-  ('Araw ng Kagitingan',       '2026-04-09', 1),
-  ('Labor Day',                '2026-05-01', 1),
-  ('Independence Day',         '2026-06-12', 1),
-  ('Ninoy Aquino Day',         '2026-08-21', 1),
-  ('National Heroes Day',      '2026-08-31', 0),
-  ('All Saints\' Day',         '2026-11-01', 1),
-  ('Bonifacio Day',            '2026-11-30', 1),
-  ('Christmas Day',            '2026-12-25', 1),
-  ('Rizal Day',                '2026-12-30', 1);
-
-
--- SLA policy definitions. Matched to a ticket by priority and/or category at creation time.
-CREATE TABLE sla_policies (
-  policy_id          INT           PRIMARY KEY AUTO_INCREMENT,
-  policy_name        VARCHAR(150)  NOT NULL,
-  priority           ENUM('low','medium','high','critical') NULL,
-  category_id        INT           NULL,
-  is_event_support   TINYINT(1)    NOT NULL DEFAULT 0,
-  response_minutes   INT           NOT NULL,
-  diagnosis_minutes  INT           NOT NULL,
-  resolution_minutes INT           NOT NULL,
-  uses_business_hours TINYINT(1)  NOT NULL DEFAULT 1,
-  is_active          TINYINT(1)   NOT NULL DEFAULT 1,
-  created_at         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-  FOREIGN KEY (category_id) REFERENCES asset_categories(category_id)
-);
-
-INSERT INTO sla_policies (policy_name, priority, is_event_support, response_minutes, diagnosis_minutes, resolution_minutes, uses_business_hours) VALUES
-  ('Critical Priority SLA',      'critical', 0,  30,  120,   240, 0),
-  ('High Priority SLA',          'high',     0, 120,  480,  1440, 1),
-  ('Medium Priority SLA',        'medium',   0, 240, 1440,  2880, 1),
-  ('Low Priority SLA',           'low',      0, 480, 2880,  4320, 1),
-  ('Event Support (Urgent) SLA', 'critical', 1,  15,   60,   120, 0);
-
-
--- Per-ticket SLA tracking: deadlines, actual timestamps, and breach flags.
-CREATE TABLE ticket_sla (
-  sla_id                  INT        PRIMARY KEY AUTO_INCREMENT,
-  ticket_id               INT        NOT NULL UNIQUE,
-  policy_id               INT        NOT NULL,
-  response_due            DATETIME   NULL,
-  diagnosis_due           DATETIME   NULL,
-  resolution_due          DATETIME   NULL,
-  responded_at            DATETIME   NULL,
-  diagnosed_at            DATETIME   NULL,
-  resolved_at             DATETIME   NULL,
-  is_response_breached    TINYINT(1) NOT NULL DEFAULT 0,
-  is_diagnosis_breached   TINYINT(1) NOT NULL DEFAULT 0,
-  is_resolution_breached  TINYINT(1) NOT NULL DEFAULT 0,
-  paused_at               DATETIME   NULL,
-  total_paused_minutes    INT        NOT NULL DEFAULT 0,
-  pause_reason            VARCHAR(100) NULL,
-
-  FOREIGN KEY (ticket_id) REFERENCES tickets(ticket_id),
-  FOREIGN KEY (policy_id) REFERENCES sla_policies(policy_id)
-);
-
-
--- System-wide immutable audit log. Captures every create/update/delete/login action.
-CREATE TABLE audit_log (
-  log_id      BIGINT        PRIMARY KEY AUTO_INCREMENT,
-  user_id     INT           NULL,
-  action      VARCHAR(50)   NOT NULL,
-  object_type VARCHAR(50)   NOT NULL,
-  object_id   INT           NULL,
-  old_values  JSON          NULL,
-  new_values  JSON          NULL,
-  ip_address  VARCHAR(45)   NULL,
-  user_agent  VARCHAR(500)  NULL,
-  created_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-  FOREIGN KEY (user_id) REFERENCES users(user_id)
-);
+INSERT INTO wo_safety_checks (check_text, is_mandatory, sort_order) VALUES
+  ('Verify ESD protection (wrist strap or mat) is in place', 1, 1),
+  ('Confirm equipment is powered off and unplugged', 1, 2),
+  ('Ensure proper personal protective equipment (PPE) is worn', 1, 3),
+  ('Clear workspace of clutter and hazards', 1, 4),
+  ('Verify tools are in good working condition', 1, 5),
+  ('Check for visible damage before starting work', 1, 6),
+  ('Test bench voltage verified safe (multimeter checked)', 1, 7),
+  ('Required parts and replacements inventoried', 1, 8),
+  ('Static-safe mat and containers in use', 1, 9),
+  ('Proper disposal container for old/hazardous parts ready', 1, 10),
+  ('Safety glasses or face shield worn (when required)', 1, 11);
