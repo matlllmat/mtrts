@@ -34,12 +34,21 @@ reassign_wo($pdo, $wo_id, $to, $by, $reason ?: 'Quick reassignment from detail p
 
 // Notify new technician
 require_once __DIR__ . '/../notifications/functions.php';
+// Determine the correct view link based on user role
+$view_link = BASE_URL . 'modules/workorders/view.php?id=' . $wo_id;
+$stmt_role = $pdo->prepare("SELECT role_id FROM users WHERE user_id = ?");
+$stmt_role->execute([$to]);
+$target_role = (int)$stmt_role->fetchColumn();
+if ($target_role === 4) {
+    $view_link = BASE_URL . 'modules/technician/view.php?id=' . $wo_id;
+}
+
 notify_user(
     $pdo,
     $to,
     'Work Order Reassigned: ' . $wo['wo_number'],
     'You have been reassigned to work order ' . $wo['wo_number'] . '.',
-    BASE_URL . 'modules/workorders/view.php?id=' . $wo_id
+    $view_link
 );
 
 echo json_encode(['success' => true]);

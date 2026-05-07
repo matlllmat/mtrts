@@ -107,11 +107,19 @@ try {
     if ($is_edit) {
         $old = get_asset_by_id($pdo, $asset_id);
         update_asset($pdo, $asset_id, $d);
+        
+        // LOG AUDIT: Asset Update
+        log_audit($pdo, 'UPDATE', 'asset', $asset_id, $old, $d);
+
         log_asset_changes($pdo, $asset_id, $old, $d, $user_id);
         upsert_warranty($pdo, $asset_id, $d);
         header('Location: ' . BASE_URL . "modules/assets/view.php?id={$asset_id}&flash=updated");
     } else {
         $new_id = create_asset($pdo, $d);
+
+        // LOG AUDIT: Asset Creation
+        log_audit($pdo, 'CREATE', 'asset', $new_id, null, $d);
+
         log_asset_change($pdo, $new_id, 'created', null, $d['asset_tag'], $user_id);
         upsert_warranty($pdo, $new_id, $d);
         // Regenerate CSRF after successful create

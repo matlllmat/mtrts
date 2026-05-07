@@ -3,6 +3,21 @@
 // Logic only: guard, data fetch, then hands off to the view.
 
 $module = 'workorders';
+
+// Technicians (Role 4) use the dedicated technician module for work orders.
+// We handle their redirect here BEFORE guard.php outputs any HTML shell.
+if (session_status() === PHP_SESSION_NONE) session_start();
+if (isset($_SESSION['role_id']) && $_SESSION['role_id'] == 4) {
+    // Ensure they are actually logged in
+    if (!isset($_SESSION['user_id'])) {
+        header('Location: ../../modules/login.php');
+        exit;
+    }
+    $id = (int)($_GET['id'] ?? 0);
+    header('Location: ../technician/view.php?id=' . $id);
+    exit;
+}
+
 require_once __DIR__ . '/../../config/guard.php';
 require_once __DIR__ . '/functions.php';
 require_once __DIR__ . '/_styles.php';

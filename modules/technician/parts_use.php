@@ -27,12 +27,7 @@ try {
         exit;
     }
 
-    $pdo = new PDO(
-        'mysql:host=' . getenv('DB_HOST') . ';dbname=' . getenv('DB_NAME'),
-        getenv('DB_USER'),
-        getenv('DB_PASS')
-    );
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    require_once __DIR__ . '/../../config/db.php';
 
     // Start transaction
     $pdo->beginTransaction();
@@ -54,12 +49,19 @@ try {
     ");
     $stmt->execute([$quantity_used, $part_id]);
 
-    // Record audit trail
+    // Record audit trail in specialized table
     $stmt = $pdo->prepare("
         INSERT INTO parts_inventory_audit (part_id, wo_id, action, quantity_change, technician_id, notes)
         VALUES (?, ?, 'usage', ?, ?, CONCAT('Part usage: ', ?, ' units consumed on WO ', ?))
     ");
     $stmt->execute([$part_id, $wo_id, -$quantity_used, $technician_id, $quantity_used, $wo_id]);
+
+    // LOG AUDIT: MASTER LOG
+    log_audit($pdo, 'USE_PART', 'inventory', $part_id, null, [
+        'wo_id' => $wo_id,
+        'quantity' => $quantity_used,
+        'serial' => $serial_number
+    ]);
 
     // Check if stock is now below reorder level
     $stmt = $pdo->prepare("

@@ -50,55 +50,32 @@ $columns = [
     'Total Paused (min)', 'Escalation Level'
 ];
 
-if ($format === 'excel') {
-    // ── Excel XML Spreadsheet (opens natively in Excel, no library needed) ──
-    header('Content-Type: application/vnd.ms-excel');
-    header('Content-Disposition: attachment; filename="mtrts_report_' . $start . '_to_' . $end . '.xls"');
+// ── Proper High-Compatibility CSV Export (Works best in Excel) ──
+header('Content-Type: text/csv; charset=utf-8');
+header('Content-Disposition: attachment; filename="mtrts_report_' . $start . '_to_' . $end . '.csv"');
+
+$output = fopen('php://output', 'w');
+
+// Add UTF-8 BOM (Byte Order Mark) — this is the "secret sauce" that 
+// tells Excel to use UTF-8 and prevents errors/encoding issues.
+fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
+
+// Write headers
+fputcsv($output, $columns);
+
+// Write data
+foreach ($rows as $row) {
+    // Clean up boolean values for the spreadsheet
+    $row['is_response_breached']   = $row['is_response_breached'] ? 'BREACHED' : 'Met';
+    $row['is_diagnosis_breached']  = $row['is_diagnosis_breached'] ? 'BREACHED' : 'Met';
+    $row['is_resolution_breached'] = $row['is_resolution_breached'] ? 'BREACHED' : 'Met';
     
-    echo '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
-    echo '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
-           xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">';
-    echo '<Styles>
-        <Style ss:ID="header"><Font ss:Bold="1" ss:Size="11"/><Interior ss:Color="#1a5c2a" ss:Pattern="Solid"/><Font ss:Color="#FFFFFF" ss:Bold="1"/></Style>
-        <Style ss:ID="breach"><Interior ss:Color="#FEE2E2" ss:Pattern="Solid"/></Style>
-    </Styles>';
-    echo '<Worksheet ss:Name="SLA Report"><Table>';
-    
-    // Header row
-    echo '<Row>';
-    foreach ($columns as $col) {
-        echo '<Cell ss:StyleID="header"><Data ss:Type="String">' . htmlspecialchars($col) . '</Data></Cell>';
+    // Ensure null values are handled
+    foreach($row as $key => $val) {
+        if($val === null) $row[$key] = '';
     }
-    echo '</Row>';
-    
-    // Data rows
-    foreach ($rows as $row) {
-        $is_breached = $row['is_response_breached'] || $row['is_resolution_breached'];
-        $style = $is_breached ? ' ss:StyleID="breach"' : '';
-        echo '<Row>';
-        foreach (array_values($row) as $val) {
-            echo '<Cell' . $style . '><Data ss:Type="String">' . htmlspecialchars($val ?? '') . '</Data></Cell>';
-        }
-        echo '</Row>';
-    }
-    
-    echo '</Table></Worksheet></Workbook>';
-    
-} else {
-    // ── CSV Export ──
-    header('Content-Type: text/csv; charset=utf-8');
-    header('Content-Disposition: attachment; filename="mtrts_report_' . $start . '_to_' . $end . '.csv"');
-    
-    $output = fopen('php://output', 'w');
-    // UTF-8 BOM for Excel compatibility
-    fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
-    fputcsv($output, $columns);
-    
-    foreach ($rows as $row) {
-        $row['is_response_breached']   = $row['is_response_breached'] ? 'Yes' : 'No';
-        $row['is_diagnosis_breached']  = $row['is_diagnosis_breached'] ? 'Yes' : 'No';
-        $row['is_resolution_breached'] = $row['is_resolution_breached'] ? 'Yes' : 'No';
-        fputcsv($output, array_values($row));
-    }
-    fclose($output);
+
+    fputcsv($output, array_values($row));
 }
+
+fclose($output);

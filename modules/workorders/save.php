@@ -5,6 +5,7 @@
 $module = 'workorders';
 require_once __DIR__ . '/../../config/auth_only.php';
 require_once __DIR__ . '/functions.php';
+require_once __DIR__ . '/../reports/functions.php';
 require_once __DIR__ . '/../../config/sla.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -89,6 +90,10 @@ if ($is_edit) {
     $old_assignee = $old_wo['assigned_to'] ?? null;
 
     update_work_order($pdo, $wo_id, $data);
+    
+    // LOG AUDIT: Work Order Update
+    log_audit($pdo, 'UPDATE', 'work_order', $wo_id, $old_wo, $data);
+
     set_wo_parts($pdo, $wo_id, $_POST['parts'] ?? [], $user_id);
 
     // If assignment changed, log it and notify
@@ -107,16 +112,29 @@ if ($is_edit) {
         // Notify new technician
         $wo_num = $old_wo['wo_number'] ?? '';
         require_once __DIR__ . '/../notifications/functions.php';
+        // Determine the correct view link based on user role
+        $view_link = BASE_URL . 'modules/workorders/view.php?id=' . $wo_id;
+        $stmt_role = $pdo->prepare("SELECT role_id FROM users WHERE user_id = ?");
+        $stmt_role->execute([(int)$data['assigned_to']]);
+        $target_role = (int)$stmt_role->fetchColumn();
+        if ($target_role === 4) {
+            $view_link = BASE_URL . 'modules/technician/view.php?id=' . $wo_id;
+        }
+
         notify_user(
             $pdo,
             (int)$data['assigned_to'],
             'Work Order Assigned: ' . $wo_num,
             'You have been assigned to work order ' . $wo_num . '.',
-            BASE_URL . 'modules/workorders/view.php?id=' . $wo_id
+            $view_link
         );
     }
 } else {
     $wo_id = create_work_order($pdo, $data);
+
+    // LOG AUDIT: Work Order Creation
+    log_audit($pdo, 'CREATE', 'work_order', $wo_id, null, $data);
+
     set_wo_parts($pdo, $wo_id, $_POST['parts'] ?? [], $user_id);
 
     // Notify assigned technician
@@ -124,12 +142,21 @@ if ($is_edit) {
         $wo_num = generate_wo_number($pdo); // Already incremented, get current
         $wo_row = get_wo_by_id($pdo, $wo_id);
         require_once __DIR__ . '/../notifications/functions.php';
+        // Determine the correct view link based on user role
+        $view_link = BASE_URL . 'modules/workorders/view.php?id=' . $wo_id;
+        $stmt_role = $pdo->prepare("SELECT role_id FROM users WHERE user_id = ?");
+        $stmt_role->execute([(int)$data['assigned_to']]);
+        $target_role = (int)$stmt_role->fetchColumn();
+        if ($target_role === 4) {
+            $view_link = BASE_URL . 'modules/technician/view.php?id=' . $wo_id;
+        }
+
         notify_user(
             $pdo,
             (int)$data['assigned_to'],
             'New Work Order: ' . ($wo_row['wo_number'] ?? ''),
             'You have been assigned a new work order.',
-            BASE_URL . 'modules/workorders/view.php?id=' . $wo_id
+            $view_link
         );
     }
 }

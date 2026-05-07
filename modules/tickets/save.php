@@ -62,6 +62,9 @@ if ($action === 'create') {
 
     $ticket_id = create_ticket($pdo, $d);
 
+    // LOG AUDIT: Ticket Creation
+    log_audit($pdo, 'CREATE', 'ticket', $ticket_id, null, $d);
+
     // Initialize SLA for this ticket
     init_ticket_sla($pdo, $ticket_id);
 
@@ -109,6 +112,9 @@ if ($action === 'create') {
 
 
     update_ticket($pdo, $ticket_id, $d);
+
+    // LOG AUDIT: Ticket Update
+    log_audit($pdo, 'UPDATE', 'ticket', $ticket_id, $t, $d);
 
     // Update SLA actual timestamps (Response, Diagnosis, Resolution)
     $sla_status = $d['status'] ?? $t['status'];

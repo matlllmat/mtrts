@@ -201,6 +201,33 @@ function mask_pii(string $str): string {
     return $str;
 }
 
+function count_audit_logs(PDO $pdo, array $f = []): int {
+    $where = ["1=1"];
+    $params = [];
+    
+    if (!empty($f['user_id'])) {
+        $where[] = "user_id = ?";
+        $params[] = $f['user_id'];
+    }
+    if (!empty($f['object_type'])) {
+        $where[] = "object_type = ?";
+        $params[] = $f['object_type'];
+    }
+    if (!empty($f['date_from'])) {
+        $where[] = "created_at >= ?";
+        $params[] = $f['date_from'] . ' 00:00:00';
+    }
+    if (!empty($f['date_to'])) {
+        $where[] = "created_at <= ?";
+        $params[] = $f['date_to'] . ' 23:59:59';
+    }
+
+    $where_str = implode(" AND ", $where);
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM audit_log WHERE $where_str");
+    $stmt->execute($params);
+    return (int)$stmt->fetchColumn();
+}
+
 /**
  * ── DRILL-DOWN QUERIES ──────────────────────────────────────────
  */
@@ -379,3 +406,4 @@ function get_cost_stats(PDO $pdo, string $start_date, string $end_date): array {
         'costliest_assets' => $costliest
     ];
 }
+
