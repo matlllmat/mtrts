@@ -98,7 +98,7 @@ $icons = [
       <?= $icons['info'] ?>
       <span>About the Developers</span>
     </a>
-    <a href="logout.php" class="<?= $logout_cls ?>">
+    <a href="<?= BASE_URL ?>modules/logout.php" class="<?= $logout_cls ?>">
       <?= $icons['logout'] ?>
       <span>Logout</span>
     </a>

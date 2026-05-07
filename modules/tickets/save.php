@@ -4,6 +4,7 @@ $module = 'tickets';
 require_once __DIR__ . '/../../config/auth_only.php';
 require_once __DIR__ . '/functions.php';
 require_once __DIR__ . '/../notifications/functions.php';
+require_once __DIR__ . '/../reports/functions.php';
 
 $action = $_POST['action'] ?? '';
 $user_id = $_SESSION['user_id'];
@@ -33,6 +34,9 @@ if ($action === 'create') {
     // For now, if duplicate is found, we might just set the duplicate_of_id. But since it wasn't required as a hard block, let's just create it.
 
     $ticket_id = create_ticket($pdo, $d);
+    
+    // Initialize SLA tracking
+    init_ticket_sla($pdo, $ticket_id);
 
     // --- Handle File Uploads (Create) ---
     handle_ticket_uploads($pdo, $ticket_id, $user_id);
@@ -109,6 +113,9 @@ if ($action === 'create') {
         $assigned_to = ((int)($_POST['assigned_to'] ?? 0)) ?: null;
         
         $pdo->prepare("UPDATE tickets SET status=?, assigned_to=? WHERE ticket_id=?")->execute([$status, $assigned_to, $ticket_id]);
+        
+        // Update SLA actuals
+        update_ticket_sla_actuals($pdo, $ticket_id, $status);
         
         if ($status === 'resolved' || $status === 'closed') {
             $pdo->prepare("UPDATE tickets SET ".($status === 'resolved' ? "resolved_at" : "closed_at")." = NOW() WHERE ticket_id=?")->execute([$ticket_id]);
