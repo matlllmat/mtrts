@@ -307,6 +307,7 @@ CREATE TABLE asset_audit_log (
 CREATE TABLE tickets (
   ticket_id        INT           PRIMARY KEY AUTO_INCREMENT,
   ticket_number    VARCHAR(20)   NOT NULL UNIQUE,
+  request_type     VARCHAR(50)   NULL,
   requester_id     INT           NOT NULL,
   asset_id         INT           NULL,
   category_id      INT           NULL,
