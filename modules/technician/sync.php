@@ -195,7 +195,7 @@ switch ($action) {
             $data = $item['data'] ?? [];
             
             if ($itemAction === 'checklist_update') {
-                $checkItemId = (int)($data['itemId'] ?? 0);
+                $checkItemId = (int)($data['itemId'] ?? $data['id'] ?? 0);
                 $completed = (bool)($data['completed'] ?? false);
                 if ($woId && $checkItemId) {
                     update_checklist_completion($pdo, $woId, $checkItemId, $completed);
@@ -204,7 +204,7 @@ switch ($action) {
                     $results[] = ['id' => $itemId, 'ok' => false, 'action' => $itemAction, 'error' => 'Missing wo_id or itemId'];
                 }
             } elseif ($itemAction === 'safety_update') {
-                $safetyId = (int)($data['safetyId'] ?? 0);
+                $safetyId = (int)($data['safetyId'] ?? $data['id'] ?? 0);
                 $completed = (bool)($data['completed'] ?? false);
                 if ($woId && $safetyId) {
                     update_safety_completion($pdo, $woId, $safetyId, $completed);
@@ -273,7 +273,7 @@ switch ($action) {
                 continue;
               }
               
-              $upload_dir = __DIR__ . '/../uploads/evidence/' . $woId . '/';
+              $upload_dir = __DIR__ . '/uploads/evidence/' . $woId . '/';
               if (!is_dir($upload_dir)) { mkdir($upload_dir, 0755, true); }
               
               // Sanitize filename and add timestamp to prevent collisions
@@ -308,7 +308,7 @@ switch ($action) {
                 continue;
               }
               
-              $upload_dir = __DIR__ . '/../uploads/config/' . $woId . '/';
+              $upload_dir = __DIR__ . '/uploads/config/' . $woId . '/';
               if (!is_dir($upload_dir)) { mkdir($upload_dir, 0755, true); }
               
               // Sanitize filename and add timestamp to prevent collisions
@@ -330,7 +330,7 @@ switch ($action) {
             }
           } elseif ($itemAction === 'checklist_update') {
             // Process checklist updates in batch sync
-            $itemIdField = (int)($_POST["item_${itemId}_itemId"] ?? 0);
+            $itemIdField = (int)($_POST["item_${itemId}_itemId"] ?? $_POST["item_${itemId}_id"] ?? 0);
             $completed = filter_var($_POST["item_${itemId}_completed"] ?? false, FILTER_VALIDATE_BOOLEAN);
             if ($woId && $itemIdField) {
               update_checklist_completion($pdo, $woId, $itemIdField, $completed);
@@ -340,7 +340,7 @@ switch ($action) {
             }
           } elseif ($itemAction === 'safety_update') {
             // Process safety updates in batch sync
-            $safetyIdField = (int)($_POST["item_${itemId}_safetyId"] ?? 0);
+            $safetyIdField = (int)($_POST["item_${itemId}_safetyId"] ?? $_POST["item_${itemId}_id"] ?? 0);
             $completed = filter_var($_POST["item_${itemId}_completed"] ?? false, FILTER_VALIDATE_BOOLEAN);
             if ($woId && $safetyIdField) {
               update_safety_completion($pdo, $woId, $safetyIdField, $completed);
@@ -385,7 +385,7 @@ switch ($action) {
 
     case 'checklist_update':
         $wo_id = (int)($payload['wo_id'] ?? 0);
-        $item_id = (int)($payload['itemId'] ?? 0);
+        $item_id = (int)($payload['itemId'] ?? $payload['id'] ?? 0);
         $is_done = (bool)($payload['completed'] ?? false);
         update_checklist_completion($pdo, $wo_id, $item_id, $is_done);
         echo json_encode(['success' => true]);
@@ -393,7 +393,7 @@ switch ($action) {
 
     case 'safety_update':
         $wo_id = (int)($payload['wo_id'] ?? 0);
-        $safety_id = (int)($payload['safetyId'] ?? 0);
+        $safety_id = (int)($payload['safetyId'] ?? $payload['id'] ?? 0);
         $is_done = (bool)($payload['completed'] ?? false);
         update_safety_completion($pdo, $wo_id, $safety_id, $is_done);
         echo json_encode(['success' => true]);
@@ -444,13 +444,14 @@ switch ($action) {
         // Check for uploaded file in $_FILES
         if (isset($_FILES[$name])) {
             $file = $_FILES[$name];
-            $upload_path = '/uploads/evidence/' . $wo_id . '/';
+            $upload_path = __DIR__ . '/uploads/evidence/' . $wo_id . '/';
             @mkdir($upload_path, 0755, true);
             $file_path = $upload_path . basename($file['name']);
             
             if (move_uploaded_file($file['tmp_name'], $file_path)) {
-                save_work_order_media($pdo, $wo_id, $kind, $file_path, $file['type'], filesize($file_path), $name);
-                echo json_encode(['success' => true, 'message' => 'Evidence saved']);
+                $serverUrl = BASE_URL . 'modules/technician/uploads/evidence/' . $wo_id . '/' . basename($file['name']);
+                save_work_order_media($pdo, $wo_id, $kind, $serverUrl, $file['type'], filesize($file_path), $name);
+                echo json_encode(['success' => true, 'message' => 'Evidence saved', 'serverUrl' => $serverUrl]);
             } else {
                 echo json_encode(['success' => false, 'message' => 'File upload failed']);
             }
@@ -466,13 +467,14 @@ switch ($action) {
         // Check for uploaded file in $_FILES
         if (isset($_FILES[$name])) {
             $file = $_FILES[$name];
-            $upload_path = '/uploads/config/' . $wo_id . '/';
+            $upload_path = __DIR__ . '/uploads/config/' . $wo_id . '/';
             @mkdir($upload_path, 0755, true);
             $file_path = $upload_path . basename($file['name']);
             
             if (move_uploaded_file($file['tmp_name'], $file_path)) {
-                save_work_order_media($pdo, $wo_id, 'config', $file_path, $file['type'], filesize($file_path), $name);
-                echo json_encode(['success' => true, 'message' => 'Config file saved']);
+                $serverUrl = BASE_URL . 'modules/technician/uploads/config/' . $wo_id . '/' . basename($file['name']);
+                save_work_order_media($pdo, $wo_id, 'config', $serverUrl, $file['type'], filesize($file_path), $name);
+                echo json_encode(['success' => true, 'message' => 'Config file saved', 'serverUrl' => $serverUrl]);
             } else {
                 echo json_encode(['success' => false, 'message' => 'File upload failed']);
             }
