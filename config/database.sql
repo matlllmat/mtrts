@@ -695,13 +695,17 @@ INSERT INTO asset_categories (category_name, has_bulb_hours) VALUES
 -- ============================================================
 
 INSERT INTO locations (building, floor, room) VALUES
-  ('Main Building', '1st Floor',    'Room 101'),
-  ('Main Building', '1st Floor',    'Room 102'),
-  ('Main Building', '2nd Floor',    'Room 201'),
-  ('Main Building', '2nd Floor',    'Media Lab A'),
-  ('Science Hall',  'Ground Floor', 'Auditorium'),
-  ('Science Hall',  '2nd Floor',    'Room 204'),
-  ('Annex',         '1st Floor',    'Library');
+  ('CAS BUILDING', '1st Floor', 'ROOM 101'),
+  ('CAS BUILDING', '1st Floor', 'ROOM 102'),
+  ('CAS BUILDING', '1st Floor', 'ROOM 103'),
+  ('CAS BUILDING', '1st Floor', 'ROOM 104'),
+  ('CAS BUILDING', '1st Floor', 'ROOM 105'),
+  ('CAS BUILDING', '1st Floor', 'ROOM 106'),
+  ('CAS BUILDING', '1st Floor', 'ROOM 107'),
+  ('CAS BUILDING', '1st Floor', 'ROOM 108'),
+  ('CAS BUILDING', '1st Floor', 'COMLAB'),
+  ('CAS BUILDING', '1st Floor', 'MAC lab'),
+  ('SJB BUILDING', 'Ground Floor', 'AUDITORIUM');
 
 -- ============================================================
 -- SEED DATA: BUSINESS HOURS
