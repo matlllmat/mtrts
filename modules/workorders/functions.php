@@ -257,21 +257,70 @@ function get_wo_signoff(PDO $pdo, int $wo_id): array|false {
     return $stmt->fetch();
 }
 
-function check_wo_conflict(PDO $pdo, int $assigned_to, string $start, string $end, int $exclude_wo_id = 0): array|false {
-    // Check if the given technician has any WOs overlapping with [start, end]
-    // Overlap logic: A_start < B_end AND A_end > B_start
-    $stmt = $pdo->prepare("
-        SELECT wo_id, wo_number, wo_type, scheduled_start, scheduled_end
+
+function check_wo_conflict(PDO $pdo, int $assigned_to, string $start, string $end, int $exclude_wo_id = 0, int $ticket_id = 0): array|false {
+    $BUFFER_MINS = 15;
+    $startTime = new DateTime($start);
+    $endTime   = new DateTime($end);
+
+    // 1. Check Technician Conflict
+    $existing = $pdo->prepare("
+        SELECT wo_id, wo_number, scheduled_start, scheduled_end
         FROM work_orders
         WHERE assigned_to = ?
           AND wo_id != ?
           AND status NOT IN ('closed', 'cancelled')
-          AND scheduled_start < ?
-          AND scheduled_end > ?
-        LIMIT 1
+          AND DATE(scheduled_start) = DATE(?)
     ");
-    $stmt->execute([$assigned_to, $exclude_wo_id, $end, $start]);
-    return $stmt->fetch();
+    $existing->execute([$assigned_to, $exclude_wo_id, $start]);
+    $jobs = $existing->fetchAll();
+
+    foreach ($jobs as $job) {
+        $jStart = new DateTime($job['scheduled_start']);
+        $jEnd   = new DateTime($job['scheduled_end']);
+        $totalBuffer = $BUFFER_MINS + 15; 
+        $jStartWithBuffer = (clone $jStart)->modify("-{$totalBuffer} minutes");
+        $jEndWithBuffer   = (clone $jEnd)->modify("+{$totalBuffer} minutes");
+
+        if ($startTime < $jEndWithBuffer && $endTime > $jStartWithBuffer) {
+            return ['type' => 'technician', 'data' => $job];
+        }
+    }
+
+    // 2. Check Room Conflict
+    if ($ticket_id > 0) {
+        $locStmt = $pdo->prepare("SELECT location_id FROM tickets WHERE ticket_id = ?");
+        $locStmt->execute([$ticket_id]);
+        $locId = $locStmt->fetchColumn();
+
+        if ($locId) {
+            $roomQuery = $pdo->prepare("
+                SELECT wo.wo_id, wo.wo_number, wo.scheduled_start, wo.scheduled_end
+                FROM work_orders wo
+                JOIN tickets t ON wo.ticket_id = t.ticket_id
+                WHERE t.location_id = ?
+                  AND wo.wo_id != ?
+                  AND wo.status NOT IN ('closed', 'cancelled')
+                  AND DATE(wo.scheduled_start) = DATE(?)
+            ");
+            $roomQuery->execute([$locId, $exclude_wo_id, $start]);
+            $roomJobs = $roomQuery->fetchAll();
+
+            foreach ($roomJobs as $job) {
+                $jStart = new DateTime($job['scheduled_start']);
+                $jEnd   = new DateTime($job['scheduled_end']);
+                // Rooms don't strictly need "travel time" but might need "setup/reset buffer"
+                $jStartWithBuffer = (clone $jStart)->modify("-{$BUFFER_MINS} minutes");
+                $jEndWithBuffer   = (clone $jEnd)->modify("+{$BUFFER_MINS} minutes");
+
+                if ($startTime < $jEndWithBuffer && $endTime > $jStartWithBuffer) {
+                    return ['type' => 'room', 'data' => $job];
+                }
+            }
+        }
+    }
+
+    return false;
 }
 
 // ── Assignment History ────────────────────────────────────────
@@ -315,11 +364,20 @@ function get_all_technicians(PDO $pdo): array {
 function get_available_tickets(PDO $pdo): array {
     return $pdo->query("
         SELECT t.ticket_id, t.ticket_number, t.title, t.priority,
-               a.asset_tag
+               a.asset_tag, t.warranty_status
         FROM tickets t
         LEFT JOIN assets a ON t.asset_id = a.asset_id
         WHERE t.status NOT IN ('closed','cancelled')
         ORDER BY t.created_at DESC
+    ")->fetchAll();
+}
+
+function get_all_parts(PDO $pdo): array {
+    return $pdo->query("
+        SELECT part_id, part_number, part_name, quantity_on_hand, unit_cost
+        FROM parts_inventory
+        WHERE is_active = 1
+        ORDER BY part_name ASC
     ")->fetchAll();
 }
 
@@ -413,6 +471,24 @@ function update_work_order(PDO $pdo, int $id, array $d): void {
         $d['resolution_notes'] ?: null,
         $id,
     ]);
+}
+
+function set_wo_parts(PDO $pdo, int $wo_id, array $parts, int $user_id): void {
+    // Clear existing (pre-allocated) parts first if updating
+    $pdo->prepare("DELETE FROM wo_parts_used WHERE wo_id = ?")->execute([$wo_id]);
+    
+    if (empty($parts)) return;
+
+    $stmt = $pdo->prepare("
+        INSERT INTO wo_parts_used (wo_id, part_id, quantity_used, used_by, used_at)
+        VALUES (?, ?, ?, ?, NOW())
+    ");
+
+    foreach ($parts as $p) {
+        if (!empty($p['id']) && !empty($p['qty'])) {
+            $stmt->execute([$wo_id, $p['id'], $p['qty'], $user_id]);
+        }
+    }
 }
 
 function reassign_wo(PDO $pdo, int $wo_id, int $to, int $by, string $reason): void {

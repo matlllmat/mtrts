@@ -364,11 +364,11 @@ function get_audit_logs(PDO $pdo, array $f = [], int $page = 1, int $per = 20): 
         $params[] = $f['object_type'];
     }
     if (!empty($f['date_from'])) {
-        $where[] = "created_at >= ?";
+        $where[] = "l.created_at >= ?";
         $params[] = $f['date_from'] . ' 00:00:00';
     }
     if (!empty($f['date_to'])) {
-        $where[] = "created_at <= ?";
+        $where[] = "l.created_at <= ?";
         $params[] = $f['date_to'] . ' 23:59:59';
     }
 
@@ -384,7 +384,31 @@ function get_audit_logs(PDO $pdo, array $f = [], int $page = 1, int $per = 20): 
         LIMIT $per OFFSET $offset
     ");
     $stmt->execute($params);
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // PII Masking for non-admins
+    if (session_status() === PHP_SESSION_NONE) session_start();
+    $is_admin = isset($_SESSION['role_id']) && $_SESSION['role_id'] == 1;
+    
+    if (!$is_admin) {
+        foreach ($logs as &$log) {
+            if (!empty($log['new_values'])) {
+                $log['new_values'] = mask_pii($log['new_values']);
+            }
+        }
+    }
+    return $logs;
+}
+
+/**
+ * Helper to mask PII in strings
+ */
+function mask_pii(string $str): string {
+    // Mask emails
+    $str = preg_replace('/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,4}/i', '***@***.***', $str);
+    // Mask phone numbers
+    $str = preg_replace('/(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/', '***-***-****', $str);
+    return $str;
 }
 
 /**
@@ -452,4 +476,54 @@ function get_drilldown_tickets(PDO $pdo, string $type, string $start_date, strin
     $stmt = $pdo->prepare($base_query);
     $stmt->execute($params);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+/**
+ * Location Heatmap: Building/Room with most tickets
+ */
+function get_location_heatmap(PDO $pdo): array {
+    return $pdo->query("
+        SELECT l.building, l.room, COUNT(t.ticket_id) as ticket_count
+        FROM tickets t
+        JOIN locations l ON t.location_id = l.location_id
+        GROUP BY l.location_id
+        ORDER BY ticket_count DESC
+        LIMIT 10
+    ")->fetchAll(PDO::FETCH_ASSOC);
+}
+
+/**
+ * Warranty Exposure: Assets with warranty expiring in next 90 days
+ */
+function get_warranty_exposure(PDO $pdo): array {
+    return $pdo->query("
+        SELECT a.asset_tag, a.model, a.manufacturer, w.warranty_end as warranty_expiry
+        FROM assets a
+        JOIN asset_warranty w ON a.asset_id = w.asset_id
+        WHERE w.warranty_end >= CURDATE()
+          AND w.warranty_end <= DATE_ADD(CURDATE(), INTERVAL 90 DAY)
+        ORDER BY w.warranty_end ASC
+        LIMIT 10
+    ")->fetchAll(PDO::FETCH_ASSOC);
+}
+
+/**
+ * Active Escalations: Breached tickets that are still open
+ */
+function get_active_escalations(PDO $pdo): array {
+    return $pdo->query("
+        SELECT t.ticket_id, t.ticket_number, u.full_name as assignee,
+               ts.is_response_breached, ts.is_resolution_breached,
+               CASE 
+                 WHEN ts.is_resolution_breached = 1 THEN ts.resolution_due 
+                 ELSE ts.response_due 
+               END as deadline
+        FROM ticket_sla ts
+        JOIN tickets t ON ts.ticket_id = t.ticket_id
+        LEFT JOIN users u ON t.assigned_to = u.user_id
+        WHERE (ts.is_response_breached = 1 OR ts.is_resolution_breached = 1)
+          AND t.status NOT IN ('resolved', 'closed', 'cancelled')
+        ORDER BY deadline ASC
+        LIMIT 10
+    ")->fetchAll(PDO::FETCH_ASSOC);
 }

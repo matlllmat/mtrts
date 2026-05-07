@@ -76,7 +76,7 @@
             <?php if ($wo['ticket_number']): ?>
               <div class="vf-val vf-mono"><?= htmlspecialchars($wo['ticket_number']) ?></div>
             <?php else: ?>
-              <div class="vf-empty">Direct Work Order</div>
+              <div class="text-red-400 text-xs font-bold italic">Unlinked — Ticket Required</div>
             <?php endif; ?>
           </div>
           <div>

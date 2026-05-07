@@ -182,7 +182,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     exit;
 }
 
-
+switch ($action) {
     case 'json_batch_sync':
         // Handle JSON batch sync for non-blob items
         $results = [];

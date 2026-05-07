@@ -5,6 +5,7 @@
 $module = 'workorders';
 require_once __DIR__ . '/../../config/auth_only.php';
 require_once __DIR__ . '/functions.php';
+require_once __DIR__ . '/../../config/sla.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: index.php');
@@ -18,6 +19,10 @@ $data    = sanitize_wo_post($_POST, $user_id);
 $errors  = [];
 
 // ── Validation ────────────────────────────────────────────────
+
+if (empty($data['ticket_id'])) {
+    $errors['ticket_id'] = 'Work order must be linked to a valid ticket.';
+}
 
 if (empty($data['wo_type'])) {
     $errors['wo_type'] = 'Work order type is required.';
@@ -37,11 +42,14 @@ if ($is_edit && $data['status'] === 'on_hold' && empty($data['on_hold_reason']))
 
 // Double booking prevention
 if ($data['assigned_to'] && $data['scheduled_start'] && $data['scheduled_end']) {
-    $conflict = check_wo_conflict($pdo, $data['assigned_to'], $data['scheduled_start'], $data['scheduled_end'], $wo_id);
+    $conflict = check_wo_conflict($pdo, $data['assigned_to'], $data['scheduled_start'], $data['scheduled_end'], $wo_id, $data['ticket_id']);
     if ($conflict) {
-        $c_start = (new DateTime($conflict['scheduled_start']))->format('M j, g:ia');
-        $c_end = (new DateTime($conflict['scheduled_end']))->format('M j, g:ia');
-        $errors['assigned_to'] = "Conflict: Technician is already booked for {$conflict['wo_number']} from $c_start to $c_end.";
+        $type = $conflict['type'];
+        $c_data = $conflict['data'];
+        $c_start = (new DateTime($c_data['scheduled_start']))->format('M j, g:ia');
+        $c_end = (new DateTime($c_data['scheduled_end']))->format('M j, g:ia');
+        $prefix = ($type === 'technician') ? "Technician conflict" : "Room conflict";
+        $errors['assigned_to'] = "⚠️ $prefix: {$c_data['wo_number']} is booked from $c_start to $c_end.";
     }
 }
 
@@ -81,6 +89,7 @@ if ($is_edit) {
     $old_assignee = $old_wo['assigned_to'] ?? null;
 
     update_work_order($pdo, $wo_id, $data);
+    set_wo_parts($pdo, $wo_id, $_POST['parts'] ?? [], $user_id);
 
     // If assignment changed, log it and notify
     if ($data['assigned_to'] && $data['assigned_to'] != $old_assignee) {
@@ -108,6 +117,7 @@ if ($is_edit) {
     }
 } else {
     $wo_id = create_work_order($pdo, $data);
+    set_wo_parts($pdo, $wo_id, $_POST['parts'] ?? [], $user_id);
 
     // Notify assigned technician
     if ($data['assigned_to']) {
@@ -122,6 +132,14 @@ if ($is_edit) {
             BASE_URL . 'modules/workorders/view.php?id=' . $wo_id
         );
     }
+}
+
+// Sync Ticket Status and update SLA Clock
+if (!empty($data['ticket_id'])) {
+    $status = $data['status'] ?? 'new';
+    // Map WO status to Ticket status if needed
+    // For now, assume they sync for SLA purposes
+    update_ticket_sla($pdo, $data['ticket_id'], $status);
 }
 
 header('Location: ' . BASE_URL . 'modules/workorders/view.php?id=' . $wo_id);
