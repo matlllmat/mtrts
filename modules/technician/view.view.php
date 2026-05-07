@@ -1316,7 +1316,8 @@ function updateCompletionBadges() {
   let manualDone = 0;
   if (window.draft && window.draft.checklist) {
     manualItems.forEach(item => {
-      if (window.draft.checklist[item.id]) manualDone++;
+      const id = item.id || item.item_id;
+      if (id && window.draft.checklist[id]) manualDone++;
     });
   } else {
     manualDone = manualItems.filter(c => c.is_done).length;

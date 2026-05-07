@@ -256,13 +256,13 @@ switch ($action) {
         }
         
         foreach (array_keys($itemIds) as $itemId) {
-          $itemAction = $_POST["item_${itemId}_action"] ?? '';
-          $woId = (int)($_POST["item_${itemId}_wo_id"] ?? 0);
+          $itemAction = $_POST["item_{itemId}_action"] ?? '';
+          $woId = (int)($_POST["item_{itemId}_wo_id"] ?? 0);
           
           if ($itemAction === 'evidence_add') {
-            $side = $_POST["item_${itemId}_side"] ?? '';
-            $kind = $_POST["item_${itemId}_kind"] ?? 'image';
-            $name = $_POST["item_${itemId}_name"] ?? '';
+            $side = $_POST["item_{itemId}_side"] ?? '';
+            $kind = $_POST["item_{itemId}_kind"] ?? 'image';
+            $name = $_POST["item_{itemId}_name"] ?? '';
             
             // Map side to proper media_type so DB ENUM and auto-verify work correctly
             $media_type = match(strtolower(trim($side))) {
@@ -271,8 +271,8 @@ switch ($action) {
                 default  => ($kind === 'video' ? 'video' : 'evidence'),
             };
             
-            if (isset($_FILES["item_${itemId}_file"])) {
-              $file = $_FILES["item_${itemId}_file"];
+            if (isset($_FILES["item_{itemId}_file"])) {
+              $file = $_FILES["item_{itemId}_file"];
               
               // Validate file type and size
               $validation = validateUploadedFile($file, $kind);
@@ -294,7 +294,7 @@ switch ($action) {
               $file_path = $upload_dir . $filename;
               
               if (move_uploaded_file($file['tmp_name'], $file_path)) {
-                $serverUrl = BASE_URL . 'modules/technician/uploads/evidence/' . $woId . '/' . $filename;
+                $serverUrl = rtrim(BASE_URL, '/') . '/modules/technician/uploads/evidence/' . $woId . '/' . $filename;
                 // Pass side as caption for additional context
                 $caption = $name ?: $side;
                 save_work_order_media($pdo, $woId, $media_type, $serverUrl, $file['type'], (int)ceil(filesize($file_path) / 1024), $caption);
@@ -306,10 +306,10 @@ switch ($action) {
               $results[] = ['id' => $itemId, 'ok' => false, 'action' => 'evidence_add', 'error' => 'No file'];
             }
           } elseif ($itemAction === 'config_add') {
-            $name = $_POST["item_${itemId}_name"] ?? '';
+            $name = $_POST["item_{itemId}_name"] ?? '';
             
-            if (isset($_FILES["item_${itemId}_file"])) {
-              $file = $_FILES["item_${itemId}_file"];
+            if (isset($_FILES["item_{itemId}_file"])) {
+              $file = $_FILES["item_{itemId}_file"];
               
               // Validate file type and size (config includes logs and backups)
               $validation = validateUploadedFile($file, 'config');
@@ -329,7 +329,7 @@ switch ($action) {
               $file_path = $upload_dir . $filename;
               
             if (move_uploaded_file($file['tmp_name'], $file_path)) {
-                $serverUrl = BASE_URL . 'modules/technician/uploads/config/' . $woId . '/' . $filename;
+                $serverUrl = rtrim(BASE_URL, '/') . '/modules/technician/uploads/config/' . $woId . '/' . $filename;
                 save_work_order_media($pdo, $woId, 'config', $serverUrl, $file['type'], (int)ceil(filesize($file_path) / 1024), $name);
                 $results[] = ['id' => $itemId, 'ok' => true, 'action' => 'config_add', 'serverUrl' => $serverUrl];
               } else {
@@ -340,8 +340,8 @@ switch ($action) {
             }
           } elseif ($itemAction === 'checklist_update') {
             // Process checklist updates in batch sync
-            $itemIdField = (int)($_POST["item_${itemId}_itemId"] ?? 0);
-            $completed = filter_var($_POST["item_${itemId}_completed"] ?? false, FILTER_VALIDATE_BOOLEAN);
+            $itemIdField = (int)($_POST["item_{itemId}_itemId"] ?? 0);
+            $completed = filter_var($_POST["item_{itemId}_completed"] ?? false, FILTER_VALIDATE_BOOLEAN);
             if ($woId && $itemIdField) {
               update_checklist_completion($pdo, $woId, $itemIdField, $completed);
               $results[] = ['id' => $itemId, 'ok' => true, 'action' => $itemAction];
@@ -350,8 +350,8 @@ switch ($action) {
             }
           } elseif ($itemAction === 'safety_update') {
             // Process safety updates in batch sync
-            $safetyIdField = (int)($_POST["item_${itemId}_safetyId"] ?? 0);
-            $completed = filter_var($_POST["item_${itemId}_completed"] ?? false, FILTER_VALIDATE_BOOLEAN);
+            $safetyIdField = (int)($_POST["item_{itemId}_safetyId"] ?? 0);
+            $completed = filter_var($_POST["item_{itemId}_completed"] ?? false, FILTER_VALIDATE_BOOLEAN);
             if ($woId && $safetyIdField) {
               update_safety_completion($pdo, $woId, $safetyIdField, $completed);
               $results[] = ['id' => $itemId, 'ok' => true, 'action' => $itemAction];
@@ -466,7 +466,7 @@ switch ($action) {
             $side_tag = in_array(strtolower($side), ['before','after']) ? '_' . strtolower($side) : '';
             $filename = pathinfo($file['name'], PATHINFO_FILENAME) . $side_tag . '_' . time() . '.' . pathinfo($file['name'], PATHINFO_EXTENSION);
             $file_path = $upload_dir . basename($filename);
-            $serverUrl = BASE_URL . 'modules/technician/uploads/evidence/' . $wo_id . '/' . basename($filename);
+            $serverUrl = rtrim(BASE_URL, '/') . '/modules/technician/uploads/evidence/' . $wo_id . '/' . basename($filename);
             
             if (move_uploaded_file($file['tmp_name'], $file_path)) {
                 save_work_order_media($pdo, $wo_id, $media_type, $serverUrl, $file['type'], (int)ceil(filesize($file_path) / 1024), $name ?: $side);
@@ -489,7 +489,7 @@ switch ($action) {
             $upload_dir = __DIR__ . '/../uploads/config/' . $wo_id . '/';
             if (!is_dir($upload_dir)) { mkdir($upload_dir, 0755, true); }
             $file_path = $upload_dir . basename($file['name']);
-            $serverUrl = BASE_URL . 'modules/technician/uploads/config/' . $wo_id . '/' . basename($file['name']);
+            $serverUrl = rtrim(BASE_URL, '/') . '/modules/technician/uploads/config/' . $wo_id . '/' . basename($file['name']);
             
             if (move_uploaded_file($file['tmp_name'], $file_path)) {
                 save_work_order_media($pdo, $wo_id, 'config', $serverUrl, $file['type'], filesize($file_path), $name);

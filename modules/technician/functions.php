@@ -478,13 +478,20 @@ function complete_work_order_transactional(PDO $pdo, array $payload, int $techni
 
     // Signature path is required in some schemas, so always provide a value.
     $signature_path = 'data:inline';
-    if ($signature_data_url && str_starts_with($signature_data_url, 'data:image/')) {
+    if ($signature_data_url && preg_match('/^data:image\/[a-z]+;base64,/', $signature_data_url)) {
         $upload_dir = __DIR__ . '/uploads/signatures/' . $wo_id . '/';
-        if (!is_dir($upload_dir)) { mkdir($upload_dir, 0755, true); }
+        if (!is_dir($upload_dir)) { 
+            if (!mkdir($upload_dir, 0755, true)) {
+                tech_dbg('H_COMPLETE', 'modules/technician/functions.php:mkdir_fail', 'Failed to create signature directory', ['dir' => $upload_dir]);
+            }
+        }
         $img_data = base64_decode(preg_replace('/^data:image\/\w+;base64,/', '', $signature_data_url));
         $filename = 'signoff_' . time() . '.png';
-        file_put_contents($upload_dir . $filename, $img_data);
-        $signature_path = BASE_URL . 'modules/technician/uploads/signatures/' . $wo_id . '/' . $filename;
+        if (file_put_contents($upload_dir . $filename, $img_data) === false) {
+            tech_dbg('H_COMPLETE', 'modules/technician/functions.php:save_fail', 'Failed to save signature file', ['path' => $upload_dir . $filename]);
+        } else {
+            $signature_path = rtrim(BASE_URL, '/') . '/modules/technician/uploads/signatures/' . $wo_id . '/' . $filename;
+        }
     }
 
     $pdo->beginTransaction();
