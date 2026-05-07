@@ -108,7 +108,10 @@ function get_ticket_by_id(PDO $pdo, int $id): array|false {
                a.asset_tag AS asset_tag_linked, a.manufacturer, a.model AS asset_model,
                c.category_name,
                l.building, l.floor, l.room,
+<<<<<<< HEAD
                w.warranty_end,
+=======
+>>>>>>> 0b371872eff460cdb0693a941470db1c568d6a04
                u_assign.full_name AS assigned_to_name,
                u_app.full_name AS approved_by_name
         FROM tickets t
@@ -117,12 +120,16 @@ function get_ticket_by_id(PDO $pdo, int $id): array|false {
         LEFT JOIN assets a           ON t.asset_id = a.asset_id
         LEFT JOIN asset_categories c ON t.category_id = c.category_id
         LEFT JOIN locations l        ON t.location_id = l.location_id
+<<<<<<< HEAD
         LEFT JOIN asset_warranty w   ON a.asset_id = w.asset_id
+=======
+>>>>>>> 0b371872eff460cdb0693a941470db1c568d6a04
         LEFT JOIN users u_assign     ON t.assigned_to = u_assign.user_id
         LEFT JOIN users u_app        ON t.approved_by = u_app.user_id
         WHERE t.ticket_id = ?
     ");
     $stmt->execute([$id]);
+<<<<<<< HEAD
     $t = $stmt->fetch();
     
     if ($t && $t['warranty_end']) {
@@ -136,6 +143,9 @@ function get_ticket_by_id(PDO $pdo, int $id): array|false {
     }
     
     return $t;
+=======
+    return $stmt->fetch();
+>>>>>>> 0b371872eff460cdb0693a941470db1c568d6a04
 }
 
 // ── Attachments, Comments & Dynamic Fields ────────────────────

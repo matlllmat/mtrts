@@ -81,6 +81,7 @@
              </button>
            </div>
         </div>
+<<<<<<< HEAD
 
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Category <span class="text-red-500">*</span></label>
@@ -112,6 +113,8 @@
           <input type="text" name="category_others" id="category-others" class="fin w-full" placeholder="Specify category/issue">
         </div>
 
+=======
+>>>>>>> 0b371872eff460cdb0693a941470db1c568d6a04
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Model</label>
           <input type="text" name="model" id="input-model" 
@@ -126,6 +129,7 @@
                  readonly placeholder="Auto-filled from Asset ID" 
                  class="fin w-full bg-gray-50 border-gray-200 text-gray-600 cursor-not-allowed">
         </div>
+<<<<<<< HEAD
 
         <div id="dynamic-fields-container" class="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg border border-gray-200 hidden">
           <div id="df-bulb-hours" class="hidden">
@@ -137,12 +141,24 @@
             <input type="text" name="dynamic_fields[input_source]" value="<?= htmlspecialchars($dynamic_fields['input_source'] ?? '') ?>" class="fin w-full" placeholder="e.g. HDMI, VGA">
           </div>
         </div>
+=======
+>>>>>>> 0b371872eff460cdb0693a941470db1c568d6a04
       </div>
     </div>
 
     <!-- 3. Request Details -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 md:p-6">
+<<<<<<< HEAD
       <h3 class="text-base font-bold text-gray-900 mb-4 pb-2 border-b border-gray-100">3. Request Details</h3>
+=======
+      <div class="flex items-center justify-between mb-4 pb-2 border-b border-gray-100">
+        <h3 class="text-base font-bold text-gray-900">3. Request Details</h3>
+        <button type="button" onclick="document.getElementById('sla-policy-modal').classList.remove('hidden')" class="text-xs font-bold text-olfu-green hover:bg-green-50 px-2 py-1 rounded border border-green-200 transition-all flex items-center gap-1">
+           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+           View Service Standards
+        </button>
+      </div>
+>>>>>>> 0b371872eff460cdb0693a941470db1c568d6a04
       
       <div class="space-y-4">
         <div>
@@ -153,6 +169,38 @@
         
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
+<<<<<<< HEAD
+=======
+            <label class="block text-sm font-medium text-gray-700 mb-1">Category <span class="text-red-500">*</span></label>
+            <select name="category_id" id="category-select" class="fsel w-full" required onchange="checkCategoryOthers(this)">
+              <option value="">-- Select Category --</option>
+              <?php foreach ($categories as $c): ?>
+                <option value="<?= $c['category_id'] ?>" data-name="<?= htmlspecialchars($c['category_name']) ?>" data-bulb="<?= $c['has_bulb_hours'] ?>" <?= ($t['category_id'] ?? 0) == $c['category_id'] ? 'selected' : '' ?>>
+                  <?= htmlspecialchars($c['category_name']) ?>
+                </option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+          <div id="others-specify-container" class="hidden">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Others, please specify <span class="text-red-500">*</span></label>
+            <input type="text" name="category_others" id="category-others" class="fin w-full" placeholder="Specify category/issue">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
+              Location / Room <span class="text-red-500">*</span>
+              <svg onclick="showHelp('Location', 'The exact room where the issue is. This helps us calculate travel time and locate the asset.')" class="w-3.5 h-3.5 text-gray-400 cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            </label>
+            <select name="location_id" id="location-select" class="fsel w-full" required>
+              <option value="">-- Select Room --</option>
+              <?php foreach ($locations as $l): ?>
+                <option value="<?= $l['location_id'] ?>" <?= ($t['location_id'] ?? 0) == $l['location_id'] ? 'selected' : '' ?>>
+                  <?= htmlspecialchars($l['building'] . ' - ' . $l['room']) ?>
+                </option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+          <div>
+>>>>>>> 0b371872eff460cdb0693a941470db1c568d6a04
             <label class="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
               Request Type <span class="text-red-500">*</span>
               <svg onclick="showHelp('Request Type', 'Standard Repair: Fix broken gear. \nEvent Support: Live technical assistance for classes/events. \nMaintenance: Non-urgent cleanup/updates.')" class="w-3.5 h-3.5 text-gray-400 cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -189,6 +237,20 @@
           </div>
         </div>
 
+<<<<<<< HEAD
+=======
+        <div id="dynamic-fields-container" class="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg border border-gray-200 hidden">
+          <div id="df-bulb-hours" class="hidden">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Bulb Hours</label>
+            <input type="number" name="dynamic_fields[bulb_hours]" value="<?= htmlspecialchars($dynamic_fields['bulb_hours'] ?? '') ?>" class="fin w-full" placeholder="Enter hours">
+          </div>
+          <div id="df-input-source" class="hidden">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Input Source</label>
+            <input type="text" name="dynamic_fields[input_source]" value="<?= htmlspecialchars($dynamic_fields['input_source'] ?? '') ?>" class="fin w-full" placeholder="e.g. HDMI, VGA">
+          </div>
+        </div>
+
+>>>>>>> 0b371872eff460cdb0693a941470db1c568d6a04
         <div class="pt-2">
           <div class="flex items-start gap-3 p-3 rounded-lg border border-red-100 bg-red-50">
             <div class="pt-0.5">
@@ -431,13 +493,17 @@ function closeKbModal() {
 
 assetTagInput.addEventListener('change', function() {
   const val = this.value.trim();
+<<<<<<< HEAD
   const catSel = document.getElementById('category-select');
   const locSel = document.querySelector('select[name="location_id"]');
 
+=======
+>>>>>>> 0b371872eff460cdb0693a941470db1c568d6a04
   if (!val) {
     modelInput.value = '';
     warrantyInput.value = '';
     hiddenAssetId.value = '';
+<<<<<<< HEAD
     
     // Make selects editable again
     if (catSel) {
@@ -448,6 +514,8 @@ assetTagInput.addEventListener('change', function() {
         locSel.classList.remove('bg-gray-50', 'text-gray-600', 'cursor-not-allowed');
         locSel.style.pointerEvents = '';
     }
+=======
+>>>>>>> 0b371872eff460cdb0693a941470db1c568d6a04
     return;
   }
   
@@ -467,6 +535,7 @@ assetTagInput.addEventListener('change', function() {
   fetch(`asset_lookup.php?asset_tag=${encodeURIComponent(val)}`)
     .then(res => res.json())
     .then(data => {
+<<<<<<< HEAD
       if (data.success || data.asset_id) {
         const d = data.success ? data : data; // Handle both wrapper or direct
         hiddenAssetId.value = d.asset_id;
@@ -484,6 +553,22 @@ assetTagInput.addEventListener('change', function() {
             locSel.value = d.location_id;
             locSel.classList.add('bg-gray-50', 'text-gray-600', 'cursor-not-allowed');
             locSel.style.pointerEvents = 'none';
+=======
+      if (data.success) {
+        hiddenAssetId.value = data.asset_id;
+        modelInput.value = data.model;
+        warrantyInput.value = data.warranty_status;
+        
+        // Auto-select category and location if available
+        if (data.category_id) {
+            const catSel = document.getElementById('category-select');
+            catSel.value = data.category_id;
+            catSel.dispatchEvent(new Event('change'));
+        }
+        if (data.location_id) {
+            const locSel = document.querySelector('select[name="location_id"]');
+            if (locSel) locSel.value = data.location_id;
+>>>>>>> 0b371872eff460cdb0693a941470db1c568d6a04
         }
         
         const titleInput = document.querySelector('input[name="title"]');
@@ -495,6 +580,7 @@ assetTagInput.addEventListener('change', function() {
         modelInput.value = '';
         warrantyInput.value = '';
         hiddenAssetId.value = '';
+<<<<<<< HEAD
         if (catSel) {
             catSel.classList.remove('bg-gray-50', 'text-gray-600', 'cursor-not-allowed');
             catSel.style.pointerEvents = '';
@@ -503,6 +589,8 @@ assetTagInput.addEventListener('change', function() {
             locSel.classList.remove('bg-gray-50', 'text-gray-600', 'cursor-not-allowed');
             locSel.style.pointerEvents = '';
         }
+=======
+>>>>>>> 0b371872eff460cdb0693a941470db1c568d6a04
       }
     })
     .catch(err => console.error('Error fetching asset details:', err));
@@ -511,9 +599,12 @@ assetTagInput.addEventListener('change', function() {
 assetTagInput.addEventListener('input', function() {
   const val = this.value.trim();
   const opts = assetList.options;
+<<<<<<< HEAD
   const catSel = document.getElementById('category-select');
   const locSel = document.querySelector('select[name="location_id"]');
   
+=======
+>>>>>>> 0b371872eff460cdb0693a941470db1c568d6a04
   let found = false;
   for (let i = 0; i < opts.length; i++) {
     if (opts[i].value === val) {
@@ -528,6 +619,7 @@ assetTagInput.addEventListener('input', function() {
     if (val === '') {
         modelInput.value = '';
         warrantyInput.value = '';
+<<<<<<< HEAD
         if (catSel) {
             catSel.classList.remove('bg-gray-50', 'text-gray-600', 'cursor-not-allowed');
             catSel.style.pointerEvents = '';
@@ -536,6 +628,8 @@ assetTagInput.addEventListener('input', function() {
             locSel.classList.remove('bg-gray-50', 'text-gray-600', 'cursor-not-allowed');
             locSel.style.pointerEvents = '';
         }
+=======
+>>>>>>> 0b371872eff460cdb0693a941470db1c568d6a04
     }
   }
 });
@@ -545,6 +639,7 @@ if (categorySelect) {
   categorySelect.addEventListener('change', function() { checkCategoryOthers(this); });
   // Initialize on load
   checkCategoryOthers(categorySelect);
+<<<<<<< HEAD
   
   // Initial lock if asset is already pre-filled (e.g. in Edit mode or from URL)
   if (hiddenAssetId.value) {
@@ -556,6 +651,8 @@ if (categorySelect) {
           locSel.style.pointerEvents = 'none';
       }
   }
+=======
+>>>>>>> 0b371872eff460cdb0693a941470db1c568d6a04
 }
 updateFormBehavior();
 
@@ -598,15 +695,21 @@ function fillAssetFromLookup(data) {
   if (data.category_id && categorySelect) {
     categorySelect.value = data.category_id;
     categorySelect.dispatchEvent(new Event('change'));
+<<<<<<< HEAD
     categorySelect.classList.add('bg-gray-50', 'text-gray-600', 'cursor-not-allowed');
     categorySelect.style.pointerEvents = 'none';
+=======
+>>>>>>> 0b371872eff460cdb0693a941470db1c568d6a04
   }
 
   const locSelect = document.getElementById('location-select');
   if (data.location_id && locSelect) {
     locSelect.value = data.location_id;
+<<<<<<< HEAD
     locSelect.classList.add('bg-gray-50', 'text-gray-600', 'cursor-not-allowed');
     locSelect.style.pointerEvents = 'none';
+=======
+>>>>>>> 0b371872eff460cdb0693a941470db1c568d6a04
   }
 
   if (modelInput)   modelInput.value   = data.model            || '';
@@ -741,3 +844,74 @@ function showHelp(title, content) {
   document.body.style.overflow = 'hidden';
 }
 </script>
+<<<<<<< HEAD
+=======
+
+<!-- SLA Policy Info Modal -->
+<div id="sla-policy-modal" class="fixed inset-0 z-[120] hidden flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+      <h3 class="font-bold text-gray-900">MTRTS Service Level Standards</h3>
+      <button type="button" onclick="document.getElementById('sla-policy-modal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 transition-colors">
+        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
+      </button>
+    </div>
+    <div class="p-6 max-h-[70vh] overflow-y-auto">
+      <p class="text-sm text-gray-600 mb-6 leading-relaxed">
+        Our SLA (Service Level Agreement) ensures that all technical requests are handled based on their urgency and impact. 
+        Deadlines are calculated based on <span class="font-bold text-gray-800">Business Hours</span> (Mon-Fri, 8AM - 5PM).
+      </p>
+
+      <div class="overflow-x-auto rounded-xl border border-gray-100 shadow-sm">
+        <table class="w-full text-left border-collapse">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Priority / Policy</th>
+              <th class="py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Response</th>
+              <th class="py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Diagnosis</th>
+              <th class="py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Resolution</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            <?php foreach ($sla_policies ?? [] as $policy): ?>
+              <tr class="hover:bg-gray-50 transition-colors">
+                <td class="py-3 px-4">
+                  <div class="flex flex-col">
+                    <span class="text-sm font-bold text-gray-900"><?= htmlspecialchars($policy['policy_name']) ?></span>
+                    <span class="text-[10px] font-bold uppercase tracking-widest text-gray-400"><?= htmlspecialchars($policy['priority'] ?? 'General') ?></span>
+                  </div>
+                </td>
+                <td class="py-3 px-4 text-center">
+                  <span class="text-sm font-medium text-gray-600"><?= $policy['response_minutes'] >= 60 ? floor($policy['response_minutes']/60).'h '.($policy['response_minutes']%60).'m' : $policy['response_minutes'].'m' ?></span>
+                </td>
+                <td class="py-3 px-4 text-center">
+                  <span class="text-sm font-medium text-gray-600"><?= $policy['diagnosis_minutes'] >= 60 ? floor($policy['diagnosis_minutes']/60).'h '.($policy['diagnosis_minutes']%60).'m' : $policy['diagnosis_minutes'].'m' ?></span>
+                </td>
+                <td class="py-3 px-4 text-center text-[#1a5c2a] font-bold">
+                  <?= $policy['resolution_minutes'] >= 60 ? floor($policy['resolution_minutes']/60).'h '.($policy['resolution_minutes']%60).'m' : $policy['resolution_minutes'].'m' ?>
+                </td>
+              </tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="mt-6 bg-blue-50 p-4 rounded-xl border border-blue-100">
+        <h4 class="text-xs font-bold text-blue-800 uppercase tracking-wider mb-2 flex items-center gap-1">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          Quick Guide to Priorities
+        </h4>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-[11px] text-blue-700 leading-relaxed">
+          <div><span class="font-bold">Critical:</span> Class is happening NOW. No technical workaround.</div>
+          <div><span class="font-bold">High:</span> Issues affecting multiple students or upcoming classes.</div>
+          <div><span class="font-bold">Medium:</span> Standard repairs that do not halt immediate operations.</div>
+          <div><span class="font-bold">Low:</span> Non-urgent cleanup, updates, or aesthetic fixes.</div>
+        </div>
+      </div>
+    </div>
+    <div class="px-6 py-4 bg-gray-50 text-right">
+      <button type="button" onclick="document.getElementById('sla-policy-modal').classList.add('hidden')" class="bg-[#1a5c2a] text-white px-6 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-[#1f6e32] transition">Close</button>
+    </div>
+  </div>
+</div>
+>>>>>>> 0b371872eff460cdb0693a941470db1c568d6a04

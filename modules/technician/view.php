@@ -138,6 +138,24 @@ $has_after_photo  = !empty(array_filter($media ?? [], fn($m) => ($m['media_type'
 $parts = get_work_order_parts($pdo, $wo_id);
 $signoff = get_work_order_signoff($pdo, $wo_id);
 
+<<<<<<< HEAD
+=======
+// Fetch all active parts from inventory for the browse panel
+try {
+    $stmt_inv = $pdo->prepare("
+        SELECT part_id, part_number, part_name, category,
+               quantity_on_hand, reorder_level, unit_price
+        FROM parts_inventory
+        WHERE is_active = 1
+        ORDER BY category, part_name
+    ");
+    $stmt_inv->execute();
+    $inventory_parts = $stmt_inv->fetchAll(PDO::FETCH_ASSOC);
+} catch (Throwable $e) {
+    $inventory_parts = [];
+}
+
+>>>>>>> 0b371872eff460cdb0693a941470db1c568d6a04
 require __DIR__ . '/view.view.php';
 require_once __DIR__ . '/../../includes/footer.php';
 ?>

@@ -621,6 +621,7 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
           <!-- Category tabs -->
           <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;" id="partsCatTabs">
             <?php
+<<<<<<< HEAD
             $part_cats = [
               'all'        => 'All',
               'cables'     => 'Cables',
@@ -631,6 +632,23 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
               'cooling'    => 'Cooling',
               'mounting'   => 'Mounting',
             ];
+=======
+            // Build category tabs from live DB data; fall back to hardcoded list if empty
+            $part_cats = ['all' => 'All'];
+            foreach (($inventory_parts ?? []) as $_p) {
+                $_cat = strtolower(trim($_p['category'] ?? ''));
+                if ($_cat && !isset($part_cats[$_cat])) {
+                    $part_cats[$_cat] = ucfirst($_cat);
+                }
+            }
+            if (count($part_cats) === 1) {
+                $part_cats = [
+                    'all' => 'All', 'cables' => 'Cables', 'projector' => 'Projector',
+                    'audio' => 'Audio', 'electrical' => 'Electrical',
+                    'electronic' => 'Electronic', 'cooling' => 'Cooling', 'mounting' => 'Mounting',
+                ];
+            }
+>>>>>>> 0b371872eff460cdb0693a941470db1c568d6a04
             foreach ($part_cats as $val => $lbl):
             ?>
             <button type="button"
@@ -1216,6 +1234,20 @@ if ($__wo_json === false) {
 <script>
 window.__WO_ID__   = <?php echo json_encode($wo_id); ?>;
 window.__WO_DATA__ = <?php echo $__wo_json; ?>;
+<<<<<<< HEAD
+=======
+window.__PARTS_INVENTORY__ = <?php
+  echo json_encode(array_map(fn($p) => [
+    'part_id' => (int)$p['part_id'],
+    'name'    => $p['part_name'],
+    'number'  => $p['part_number'],
+    'cat'     => strtolower(trim($p['category'] ?? '')),
+    'qty'     => (int)$p['quantity_on_hand'],
+    'reorder' => (int)$p['reorder_level'],
+    'price'   => (float)($p['unit_price'] ?? 0),
+  ], $inventory_parts ?? []), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+?>;
+>>>>>>> 0b371872eff460cdb0693a941470db1c568d6a04
 
 (function () {
   if (document.querySelector('link[rel="manifest"]')) return;

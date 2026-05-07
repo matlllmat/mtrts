@@ -24,6 +24,10 @@ function get_sla_compliance_stats(PDO $pdo, string $start_date, string $end_date
         FROM tickets t
         LEFT JOIN ticket_sla ts ON t.ticket_id = ts.ticket_id
         WHERE t.created_at >= ? AND t.created_at <= ?
+<<<<<<< HEAD
+=======
+          AND t.status != 'cancelled'
+>>>>>>> 0b371872eff460cdb0693a941470db1c568d6a04
     ");
     $stmt->execute([$start_date . ' 00:00:00', $end_date . ' 23:59:59']);
     return $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
@@ -245,6 +249,10 @@ function get_drilldown_tickets(PDO $pdo, string $type, string $start_date, strin
             
         case 'breaches':
             $base_query .= " AND t.created_at >= ? AND t.created_at <= ?
+<<<<<<< HEAD
+=======
+                             AND t.status != 'cancelled'
+>>>>>>> 0b371872eff460cdb0693a941470db1c568d6a04
                              AND (ts.is_response_breached = 1 OR ts.is_resolution_breached = 1 OR ts.sla_id IS NULL)";
             $params = [$start_date . ' 00:00:00', $end_date . ' 23:59:59'];
             break;

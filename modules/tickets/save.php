@@ -15,7 +15,11 @@ if ($action === 'create') {
     // Basic sanitization
     $description = trim($_POST['description'] ?? '');
     if (!empty($_POST['category_others'])) {
+<<<<<<< HEAD
         $description = "[Category: " . trim($_POST['category_others']) . "]\n" . $description;
+=======
+        $description = "Category: " . trim($_POST['category_others']) . "\n\n" . $description;
+>>>>>>> 0b371872eff460cdb0693a941470db1c568d6a04
     }
 
     $d = [
@@ -25,7 +29,11 @@ if ($action === 'create') {
         'impact'           => $_POST['impact'] ?? 'medium',
         'urgency'          => $_POST['urgency'] ?? 'medium',
         'is_event_support' => isset($_POST['is_event_support']) ? 1 : 0,
+<<<<<<< HEAD
         'category_id'      => ((int)($_POST['category_id'] ?? 0)) ?: null,
+=======
+        'category_id'      => (((int)($_POST['category_id'] ?? 0)) === 999) ? null : (((int)($_POST['category_id'] ?? 0)) ?: null),
+>>>>>>> 0b371872eff460cdb0693a941470db1c568d6a04
         'location_id'      => ((int)($_POST['location_id'] ?? 0)) ?: null,
         'asset_id'         => ((int)($_POST['asset_id'] ?? 0)) ?: null,
         'request_type'     => $_POST['request_type'] ?? 'repair',
@@ -97,7 +105,11 @@ if ($action === 'create') {
         'impact'           => $_POST['impact'] ?? 'medium',
         'urgency'          => $_POST['urgency'] ?? 'medium',
         'is_event_support' => isset($_POST['is_event_support']) ? 1 : 0,
+<<<<<<< HEAD
         'category_id'      => ((int)($_POST['category_id'] ?? 0)) ?: null,
+=======
+        'category_id'      => (((int)($_POST['category_id'] ?? 0)) === 999) ? null : (((int)($_POST['category_id'] ?? 0)) ?: null),
+>>>>>>> 0b371872eff460cdb0693a941470db1c568d6a04
         'location_id'      => ((int)($_POST['location_id'] ?? 0)) ?: null,
         'model'            => trim($_POST['model'] ?? ''),
         'warranty_status'  => trim($_POST['warranty_status'] ?? ''),

@@ -38,6 +38,7 @@ $t = [
     'warranty_status'  => ''
 ];
 
+<<<<<<< HEAD
 // If passing asset_id or asset_tag, fetch asset to auto-fill details
 if ($t['asset_id'] || $t['asset_tag']) {
     $sql = "
@@ -62,6 +63,15 @@ if ($t['asset_id'] || $t['asset_tag']) {
                 ? 'Under Warranty (expires ' . $end->format('Y-m-d') . ')'
                 : 'Warranty Expired (' . $end->format('Y-m-d') . ')';
         }
+=======
+// If passing asset_id, fetch asset to auto-fill category and location
+if ($t['asset_id']) {
+    $stmt = $pdo->prepare("SELECT category_id, location_id FROM assets WHERE asset_id = ?");
+    $stmt->execute([$t['asset_id']]);
+    if ($asset = $stmt->fetch()) {
+        $t['category_id'] = $asset['category_id'];
+        $t['location_id'] = $asset['location_id'];
+>>>>>>> 0b371872eff460cdb0693a941470db1c568d6a04
     }
 }
 
@@ -69,7 +79,12 @@ $categories = get_all_categories($pdo);
 $locations  = get_all_locations($pdo);
 $kb_articles = get_recommended_kb_articles($pdo, $t['category_id']);
 // Only fetch assets if we don't have one pre-filled or maybe we just want to fetch a list
+<<<<<<< HEAD
 $assets     = $pdo->query("SELECT asset_id, asset_tag, serial_number, manufacturer, model FROM assets WHERE status IN ('active', 'spare') ORDER BY asset_tag")->fetchAll();
+=======
+$assets         = $pdo->query("SELECT asset_id, asset_tag, serial_number, manufacturer, model FROM assets WHERE status IN ('active', 'spare') ORDER BY asset_tag")->fetchAll();
+$sla_policies   = $pdo->query("SELECT * FROM sla_policies WHERE is_active = 1 ORDER BY FIELD(priority, 'critical', 'high', 'medium', 'low'), policy_id ASC")->fetchAll();
+>>>>>>> 0b371872eff460cdb0693a941470db1c568d6a04
 
 $dynamic_fields = [];
 $attachments    = [];

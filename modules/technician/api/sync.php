@@ -297,7 +297,11 @@ switch ($action) {
                 continue;
               }
               
+<<<<<<< HEAD
               $upload_dir = __DIR__ . '/../uploads/evidence/' . $woId . '/';
+=======
+              $upload_dir = __DIR__ . '/../../uploads/media/' . strtolower($side ?: 'evidence') . '/' . $woId . '/';
+>>>>>>> 0b371872eff460cdb0693a941470db1c568d6a04
               if (!is_dir($upload_dir)) { mkdir($upload_dir, 0755, true); }
               
               // Sanitize filename and add timestamp to prevent collisions
@@ -310,7 +314,11 @@ switch ($action) {
               $file_path = $upload_dir . $filename;
               
               if (move_uploaded_file($file['tmp_name'], $file_path)) {
+<<<<<<< HEAD
                 $serverUrl = rtrim(BASE_URL, '/') . '/modules/technician/uploads/evidence/' . $woId . '/' . $filename;
+=======
+                $serverUrl = rtrim(BASE_URL, '/') . '/modules/uploads/media/' . strtolower($side ?: 'evidence') . '/' . $woId . '/' . $filename;
+>>>>>>> 0b371872eff460cdb0693a941470db1c568d6a04
                 // Pass side as caption for additional context
                 $caption = $name ?: $side;
                 save_work_order_media($pdo, $woId, $media_type, $serverUrl, $file['type'], (int)ceil(filesize($file_path) / 1024), $caption);
@@ -334,7 +342,11 @@ switch ($action) {
                 continue;
               }
               
+<<<<<<< HEAD
               $upload_dir = __DIR__ . '/../uploads/config/' . $woId . '/';
+=======
+              $upload_dir = __DIR__ . '/../../uploads/media/config/' . $woId . '/';
+>>>>>>> 0b371872eff460cdb0693a941470db1c568d6a04
               if (!is_dir($upload_dir)) { mkdir($upload_dir, 0755, true); }
               
               // Sanitize filename and add timestamp to prevent collisions
@@ -345,7 +357,11 @@ switch ($action) {
               $file_path = $upload_dir . $filename;
               
             if (move_uploaded_file($file['tmp_name'], $file_path)) {
+<<<<<<< HEAD
                 $serverUrl = rtrim(BASE_URL, '/') . '/modules/technician/uploads/config/' . $woId . '/' . $filename;
+=======
+                $serverUrl = rtrim(BASE_URL, '/') . '/modules/uploads/media/config/' . $woId . '/' . $filename;
+>>>>>>> 0b371872eff460cdb0693a941470db1c568d6a04
                 save_work_order_media($pdo, $woId, 'config', $serverUrl, $file['type'], (int)ceil(filesize($file_path) / 1024), $name);
                 $results[] = ['id' => $itemId, 'ok' => true, 'action' => 'config_add', 'serverUrl' => $serverUrl];
               } else {
@@ -400,12 +416,41 @@ switch ($action) {
         break;
 
     case 'time_stop':
+<<<<<<< HEAD
         // Stop creates a draft time log entry but doesn't persist yet
         echo json_encode(['success' => true, 'message' => 'Time segment stopped (draft)']);
         break;
 
     case 'time_log_remove':
         // Remove time log entry (draft management)
+=======
+        // Persist the completed time segment to wo_time_logs
+        $wo_id      = (int)($payload['wo_id'] ?? 0);
+        $elapsed_ms = (int)($payload['total_elapsed_ms'] ?? 0);
+        $labor_type = trim($payload['labor_type'] ?? '');
+        if ($wo_id > 0 && $elapsed_ms > 0) {
+            $stmt = $pdo->prepare("
+                INSERT INTO wo_time_logs (wo_id, technician_id, action, labor_type, elapsed_ms, notes, logged_at)
+                VALUES (?, ?, 'stop', ?, ?, 'Time segment saved', NOW())
+            ");
+            $stmt->execute([
+                $wo_id,
+                (int)($_SESSION['user_id'] ?? 0),
+                $labor_type ?: null,
+                $elapsed_ms,
+            ]);
+        }
+        echo json_encode(['success' => true, 'message' => 'Time segment saved']);
+        break;
+
+    case 'time_log_remove':
+        // Remove a specific time log entry by wo_id + elapsed_ms match (best-effort)
+        $wo_id = (int)($payload['wo_id'] ?? 0);
+        if ($wo_id > 0) {
+            // Nothing to do server-side for draft removal — entry was never persisted
+            // If it was persisted, we'd need a log_id; for now just acknowledge
+        }
+>>>>>>> 0b371872eff460cdb0693a941470db1c568d6a04
         echo json_encode(['success' => true, 'message' => 'Time entry removed']);
         break;
 
@@ -477,12 +522,21 @@ switch ($action) {
         // Check for uploaded file in $_FILES
         if (isset($_FILES[$name])) {
             $file = $_FILES[$name];
+<<<<<<< HEAD
             $upload_dir = __DIR__ . '/../uploads/evidence/' . $wo_id . '/';
+=======
+            $side_slug = in_array(strtolower($side), ['before','after']) ? strtolower($side) : 'evidence';
+            $upload_dir = __DIR__ . '/../../uploads/media/' . $side_slug . '/' . $wo_id . '/';
+>>>>>>> 0b371872eff460cdb0693a941470db1c568d6a04
             if (!is_dir($upload_dir)) { mkdir($upload_dir, 0755, true); }
             $side_tag = in_array(strtolower($side), ['before','after']) ? '_' . strtolower($side) : '';
             $filename = pathinfo($file['name'], PATHINFO_FILENAME) . $side_tag . '_' . time() . '.' . pathinfo($file['name'], PATHINFO_EXTENSION);
             $file_path = $upload_dir . basename($filename);
+<<<<<<< HEAD
             $serverUrl = rtrim(BASE_URL, '/') . '/modules/technician/uploads/evidence/' . $wo_id . '/' . basename($filename);
+=======
+            $serverUrl = rtrim(BASE_URL, '/') . '/modules/uploads/media/' . $side_slug . '/' . $wo_id . '/' . basename($filename);
+>>>>>>> 0b371872eff460cdb0693a941470db1c568d6a04
             
             if (move_uploaded_file($file['tmp_name'], $file_path)) {
                 save_work_order_media($pdo, $wo_id, $media_type, $serverUrl, $file['type'], (int)ceil(filesize($file_path) / 1024), $name ?: $side);
@@ -502,10 +556,17 @@ switch ($action) {
         // Check for uploaded file in $_FILES
         if (isset($_FILES[$name])) {
             $file = $_FILES[$name];
+<<<<<<< HEAD
             $upload_dir = __DIR__ . '/../uploads/config/' . $wo_id . '/';
             if (!is_dir($upload_dir)) { mkdir($upload_dir, 0755, true); }
             $file_path = $upload_dir . basename($file['name']);
             $serverUrl = rtrim(BASE_URL, '/') . '/modules/technician/uploads/config/' . $wo_id . '/' . basename($file['name']);
+=======
+            $upload_dir = __DIR__ . '/../../uploads/media/config/' . $wo_id . '/';
+            if (!is_dir($upload_dir)) { mkdir($upload_dir, 0755, true); }
+            $file_path = $upload_dir . basename($file['name']);
+            $serverUrl = rtrim(BASE_URL, '/') . '/modules/uploads/media/config/' . $wo_id . '/' . basename($file['name']);
+>>>>>>> 0b371872eff460cdb0693a941470db1c568d6a04
             
             if (move_uploaded_file($file['tmp_name'], $file_path)) {
                 save_work_order_media($pdo, $wo_id, 'config', $serverUrl, $file['type'], filesize($file_path), $name);

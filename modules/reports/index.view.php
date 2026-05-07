@@ -7,6 +7,13 @@
         <p class="text-sm font-normal text-gray-500 mt-1">Module 5: System-wide analytics and audit reports</p>
     </div>
     <div class="flex gap-3">
+<<<<<<< HEAD
+=======
+        <a href="<?= BASE_URL ?>modules/reports/calendar.php" class="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 shadow-sm transition">
+            <svg class="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+            Operating Calendar
+        </a>
+>>>>>>> 0b371872eff460cdb0693a941470db1c568d6a04
         <button onclick="document.getElementById('info-modal').classList.remove('hidden')" class="bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 shadow-sm transition">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
             How it Works
@@ -30,8 +37,17 @@
         <script>
         function doExport(fmt) {
             const range = document.getElementById('date-range').value;
+<<<<<<< HEAD
             const end = new Date().toISOString().split('T')[0];
             const start = new Date(Date.now() - range * 24*60*60*1000).toISOString().split('T')[0];
+=======
+            const dEnd = new Date();
+            const dStart = new Date();
+            dStart.setDate(dEnd.getDate() - range);
+            const toYMD = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+            const end = toYMD(dEnd);
+            const start = toYMD(dStart);
+>>>>>>> 0b371872eff460cdb0693a941470db1c568d6a04
             window.location.href = '<?= BASE_URL ?>modules/reports/export.php?start=' + start + '&end=' + end + '&format=' + fmt;
             document.getElementById('export-dropdown').classList.add('hidden');
         }
@@ -244,7 +260,11 @@
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                 E-Discovery Logs
             </a>
+<<<<<<< HEAD
             <a href="<?= BASE_URL ?>api/analytics" class="flex items-center justify-center gap-2 text-sm font-semibold text-[#1a5c2a] bg-white px-4 py-2 rounded-lg shadow-sm border border-[#dcfce7] hover:bg-green-50 transition-colors">
+=======
+            <a href="<?= BASE_URL ?>api/analytics.php" target="_blank" class="flex items-center justify-center gap-2 text-sm font-semibold text-[#1a5c2a] bg-white px-4 py-2 rounded-lg shadow-sm border border-[#dcfce7] hover:bg-green-50 transition-colors">
+>>>>>>> 0b371872eff460cdb0693a941470db1c568d6a04
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                 REST BI Connector
             </a>
@@ -366,8 +386,17 @@ const formatMinutes = (mins) => {
 
 const fetchStats = () => {
     const range = document.getElementById('date-range').value;
+<<<<<<< HEAD
     const end = new Date().toISOString().split('T')[0];
     const start = new Date(Date.now() - range * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+=======
+    const dEnd = new Date();
+    const dStart = new Date();
+    dStart.setDate(dEnd.getDate() - range);
+    const toYMD = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const end = toYMD(dEnd);
+    const start = toYMD(dStart);
+>>>>>>> 0b371872eff460cdb0693a941470db1c568d6a04
 
     fetch(`<?= BASE_URL ?>modules/reports/api_stats.php?start=${start}&end=${end}`)
         .then(r => r.json())
@@ -646,8 +675,17 @@ document.addEventListener('DOMContentLoaded', () => {
         title.textContent = titles[type] || 'Ticket Details';
 
         const range = document.getElementById('date-range').value;
+<<<<<<< HEAD
         const end = new Date().toISOString().split('T')[0];
         const start = new Date(Date.now() - range * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+=======
+        const dEnd = new Date();
+        const dStart = new Date();
+        dStart.setDate(dEnd.getDate() - range);
+        const toYMD = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        const end = toYMD(dEnd);
+        const start = toYMD(dStart);
+>>>>>>> 0b371872eff460cdb0693a941470db1c568d6a04
 
         fetch(`<?= BASE_URL ?>modules/reports/api_stats.php?drilldown=${type}&start=${start}&end=${end}`)
             .then(r => r.json())
@@ -717,10 +755,53 @@ document.addEventListener('DOMContentLoaded', () => {
           <li><strong>Escalations:</strong> A background cron job (`cron_sla.php`) runs every 5 minutes to detect breaches, auto-escalate ticket priorities, and send email warnings.</li>
         </ul>
       </section>
+<<<<<<< HEAD
 
       <!-- Integrations -->
       <section>
         <h3 class="text-lg font-bold text-gray-800 mb-2 border-b pb-1">2. How it Integrates with Other Modules</h3>
+=======
+      
+      <!-- SLA Policies Table -->
+      <section>
+        <h3 class="text-lg font-bold text-gray-800 mb-3 border-b pb-1">2. Active Service Standards (SLA Policies)</h3>
+        <div class="overflow-x-auto rounded-lg border border-gray-100 shadow-sm">
+          <table class="w-full text-left border-collapse bg-white">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="py-2 px-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Policy Name</th>
+                <th class="py-2 px-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-center">Response</th>
+                <th class="py-2 px-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-center">Diagnosis</th>
+                <th class="py-2 px-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-center">Resolution</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+              <?php foreach ($sla_policies ?? [] as $policy): ?>
+                <tr class="hover:bg-gray-50 transition-colors">
+                  <td class="py-2 px-3">
+                    <p class="text-xs font-bold text-gray-900"><?= htmlspecialchars($policy['policy_name']) ?></p>
+                    <p class="text-[9px] text-gray-400 font-bold uppercase"><?= htmlspecialchars($policy['priority'] ?? 'General') ?></p>
+                  </td>
+                  <td class="py-2 px-3 text-center text-xs text-gray-600">
+                    <?= $policy['response_minutes'] >= 60 ? floor($policy['response_minutes']/60).'h '.($policy['response_minutes']%60).'m' : $policy['response_minutes'].'m' ?>
+                  </td>
+                  <td class="py-2 px-3 text-center text-xs text-gray-600">
+                    <?= $policy['diagnosis_minutes'] >= 60 ? floor($policy['diagnosis_minutes']/60).'h '.($policy['diagnosis_minutes']%60).'m' : $policy['diagnosis_minutes'].'m' ?>
+                  </td>
+                  <td class="py-2 px-3 text-center text-xs font-bold text-[#1a5c2a]">
+                    <?= $policy['resolution_minutes'] >= 60 ? floor($policy['resolution_minutes']/60).'h '.($policy['resolution_minutes']%60).'m' : $policy['resolution_minutes'].'m' ?>
+                  </td>
+                </tr>
+              <?php endforeach; ?>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Integrations -->
+      <section>
+        <h3 class="text-lg font-bold text-gray-800 mb-2 border-b pb-1">3. How it Integrates with Other Modules</h3>
+>>>>>>> 0b371872eff460cdb0693a941470db1c568d6a04
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div class="bg-blue-50 p-3 rounded border border-blue-100">
             <h4 class="font-bold text-blue-800">Module 4 (Technician Ops)</h4>
@@ -743,7 +824,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
       <!-- How to Test -->
       <section>
+<<<<<<< HEAD
         <h3 class="text-lg font-bold text-gray-800 mb-2 border-b pb-1">3. How to Test Everything Manually</h3>
+=======
+        <h3 class="text-lg font-bold text-gray-800 mb-2 border-b pb-1">4. How to Test Everything Manually</h3>
+>>>>>>> 0b371872eff460cdb0693a941470db1c568d6a04
         <div class="space-y-3">
           <div class="bg-gray-50 p-3 rounded">
             <strong>A. Test SLA Deadlines & Pauses:</strong>
