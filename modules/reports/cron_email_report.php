@@ -56,7 +56,7 @@ $html = <<<HTML
             <div class="stat"><div class="label">SLA Compliance</div><div class="value">{$compliance}%</div></div>
             <div class="stat"><div class="label">Avg MTTR</div><div class="value">{$avg_mttr}</div></div>
             <div class="stat"><div class="label">FTFR</div><div class="value">{$ftfr}%</div></div>
-            <div class="stat"><div class="label">Backlog</div><div class="value class="red">{$backlog}</div></div>
+            <div class="stat"><div class="label">Backlog</div><div class="value red">{$backlog}</div></div>
         </div>
 HTML;
 
