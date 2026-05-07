@@ -106,16 +106,14 @@ if ($action === 'create') {
         'dynamic_fields'   => $_POST['dynamic_fields'] ?? [],
     ];
 
-    if ($is_staff) {
-        $d['status']         = $_POST['status'] ?? 'new';
-        $d['assigned_to']    = ((int)($_POST['assigned_to'] ?? 0)) ?: null;
-        $d['on_hold_reason'] = $_POST['on_hold_reason'] ?? null;
-    }
+
 
     update_ticket($pdo, $ticket_id, $d);
 
     // Update SLA actual timestamps (Response, Diagnosis, Resolution)
-    update_ticket_sla($pdo, $ticket_id, $d['status'] ?? $t['status']);
+    $sla_status = $d['status'] ?? $t['status'];
+    $sla_pause_reason = ($sla_status === 'on_hold') ? ($d['on_hold_reason'] ?? $t['on_hold_reason'] ?? null) : null;
+    update_ticket_sla($pdo, $ticket_id, $sla_status, $sla_pause_reason);
 
     // --- Handle Attachment Deletions (Update) ---
     if (!empty($_POST['deleted_attachments'])) {
@@ -140,36 +138,6 @@ if ($action === 'create') {
     header('Location: ' . BASE_URL . 'modules/tickets/view.php?id=' . $ticket_id);
     exit;
     
-} elseif ($action === 'update_status' && $is_staff) {
-    $ticket_id = (int)($_POST['ticket_id'] ?? 0);
-    $t = get_ticket_by_id($pdo, $ticket_id);
-    
-    if ($t) {
-        $status = $_POST['status'];
-        $assigned_to = ((int)($_POST['assigned_to'] ?? 0)) ?: null;
-        
-        $pdo->prepare("UPDATE tickets SET status=?, assigned_to=? WHERE ticket_id=?")->execute([$status, $assigned_to, $ticket_id]);
-        
-        if ($status === 'resolved' || $status === 'closed') {
-            $pdo->prepare("UPDATE tickets SET ".($status === 'resolved' ? "resolved_at" : "closed_at")." = NOW() WHERE ticket_id=?")->execute([$ticket_id]);
-        }
-        
-        // Update SLA actual timestamps
-        update_ticket_sla($pdo, $ticket_id, $status);
-        
-        // Notify requester
-        if ($t['status'] !== $status) {
-            notify_user($pdo, $t['requester_id'], 'Ticket Status Update', "Ticket {$t['ticket_number']} is now " . strtoupper($status), BASE_URL . 'modules/tickets/view.php?id=' . $ticket_id);
-        }
-        
-        // Notify new assignee if assignment changed
-        if ($assigned_to && $assigned_to != $t['assigned_to']) {
-            notify_user($pdo, $assigned_to, 'Ticket Assigned', "Ticket {$t['ticket_number']} has been assigned to you.", BASE_URL . 'modules/tickets/view.php?id=' . $ticket_id);
-        }
-    }
-    
-    header('Location: ' . BASE_URL . 'modules/tickets/view.php?id=' . $ticket_id);
-    exit;
 
 } elseif ($action === 'add_comment') {
     $ticket_id = (int)($_POST['ticket_id'] ?? 0);

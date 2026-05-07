@@ -162,32 +162,122 @@
   <!-- Sidebar Column -->
   <div class="space-y-6">
   
-    <?php if ($is_staff && $ticket['status'] !== 'closed' && $ticket['status'] !== 'cancelled'): ?>
-    <!-- Staff Quick Actions -->
-    <div class="bg-blue-50 rounded-xl border border-blue-100 p-4">
-      <h3 class="font-bold text-blue-900 mb-3 text-sm">Update Status</h3>
-      <form action="save.php" method="POST" class="space-y-3">
-        <input type="hidden" name="action" value="update_status">
-        <input type="hidden" name="ticket_id" value="<?= $ticket['ticket_id'] ?>">
-        
-        <select name="status" class="fsel" required>
-          <?php foreach(['new'=>'New','assigned'=>'Assigned','in_progress'=>'In Progress','on_hold'=>'On Hold','resolved'=>'Resolved','closed'=>'Closed','cancelled'=>'Cancelled'] as $k=>$v): ?>
-            <option value="<?= $k ?>" <?= $ticket['status']==$k ? 'selected' : '' ?>><?= $v ?></option>
-          <?php endforeach; ?>
-        </select>
-        
-        <select name="assigned_to" class="fsel">
-          <option value="">-- Assign Technician --</option>
-          <?php foreach($assignables as $a): ?>
-            <option value="<?= $a['user_id'] ?>" <?= $ticket['assigned_to']==$a['user_id'] ? 'selected':'' ?>><?= htmlspecialchars($a['full_name']) ?></option>
-          <?php endforeach; ?>
-        </select>
-        
-        <button type="submit" class="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-sm transition">
-          Save Status
-        </button>
-      </form>
+
+
+    <?php if ($ticket_sla): ?>
+    <!-- SLA Countdown Widget -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden" id="sla-widget">
+      <div class="px-5 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+        <h3 class="font-bold text-gray-900 text-sm flex items-center gap-2">
+          <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          SLA Tracker
+        </h3>
+        <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider bg-gray-100 px-2 py-0.5 rounded"><?= htmlspecialchars($ticket_sla['policy_name']) ?></span>
+      </div>
+      <div class="p-4 space-y-3">
+
+        <?php if ($ticket_sla['paused_at']): ?>
+          <div class="flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold px-3 py-2 rounded-lg">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            SLA Clock Paused
+            <?php if ($ticket_sla['pause_reason']): ?>
+              — <?= htmlspecialchars(ucwords(str_replace('_', ' ', $ticket_sla['pause_reason']))) ?>
+            <?php endif; ?>
+          </div>
+        <?php endif; ?>
+
+        <?php
+        // Helper: compute remaining time or breach status for a stage
+        $sla_stages = [
+            ['label' => 'Response',  'due' => $ticket_sla['response_due'],  'actual' => $ticket_sla['responded_at'],  'breached' => $ticket_sla['is_response_breached']],
+            ['label' => 'Diagnosis', 'due' => $ticket_sla['diagnosis_due'], 'actual' => $ticket_sla['diagnosed_at'],  'breached' => $ticket_sla['is_diagnosis_breached']],
+            ['label' => 'Resolution','due' => $ticket_sla['resolution_due'],'actual' => $ticket_sla['resolved_at'],   'breached' => $ticket_sla['is_resolution_breached']],
+        ];
+        ?>
+
+        <?php foreach ($sla_stages as $stage): ?>
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-xs font-bold text-gray-500 uppercase tracking-wider"><?= $stage['label'] ?></p>
+            <?php if ($stage['actual']): ?>
+              <p class="text-[10px] text-gray-400 mt-0.5">Completed <?= date('M j, g:i A', strtotime($stage['actual'])) ?></p>
+            <?php elseif ($stage['due']): ?>
+              <p class="text-[10px] text-gray-400 mt-0.5">Due <?= date('M j, g:i A', strtotime($stage['due'])) ?></p>
+            <?php endif; ?>
+          </div>
+          <div class="text-right">
+            <?php if ($stage['actual']): ?>
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-800 border border-green-200">
+                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                Met
+              </span>
+            <?php elseif ($stage['breached']): ?>
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-800 border border-red-200 animate-pulse">
+                ⚠ Breached
+              </span>
+            <?php elseif ($stage['due']): ?>
+              <span class="sla-countdown text-xs font-mono font-bold text-gray-700" data-due="<?= htmlspecialchars($stage['due']) ?>" data-paused="<?= $ticket_sla['paused_at'] ? '1' : '0' ?>">
+                --:--:--
+              </span>
+            <?php else: ?>
+              <span class="text-[10px] text-gray-300 italic">N/A</span>
+            <?php endif; ?>
+          </div>
+        </div>
+        <?php endforeach; ?>
+
+        <?php if ($ticket_sla['total_paused_minutes'] > 0): ?>
+        <div class="pt-2 mt-2 border-t border-gray-100 flex items-center justify-between text-[10px] text-gray-400">
+          <span>Total paused time</span>
+          <span class="font-mono font-bold"><?php
+            $pm = (int)$ticket_sla['total_paused_minutes'];
+            echo ($pm >= 60 ? floor($pm/60).'h ' : '') . ($pm % 60) . 'm';
+          ?></span>
+        </div>
+        <?php endif; ?>
+
+      </div>
     </div>
+    <script>
+    // Live SLA countdown timer
+    (function() {
+      function updateCountdowns() {
+        document.querySelectorAll('.sla-countdown').forEach(el => {
+          if (el.dataset.paused === '1') {
+            el.textContent = 'PAUSED';
+            el.classList.add('text-amber-600');
+            return;
+          }
+          const due = new Date(el.dataset.due + ' UTC');
+          const now = new Date();
+          let diff = due - now;
+          const isNegative = diff < 0;
+          if (isNegative) diff = Math.abs(diff);
+
+          const h = Math.floor(diff / 3600000);
+          const m = Math.floor((diff % 3600000) / 60000);
+          const s = Math.floor((diff % 60000) / 1000);
+          const pad = n => String(n).padStart(2, '0');
+
+          if (isNegative) {
+            el.textContent = `00:00:00`;
+            el.classList.remove('text-gray-700', 'text-amber-600');
+            el.classList.add('text-red-600', 'animate-pulse');
+          } else if (h === 0 && m < 30) {
+            el.textContent = `${pad(h)}:${pad(m)}:${pad(s)}`;
+            el.classList.remove('text-gray-700', 'text-red-600');
+            el.classList.add('text-amber-600');
+          } else {
+            el.textContent = `${pad(h)}:${pad(m)}:${pad(s)}`;
+            el.classList.remove('text-red-600', 'text-amber-600', 'animate-pulse');
+            el.classList.add('text-gray-700');
+          }
+        });
+      }
+      updateCountdowns();
+      setInterval(updateCountdowns, 1000);
+    })();
+    </script>
     <?php endif; ?>
 
     <!-- Details Card -->
