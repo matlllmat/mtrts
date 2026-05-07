@@ -7,16 +7,36 @@
         <p class="text-sm font-normal text-gray-500 mt-1">Module 5: System-wide analytics and audit reports</p>
     </div>
     <div class="flex gap-3">
+        <button onclick="document.getElementById('info-modal').classList.remove('hidden')" class="bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 shadow-sm transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            How it Works
+        </button>
         <select id="date-range" onchange="fetchStats()" class="bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 focus:ring-2 focus:ring-[#1a5c2a] focus:border-[#1a5c2a] outline-none shadow-sm">
             <option value="7">Last 7 Days</option>
             <option value="30" selected>Last 30 Days</option>
             <option value="90">Last 90 Days</option>
             <option value="365">This Year</option>
         </select>
-        <button onclick="window.location.href='<?= BASE_URL ?>modules/reports/export.php?start=' + document.getElementById('date-range').value + '&end=' + new Date().toISOString().split('T')[0]" class="bg-[#1a5c2a] text-white rounded-lg px-4 py-2 text-sm font-semibold hover:bg-[#1f6e32] transition-colors shadow-sm flex items-center gap-2">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-            Export
-        </button>
+        <div class="relative" id="export-wrapper">
+            <button onclick="document.getElementById('export-dropdown').classList.toggle('hidden')" class="bg-[#1a5c2a] text-white rounded-lg px-4 py-2 text-sm font-semibold hover:bg-[#1f6e32] transition-colors shadow-sm flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                Export ▾
+            </button>
+            <div id="export-dropdown" class="hidden absolute right-0 mt-1 w-44 bg-white border border-gray-200 rounded-lg shadow-lg z-20 overflow-hidden">
+                <button onclick="doExport('csv')" class="w-full text-left px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2">📄 CSV</button>
+                <button onclick="doExport('excel')" class="w-full text-left px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2 border-t border-gray-100">📊 Excel (.xls)</button>
+            </div>
+        </div>
+        <script>
+        function doExport(fmt) {
+            const range = document.getElementById('date-range').value;
+            const end = new Date().toISOString().split('T')[0];
+            const start = new Date(Date.now() - range * 24*60*60*1000).toISOString().split('T')[0];
+            window.location.href = '<?= BASE_URL ?>modules/reports/export.php?start=' + start + '&end=' + end + '&format=' + fmt;
+            document.getElementById('export-dropdown').classList.add('hidden');
+        }
+        document.addEventListener('click', e => { if (!document.getElementById('export-wrapper').contains(e.target)) document.getElementById('export-dropdown').classList.add('hidden'); });
+        </script>
     </div>
 </div>
 
@@ -151,19 +171,7 @@
     </div>
 </div>
 
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 pb-8">
-    <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-        <div class="flex items-center gap-1 mb-4 group/tooltip relative">
-            <h3 class="font-bold text-gray-800 text-base">Location Heatmap</h3>
-            <svg onclick="showTerm('Asset Hotspots')" class="w-4 h-4 text-gray-400 hover:text-[#1a5c2a] cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-            <div class="absolute bottom-full left-0 mb-1 hidden group-hover/tooltip:block w-56 p-2 bg-gray-800 text-white text-[10px] normal-case tracking-normal font-normal rounded shadow-lg z-50 pointer-events-none">
-                Shows which rooms/buildings have the highest density of repair requests.
-            </div>
-        </div>
-        <div class="space-y-2" id="heatmap-container">
-            <div class="flex justify-center items-center h-20 text-sm text-gray-400 italic">Loading...</div>
-        </div>
-    </div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
 
     <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
         <div class="flex items-center gap-1 mb-4 group/tooltip relative">
@@ -178,17 +186,63 @@
         </div>
     </div>
 
+    <!-- Ticket Aging -->
+    <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+        <div class="flex items-center gap-1 mb-4 group/tooltip relative">
+            <h3 class="font-bold text-gray-800 text-base">Ticket Aging</h3>
+            <svg class="w-4 h-4 text-gray-400 hover:text-[#1a5c2a] cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <div class="absolute bottom-full left-0 mb-1 hidden group-hover/tooltip:block w-56 p-2 bg-gray-800 text-white text-[10px] normal-case tracking-normal font-normal rounded shadow-lg z-50 pointer-events-none">
+                Open ticket age distribution. Older tickets may need priority reassessment.
+            </div>
+        </div>
+        <div id="aging-container">
+            <div class="flex justify-center items-center h-20 text-sm text-gray-400 italic">Loading...</div>
+        </div>
+    </div>
+</div>
+
+<!-- Row 4: Cost + Audit -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 pb-8">
+    <!-- Cost Per Ticket -->
+    <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+        <div class="flex items-center gap-1 mb-4 group/tooltip relative">
+            <h3 class="font-bold text-gray-800 text-base">Cost Analytics</h3>
+            <svg class="w-4 h-4 text-gray-400 hover:text-[#1a5c2a] cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <div class="absolute bottom-full left-0 mb-1 hidden group-hover/tooltip:block w-56 p-2 bg-gray-800 text-white text-[10px] normal-case tracking-normal font-normal rounded shadow-lg z-50 pointer-events-none">
+                Parts costs per ticket and costliest assets in the selected period.
+            </div>
+        </div>
+        <div id="cost-container">
+            <div class="flex justify-center items-center h-20 text-sm text-gray-400 italic">Loading...</div>
+        </div>
+    </div>
+
+    <!-- Location Heatmap (moved here) -->
+    <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+        <div class="flex items-center gap-1 mb-4 group/tooltip relative">
+            <h3 class="font-bold text-gray-800 text-base">Location Heatmap</h3>
+            <svg onclick="showTerm('Location Heatmap')" class="w-4 h-4 text-gray-400 hover:text-[#1a5c2a] cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <div class="absolute bottom-full left-0 mb-1 hidden group-hover/tooltip:block w-56 p-2 bg-gray-800 text-white text-[10px] normal-case tracking-normal font-normal rounded shadow-lg z-50 pointer-events-none">
+                Shows which rooms/buildings have the highest density of repair requests.
+            </div>
+        </div>
+        <div class="space-y-2" id="heatmap-container">
+            <div class="flex justify-center items-center h-20 text-sm text-gray-400 italic">Loading...</div>
+        </div>
+    </div>
+
+    <!-- Audit & Compliance -->
     <div class="bg-[#f0fdf4] rounded-xl p-5 shadow-sm border border-[#dcfce7]">
         <div class="flex justify-between items-center mb-4">
             <h3 class="font-bold text-[#166534] text-base">Audit & Compliance</h3>
             <span class="bg-[#dcfce7] text-[#166534] text-[10px] font-bold px-2 py-1 rounded tracking-wider uppercase border border-green-200">Secure</span>
         </div>
-        <p class="text-xs text-gray-600 mb-4 italic">Immutable audit log active. PII data is masked for non-admin users to ensure compliance with privacy standards.</p>
+        <p class="text-xs text-gray-600 mb-3 italic">Immutable audit log active. PII masked for non-admins. Data retention enforced automatically.</p>
         
         <div class="grid grid-cols-1 gap-2 mt-auto">
             <a href="<?= BASE_URL ?>modules/reports/audit.php" class="flex items-center justify-center gap-2 text-sm font-semibold text-white bg-[#1a5c2a] px-4 py-2 rounded-lg shadow-sm hover:bg-[#1f6e32] transition-colors">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                View Searchable Logs (E-discovery)
+                E-Discovery Logs
             </a>
             <a href="<?= BASE_URL ?>api/analytics" class="flex items-center justify-center gap-2 text-sm font-semibold text-[#1a5c2a] bg-white px-4 py-2 rounded-lg shadow-sm border border-[#dcfce7] hover:bg-green-50 transition-colors">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
@@ -450,6 +504,56 @@ const fetchStats = () => {
             } else {
                 escTbody.innerHTML = '<tr><td colspan="4" class="py-6 text-center text-gray-400 italic">No active escalations. Excellent!</td></tr>';
             }
+
+            // Update Ticket Aging
+            const agingContainer = document.getElementById('aging-container');
+            if (data.aging && data.aging.total_open > 0) {
+                const a = data.aging;
+                const max = Math.max(a.bucket_0_7||0, a.bucket_8_14||0, a.bucket_15_30||0, a.bucket_over_30||0, 1);
+                const bar = (val, color) => `<div class="rounded-full h-2" style="width:${Math.max((val/max)*100,4)}%;background:${color}"></div>`;
+                agingContainer.innerHTML = `
+                    <div class="text-center mb-3">
+                        <span class="text-2xl font-extrabold text-gray-800">${a.total_open}</span>
+                        <span class="text-xs text-gray-400 ml-1">open tickets</span>
+                        <p class="text-[10px] text-gray-400 mt-1">Avg age: ${a.avg_age_days || 0} days</p>
+                    </div>
+                    <div class="space-y-2">
+                        <div class="flex items-center gap-2"><span class="text-[10px] font-bold text-gray-500 w-12">0-7d</span>${bar(a.bucket_0_7,'#22c55e')}<span class="text-xs font-bold text-gray-600">${a.bucket_0_7||0}</span></div>
+                        <div class="flex items-center gap-2"><span class="text-[10px] font-bold text-gray-500 w-12">8-14d</span>${bar(a.bucket_8_14,'#eab308')}<span class="text-xs font-bold text-gray-600">${a.bucket_8_14||0}</span></div>
+                        <div class="flex items-center gap-2"><span class="text-[10px] font-bold text-gray-500 w-12">15-30d</span>${bar(a.bucket_15_30,'#f97316')}<span class="text-xs font-bold text-gray-600">${a.bucket_15_30||0}</span></div>
+                        <div class="flex items-center gap-2"><span class="text-[10px] font-bold text-gray-500 w-12">30d+</span>${bar(a.bucket_over_30,'#ef4444')}<span class="text-xs font-bold text-gray-600">${a.bucket_over_30||0}</span></div>
+                    </div>`;
+            } else {
+                agingContainer.innerHTML = '<div class="text-sm text-gray-400 italic text-center py-4">No open tickets.</div>';
+            }
+
+            // Update Cost Analytics
+            const costContainer = document.getElementById('cost-container');
+            if (data.cost) {
+                const c = data.cost;
+                let costHtml = `
+                    <div class="grid grid-cols-2 gap-3 mb-3">
+                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                            <p class="text-[10px] font-bold text-gray-500 uppercase">Total Parts Cost</p>
+                            <p class="text-lg font-extrabold text-gray-800">₱${Number(c.total_parts_cost||0).toLocaleString()}</p>
+                        </div>
+                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                            <p class="text-[10px] font-bold text-gray-500 uppercase">Avg / Ticket</p>
+                            <p class="text-lg font-extrabold text-[#1a5c2a]">₱${Number(c.avg_cost_per_ticket||0).toLocaleString()}</p>
+                        </div>
+                    </div>`;
+                if (c.costliest_assets && c.costliest_assets.length > 0) {
+                    costHtml += '<p class="text-[10px] font-bold text-gray-500 uppercase mb-2">Costliest Assets</p>';
+                    costHtml += c.costliest_assets.map(a => `
+                        <div class="flex items-center justify-between p-2 bg-gray-50 rounded border border-gray-100 mb-1">
+                            <div><span class="text-xs font-bold text-gray-700">${a.asset_tag}</span> <span class="text-[10px] text-gray-400">${a.model}</span></div>
+                            <span class="text-xs font-bold text-red-600">₱${Number(a.total_cost).toLocaleString()}</span>
+                        </div>`).join('');
+                }
+                costContainer.innerHTML = costHtml;
+            } else {
+                costContainer.innerHTML = '<div class="text-sm text-gray-400 italic text-center py-4">No cost data.</div>';
+            }
         })
         .catch(err => {
             console.error('Failed to fetch stats:', err);
@@ -586,3 +690,104 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('date-range').addEventListener('change', fetchStats);
 });
 </script>
+
+<!-- Info Modal -->
+<div id="info-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
+  <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+    <div class="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+      <h2 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+        <svg class="w-6 h-6 text-[#1a5c2a]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        Module 5: SLA, Reporting & Audit Guide
+      </h2>
+      <button onclick="document.getElementById('info-modal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 transition">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+      </button>
+    </div>
+    
+    <div class="p-6 overflow-y-auto space-y-6 text-sm text-gray-600">
+      
+      <!-- Feature Overview -->
+      <section>
+        <h3 class="text-lg font-bold text-gray-800 mb-2 border-b pb-1">1. How the SLA Engine Works</h3>
+        <p class="mb-2">The SLA (Service Level Agreement) engine enforces resolution deadlines and compliance across the organization.</p>
+        <ul class="list-disc pl-5 space-y-1">
+          <li><strong>Weighted Policy Selection:</strong> Determines deadlines by combining Priority, Location, Category, and Request Type (e.g., an "Event Support" request overrides standard priority logic to provide 30-minute SLAs).</li>
+          <li><strong>Business Hours:</strong> Timers automatically pause overnight and during weekends based on `business_hours` configurations.</li>
+          <li><strong>Multi-stage Targets:</strong> Each ticket tracks three deadlines: Response, Diagnosis, and Resolution.</li>
+          <li><strong>Escalations:</strong> A background cron job (`cron_sla.php`) runs every 5 minutes to detect breaches, auto-escalate ticket priorities, and send email warnings.</li>
+        </ul>
+      </section>
+
+      <!-- Integrations -->
+      <section>
+        <h3 class="text-lg font-bold text-gray-800 mb-2 border-b pb-1">2. How it Integrates with Other Modules</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="bg-blue-50 p-3 rounded border border-blue-100">
+            <h4 class="font-bold text-blue-800">Module 4 (Technician Ops)</h4>
+            <p class="text-xs mt-1 text-blue-700">When a technician starts their Labor Timer or changes a ticket status to "On Hold" (e.g., waiting for parts), the SLA clocks in Module 5 are automatically paused.</p>
+          </div>
+          <div class="bg-green-50 p-3 rounded border border-green-100">
+            <h4 class="font-bold text-green-800">Module 3 (Inventory)</h4>
+            <p class="text-xs mt-1 text-green-700">The "Cost Analytics" and "Warranty Exposure" dashboard cards pull data directly from Inventory lifecycles to calculate the total cost of ownership and predict hardware failures.</p>
+          </div>
+          <div class="bg-purple-50 p-3 rounded border border-purple-100">
+            <h4 class="font-bold text-purple-800">Module 2 (Ticketing)</h4>
+            <p class="text-xs mt-1 text-purple-700">When a requester submits a new ticket, `save.php` fires a hook to initialize the SLA record instantly, generating the countdown widget seen on the ticket view.</p>
+          </div>
+          <div class="bg-orange-50 p-3 rounded border border-orange-100">
+            <h4 class="font-bold text-orange-800">Module 6 (Security/Audit)</h4>
+            <p class="text-xs mt-1 text-orange-700">Every single database change (tickets, SLA policies, approvals) triggers a hook that writes an immutable record to the `audit_log`, viewable in the E-Discovery portal.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- How to Test -->
+      <section>
+        <h3 class="text-lg font-bold text-gray-800 mb-2 border-b pb-1">3. How to Test Everything Manually</h3>
+        <div class="space-y-3">
+          <div class="bg-gray-50 p-3 rounded">
+            <strong>A. Test SLA Deadlines & Pauses:</strong>
+            <ol class="list-decimal pl-4 mt-1 text-xs space-y-1">
+              <li>Create a new High Priority ticket. Open it and check the <strong>SLA Tracker widget</strong> on the right sidebar.</li>
+              <li>Change the status to <strong>On Hold (Awaiting Parts)</strong>. The countdowns will freeze and say "PAUSED".</li>
+              <li>Change it to <strong>In Progress</strong>. The clocks resume and recalculate.</li>
+            </ol>
+          </div>
+          
+          <div class="bg-gray-50 p-3 rounded">
+            <strong>B. Test Breach Detection (Simulate a Breach):</strong>
+            <ol class="list-decimal pl-4 mt-1 text-xs space-y-1">
+              <li>Open your server terminal/command prompt.</li>
+              <li>Run: <code>php C:\xampp\htdocs\mtrts\scratch\simulate_breach.php</code> (This fakes a ticket's deadline into the past).</li>
+              <li>Run the SLA Worker: <code>php C:\xampp\htdocs\mtrts\modules\reports\cron_sla.php</code></li>
+              <li>Refresh the Reports Dashboard. You will see Compliance drop and the ticket flash red under Active Escalations.</li>
+            </ol>
+          </div>
+
+          <div class="bg-gray-50 p-3 rounded">
+            <strong>C. Test Exports & E-Mail Reports:</strong>
+            <ol class="list-decimal pl-4 mt-1 text-xs space-y-1">
+              <li>Click the <strong>Export ▾</strong> button at the top of the dashboard and choose Excel. Open the downloaded `.xls` file.</li>
+              <li>Run <code>php C:\xampp\htdocs\mtrts\modules\reports\cron_email_report.php</code> in your terminal to simulate the weekly automated email report.</li>
+            </ol>
+          </div>
+
+          <div class="bg-gray-50 p-3 rounded">
+            <strong>D. Test Audit & Data Retention:</strong>
+            <ol class="list-decimal pl-4 mt-1 text-xs space-y-1">
+              <li>Click <strong>E-Discovery Logs</strong> in the green Audit card. Search for 'tickets' to see a detailed history of every change.</li>
+              <li>Run <code>php C:\xampp\htdocs\mtrts\modules\reports\cron_data_retention.php</code> to force the system to archive logs older than 2 years and purge temporary data.</li>
+            </ol>
+          </div>
+        </div>
+      </section>
+
+    </div>
+    
+    <div class="p-4 border-t border-gray-100 bg-gray-50 text-right">
+      <button onclick="document.getElementById('info-modal').classList.add('hidden')" class="bg-[#1a5c2a] text-white px-5 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-[#1f6e32] transition">
+        Understood, Close
+      </button>
+    </div>
+  </div>
+</div>

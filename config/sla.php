@@ -129,7 +129,7 @@ function calculate_sla_deadline(PDO $pdo, string $start_time, int $minutes, bool
 /**
  * Updates SLA actual timestamps and handles PAUSE logic
  */
-function update_ticket_sla(PDO $pdo, int $ticket_id, string $status): void {
+function update_ticket_sla(PDO $pdo, int $ticket_id, string $status, ?string $pause_reason = null): void {
     // 1. Handle unpausing if coming off on_hold
     if ($status !== 'on_hold') {
         $stmt = $pdo->prepare("SELECT paused_at FROM ticket_sla WHERE ticket_id = ? AND paused_at IS NOT NULL");
@@ -158,7 +158,7 @@ function update_ticket_sla(PDO $pdo, int $ticket_id, string $status): void {
     } elseif ($status === 'resolved' || $status === 'closed') {
         $pdo->prepare("UPDATE ticket_sla SET resolved_at = NOW() WHERE ticket_id = ? AND resolved_at IS NULL")->execute([$ticket_id]);
     } elseif ($status === 'on_hold') {
-        $pdo->prepare("UPDATE ticket_sla SET paused_at = NOW() WHERE ticket_id = ? AND paused_at IS NULL")->execute([$ticket_id]);
+        $pdo->prepare("UPDATE ticket_sla SET paused_at = NOW(), pause_reason = ? WHERE ticket_id = ? AND paused_at IS NULL")->execute([$pause_reason, $ticket_id]);
     }
 }
 
@@ -170,6 +170,7 @@ function check_sla_escalations(PDO $pdo): array {
     
     // 1. Mark new breaches
     $pdo->query("UPDATE ticket_sla SET is_response_breached = 1 WHERE responded_at IS NULL AND response_due < NOW() AND is_response_breached = 0");
+    $pdo->query("UPDATE ticket_sla SET is_diagnosis_breached = 1 WHERE diagnosed_at IS NULL AND diagnosis_due < NOW() AND is_diagnosis_breached = 0");
     $pdo->query("UPDATE ticket_sla SET is_resolution_breached = 1 WHERE resolved_at IS NULL AND resolution_due < NOW() AND is_resolution_breached = 0");
 
     // 2. Fetch escalated tickets (breached but not yet resolved)
@@ -259,4 +260,72 @@ function get_matching_sla_policy(PDO $pdo, array $ticket_data): ?int {
     }
 
     return $best_policy_id;
+}
+
+/**
+ * ── SLA RETROACTIVE CHANGE PROTECTION ──────────────────────────
+ * Updates an SLA policy ONLY if a justification is provided when
+ * active tickets are using it. Logs the old values + justification
+ * to the audit_log table for compliance.
+ *
+ * Returns: ['success' => bool, 'message' => string]
+ */
+function update_sla_policy(PDO $pdo, int $policy_id, array $new_values, ?string $justification = null, ?int $changed_by = null): array {
+    // 1. Fetch old policy
+    $stmt = $pdo->prepare("SELECT * FROM sla_policies WHERE policy_id = ?");
+    $stmt->execute([$policy_id]);
+    $old_policy = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$old_policy) {
+        return ['success' => false, 'message' => 'Policy not found.'];
+    }
+
+    // 2. Check if any open tickets are using this policy
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*) FROM ticket_sla ts
+        JOIN tickets t ON ts.ticket_id = t.ticket_id
+        WHERE ts.policy_id = ?
+          AND t.status NOT IN ('resolved', 'closed', 'cancelled')
+    ");
+    $stmt->execute([$policy_id]);
+    $active_count = (int)$stmt->fetchColumn();
+
+    // 3. If active tickets exist, REQUIRE justification
+    if ($active_count > 0 && empty(trim($justification ?? ''))) {
+        return [
+            'success' => false,
+            'message' => "This policy is applied to $active_count active ticket(s). A justification reason is required to make retroactive changes."
+        ];
+    }
+
+    // 4. Build the UPDATE query from allowed fields
+    $allowed = ['policy_name', 'priority', 'category_id', 'location_id', 'is_event_support',
+                'request_type', 'response_minutes', 'diagnosis_minutes', 'resolution_minutes',
+                'uses_business_hours', 'is_active'];
+    $sets = [];
+    $params = [];
+    foreach ($allowed as $col) {
+        if (array_key_exists($col, $new_values)) {
+            $sets[] = "$col = ?";
+            $params[] = $new_values[$col];
+        }
+    }
+    if (empty($sets)) {
+        return ['success' => false, 'message' => 'No valid fields to update.'];
+    }
+    $params[] = $policy_id;
+    $pdo->prepare("UPDATE sla_policies SET " . implode(', ', $sets) . " WHERE policy_id = ?")->execute($params);
+
+    // 5. Log to audit_log with justification
+    $pdo->prepare("
+        INSERT INTO audit_log (user_id, action, object_type, object_id, old_values, new_values, ip_address, created_at)
+        VALUES (?, 'UPDATE', 'sla_policy', ?, ?, ?, ?, NOW())
+    ")->execute([
+        $changed_by,
+        $policy_id,
+        json_encode($old_policy),
+        json_encode(array_merge($new_values, ['_justification' => $justification ?? 'No active tickets affected'])),
+        $_SERVER['REMOTE_ADDR'] ?? 'CLI'
+    ]);
+
+    return ['success' => true, 'message' => 'Policy updated. ' . ($active_count > 0 ? "Audit logged with justification (affects $active_count active tickets)." : 'No active tickets affected.')];
 }

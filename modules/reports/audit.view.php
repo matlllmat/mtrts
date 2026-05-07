@@ -29,6 +29,10 @@
                 <option value="work_order">Work Orders</option>
                 <option value="asset">Assets</option>
                 <option value="user">Users</option>
+                <option value="inventory">Inventory</option>
+                <option value="sla_policy">SLA Policies</option>
+                <option value="approval">Approvals</option>
+                <option value="system">System (Retention/Cron)</option>
             </select>
         </div>
         <div class="flex items-end">

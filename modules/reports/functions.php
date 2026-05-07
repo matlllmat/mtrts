@@ -316,3 +316,64 @@ function get_active_escalations(PDO $pdo): array {
         LIMIT 10
     ")->fetchAll(PDO::FETCH_ASSOC);
 }
+
+/**
+ * ── TICKET AGING ──────────────────────────────────────────────
+ * Groups open tickets into aging buckets: 0-7d, 8-14d, 15-30d, 30d+
+ */
+function get_ticket_aging(PDO $pdo): array {
+    return $pdo->query("
+        SELECT 
+            SUM(DATEDIFF(NOW(), created_at) BETWEEN 0 AND 7) as bucket_0_7,
+            SUM(DATEDIFF(NOW(), created_at) BETWEEN 8 AND 14) as bucket_8_14,
+            SUM(DATEDIFF(NOW(), created_at) BETWEEN 15 AND 30) as bucket_15_30,
+            SUM(DATEDIFF(NOW(), created_at) > 30) as bucket_over_30,
+            COUNT(*) as total_open,
+            ROUND(AVG(DATEDIFF(NOW(), created_at)), 1) as avg_age_days
+        FROM tickets
+        WHERE status NOT IN ('resolved', 'closed', 'cancelled')
+    ")->fetch(PDO::FETCH_ASSOC) ?: [];
+}
+
+/**
+ * ── COST PER TICKET / ASSET ──────────────────────────────────
+ * Aggregates parts cost from work orders to compute cost per ticket and per asset.
+ */
+function get_cost_stats(PDO $pdo, string $start_date, string $end_date): array {
+    // Total parts cost and cost per ticket
+    $stmt = $pdo->prepare("
+        SELECT 
+            COUNT(DISTINCT t.ticket_id) as total_tickets,
+            COALESCE(SUM(pu.quantity_used * pi.unit_cost), 0) as total_parts_cost,
+            ROUND(COALESCE(SUM(pu.quantity_used * pi.unit_cost), 0) / NULLIF(COUNT(DISTINCT t.ticket_id), 0), 2) as avg_cost_per_ticket
+        FROM tickets t
+        LEFT JOIN work_orders w ON t.ticket_id = w.ticket_id
+        LEFT JOIN wo_parts_used pu ON w.wo_id = pu.wo_id
+        LEFT JOIN parts_inventory pi ON pu.part_id = pi.part_id
+        WHERE t.created_at >= ? AND t.created_at <= ?
+    ");
+    $stmt->execute([$start_date . ' 00:00:00', $end_date . ' 23:59:59']);
+    $ticket_cost = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+
+    // Top 5 costliest assets
+    $costliest = $pdo->query("
+        SELECT 
+            a.asset_tag, a.model,
+            COALESCE(SUM(pu.quantity_used * pi.unit_cost), 0) as total_cost,
+            COUNT(DISTINCT w.wo_id) as wo_count
+        FROM assets a
+        JOIN tickets t ON t.asset_id = a.asset_id
+        JOIN work_orders w ON t.ticket_id = w.ticket_id
+        JOIN wo_parts_used pu ON w.wo_id = pu.wo_id
+        JOIN parts_inventory pi ON pu.part_id = pi.part_id
+        GROUP BY a.asset_id
+        ORDER BY total_cost DESC
+        LIMIT 5
+    ")->fetchAll(PDO::FETCH_ASSOC);
+
+    return [
+        'total_parts_cost' => $ticket_cost['total_parts_cost'] ?? 0,
+        'avg_cost_per_ticket' => $ticket_cost['avg_cost_per_ticket'] ?? 0,
+        'costliest_assets' => $costliest
+    ];
+}

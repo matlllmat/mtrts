@@ -49,7 +49,9 @@ switch ($type) {
             'operational' => get_operational_stats($pdo, $start_date, $end_date),
             'heatmap' => get_location_heatmap($pdo),
             'warranty' => get_warranty_exposure($pdo),
-            'escalations' => get_active_escalations($pdo)
+            'escalations' => get_active_escalations($pdo),
+            'aging' => get_ticket_aging($pdo),
+            'cost' => get_cost_stats($pdo, $start_date, $end_date)
         ];
         break;
 }
