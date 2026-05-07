@@ -558,24 +558,46 @@ if (qrFileInput) {
 // --- QR SCANNER ---
 let html5QrCode;
 function openScanner() {
-  document.getElementById('scanner-modal').classList.remove('hidden');
-  html5QrCode = new Html5Qrcode("qr-reader");
+  const scannerModal = document.getElementById('scanner-modal');
+  scannerModal.classList.remove('hidden');
+  
+  if (!html5QrCode) {
+    html5QrCode = new Html5Qrcode("qr-reader");
+  }
+  
   const config = { fps: 10, qrbox: { width: 250, height: 250 } };
   
-  html5QrCode.start({ facingMode: "environment" }, config, (decodedText) => {
-    onScanSuccess(decodedText);
-  }, (errorMessage) => {
-    // parse error, ignore
-  }).catch((err) => {
-    console.error("Scanner error", err);
-    // alert("Could not start camera. Make sure you have given permission.");
-    // closeScanner();
+  // Try to start the scanner
+  html5QrCode.start(
+    { facingMode: "environment" }, 
+    config, 
+    (decodedText) => {
+      onScanSuccess(decodedText);
+    },
+    (errorMessage) => {
+      // parse error, ignore
+    }
+  ).catch((err) => {
+    console.error("Scanner start error:", err);
+    document.getElementById('qr-reader-results').innerText = "Camera error: " + err;
+    // Fallback: try any camera if environment fails
+    html5QrCode.start(
+      { facingMode: "user" },
+      config,
+      (decodedText) => onScanSuccess(decodedText)
+    ).catch(err2 => {
+        alert("Could not access camera. Please ensure permissions are granted.");
+        closeScanner();
+    });
   });
 }
 
 function closeScanner() {
   if (html5QrCode && html5QrCode.isScanning) {
     html5QrCode.stop().then(() => {
+        document.getElementById('scanner-modal').classList.add('hidden');
+    }).catch(err => {
+        console.error("Error stopping scanner:", err);
         document.getElementById('scanner-modal').classList.add('hidden');
     });
   } else {
@@ -628,6 +650,8 @@ function renderPreviews() {
     }
     attachmentsGrid.appendChild(card);
   });
+}
+
 function showHelp(title, content) {
   document.getElementById('kb-modal-title').innerText = title;
   document.getElementById('kb-modal-content').innerHTML = `
