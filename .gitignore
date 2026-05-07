@@ -1,0 +1,10 @@
+# Debug logs
+debug-*.log
+*.log
+
+# Uploaded files
+public/uploads/
+
+# OS noise
+.DS_Store
+Thumbs.db
