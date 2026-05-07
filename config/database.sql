@@ -311,6 +311,8 @@ CREATE TABLE tickets (
   asset_id         INT           NULL,
   category_id      INT           NULL,
   location_id      INT           NULL,
+  model            VARCHAR(255)  NULL,
+  warranty_status  VARCHAR(255)  NULL,
   title            VARCHAR(255)  NOT NULL,
   description      TEXT          NULL,
   impact           ENUM('low','medium','high','critical') NOT NULL DEFAULT 'medium',
