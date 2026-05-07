@@ -33,16 +33,17 @@
             <span id="stat-total" class="text-3xl font-extrabold text-[#1a5c2a] leading-none">-</span>
         </div>
     </div>
-    <div onclick="openDrilldown('breaches')" class="bg-white rounded-xl p-4 shadow-sm border border-gray-100 flex flex-col justify-between h-full cursor-pointer hover:shadow-md hover:border-[#1a5c2a] transition-all">
+    <div onclick="openDrilldown('breaches')" class="bg-white rounded-xl p-4 shadow-sm border border-gray-100 flex flex-col justify-between h-full cursor-pointer hover:shadow-md hover:border-[#1a5c2a] transition-all group">
         <div class="flex items-center gap-1 mb-2 group/tooltip relative">
-            <p class="text-xs font-bold text-gray-500 uppercase tracking-wider">SLA Compliance</p>
-            <svg class="w-3.5 h-3.5 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <p class="text-xs font-bold text-gray-500 uppercase tracking-wider group-hover:text-[#1a5c2a] transition-colors">SLA Compliance</p>
+            <svg class="w-3.5 h-3.5 text-gray-400 group-hover:text-[#1a5c2a]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
             <div class="absolute bottom-full left-0 mb-1 hidden group-hover/tooltip:block w-48 p-2 bg-gray-800 text-white text-[10px] normal-case tracking-normal font-normal rounded shadow-lg z-50 pointer-events-none">
-                Percentage of tickets resolved without breaching their deadline.
+                Percentage of tickets resolved without breaching their deadline. Click to view breaches.
             </div>
         </div>
         <div class="flex items-end justify-between">
             <span id="stat-compliance" class="text-3xl font-extrabold text-[#1a5c2a] leading-none">-</span>
+            <span class="text-[10px] font-bold text-gray-400 uppercase group-hover:text-[#1a5c2a] transition-colors">View →</span>
         </div>
     </div>
     <div onclick="openDrilldown('mttr')" class="bg-white rounded-xl p-4 shadow-sm border border-gray-100 flex flex-col justify-between h-full cursor-pointer hover:shadow-md hover:border-[#1a5c2a] transition-all">
@@ -185,8 +186,8 @@
                         <th class="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-200">Ticket</th>
                         <th class="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-200">Requester</th>
                         <th class="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-200">Priority</th>
-                        <th class="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-200">Status</th>
-                        <th class="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-200">Created</th>
+                        <th class="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-200">Created At</th>
+                        <th class="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-200 text-right">Deadline</th>
                     </tr>
                 </thead>
                 <tbody id="drilldown-tbody" class="divide-y divide-gray-50 text-sm">
@@ -355,8 +356,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-
-
     window.openDrilldown = (type) => {
         const modal = document.getElementById('drilldown-modal');
         const tbody = document.getElementById('drilldown-tbody');
@@ -388,8 +387,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 
                 tbody.innerHTML = data.map(t => `
-                    <tr class="hover:bg-gray-50 transition-colors cursor-pointer" onclick="window.open('<?= BASE_URL ?>modules/tickets/view.php?id=${t.ticket_id}', '_blank')">
-                        <td class="py-3 px-6 font-medium text-[#1a5c2a]">${t.ticket_number}</td>
+                    <tr class="hover:bg-gray-50 transition-colors cursor-pointer border-b border-gray-50" onclick="window.open('<?= BASE_URL ?>modules/tickets/view.php?id=${t.ticket_id}', '_blank')">
+                        <td class="py-3 px-6 font-medium text-[#1a5c2a]">#${t.ticket_number}</td>
                         <td class="py-3 px-6 text-gray-600">${t.requester || 'System'}</td>
                         <td class="py-3 px-6">
                             <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider 
@@ -399,16 +398,17 @@ document.addEventListener('DOMContentLoaded', () => {
                                 ${t.priority}
                             </span>
                         </td>
-                        <td class="py-3 px-6">
-                            <span class="px-2 py-1 bg-gray-100 text-gray-600 rounded text-[10px] font-bold uppercase tracking-wider border border-gray-200">
-                                ${t.status.replace('_', ' ')}
+                        <td class="py-3 px-6 text-gray-400 font-mono text-[11px]">${new Date(t.created_at).toLocaleDateString()}</td>
+                        <td class="py-3 px-6 text-right">
+                            <span class="text-[11px] font-bold ${t.resolution_due ? 'text-red-600' : 'text-gray-400 italic'}">
+                                ${t.resolution_due ? new Date(t.resolution_due).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}) : 'No Deadline'}
                             </span>
                         </td>
-                        <td class="py-3 px-6 text-gray-500 whitespace-nowrap">${t.created_at.split(' ')[0]}</td>
                     </tr>
                 `).join('');
             })
             .catch(err => {
+                console.error('Drilldown fetch error:', err);
                 tbody.innerHTML = '<tr><td colspan="5" class="py-8 text-center text-red-500">Error loading drill-down data.</td></tr>';
             });
     };

@@ -225,12 +225,15 @@ function check_and_trigger_sla_breaches(PDO $pdo): void {
 function get_sla_compliance_stats(PDO $pdo, string $start_date, string $end_date): array {
     $stmt = $pdo->prepare("
         SELECT 
-            COUNT(*) as total_tickets,
-            SUM(CASE WHEN is_response_breached = 0 THEN 1 ELSE 0 END) as met_response,
-            SUM(CASE WHEN is_resolution_breached = 0 THEN 1 ELSE 0 END) as met_resolution,
-            ROUND((SUM(CASE WHEN is_resolution_breached = 0 THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) as compliance_rate
-        FROM ticket_sla ts
-        JOIN tickets t ON ts.ticket_id = t.ticket_id
+            COUNT(t.ticket_id) as total_tickets,
+            SUM(CASE WHEN ts.is_response_breached = 0 THEN 1 ELSE 0 END) as met_response,
+            SUM(CASE WHEN ts.is_resolution_breached = 0 AND ts.sla_id IS NOT NULL THEN 1 ELSE 0 END) as met_resolution,
+            ROUND(
+                (SUM(CASE WHEN ts.is_resolution_breached = 0 AND ts.sla_id IS NOT NULL THEN 1 ELSE 0 END) / 
+                NULLIF(COUNT(t.ticket_id), 0)) * 100, 
+            2) as compliance_rate
+        FROM tickets t
+        LEFT JOIN ticket_sla ts ON t.ticket_id = ts.ticket_id
         WHERE t.created_at >= ? AND t.created_at <= ?
     ");
     $stmt->execute([$start_date . ' 00:00:00', $end_date . ' 23:59:59']);
@@ -388,7 +391,7 @@ function get_drilldown_tickets(PDO $pdo, string $type, string $start_date, strin
     $base_query = "
         SELECT 
             t.ticket_id, t.ticket_number, t.priority, c.category_name, 
-            t.status, t.created_at, u.full_name as requester
+            t.status, t.created_at, ts.resolution_due, u.full_name as requester
         FROM tickets t
         LEFT JOIN asset_categories c ON t.category_id = c.category_id
         LEFT JOIN users u ON t.requester_id = u.user_id
@@ -426,7 +429,7 @@ function get_drilldown_tickets(PDO $pdo, string $type, string $start_date, strin
             
         case 'breaches':
             $base_query .= " AND t.created_at >= ? AND t.created_at <= ?
-                             AND (ts.is_response_breached = 1 OR ts.is_resolution_breached = 1)";
+                             AND (ts.is_response_breached = 1 OR ts.is_resolution_breached = 1 OR ts.sla_id IS NULL)";
             $params = [$start_date . ' 00:00:00', $end_date . ' 23:59:59'];
             break;
             

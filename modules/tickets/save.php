@@ -4,6 +4,7 @@ $module = 'tickets';
 require_once __DIR__ . '/../../config/auth_only.php';
 require_once __DIR__ . '/functions.php';
 require_once __DIR__ . '/../notifications/functions.php';
+require_once __DIR__ . '/../reports/functions.php';
 
 $action = $_POST['action'] ?? '';
 $user_id = $_SESSION['user_id'];
@@ -33,6 +34,9 @@ if ($action === 'create') {
     // For now, if duplicate is found, we might just set the duplicate_of_id. But since it wasn't required as a hard block, let's just create it.
 
     $ticket_id = create_ticket($pdo, $d);
+
+    // Initialize SLA for this ticket
+    init_ticket_sla($pdo, $ticket_id);
 
     // --- Handle File Uploads (Create) ---
     handle_ticket_uploads($pdo, $ticket_id, $user_id);
@@ -79,6 +83,9 @@ if ($action === 'create') {
     }
 
     update_ticket($pdo, $ticket_id, $d);
+
+    // Update SLA actual timestamps (Response, Diagnosis, Resolution)
+    update_ticket_sla_actuals($pdo, $ticket_id, $d['status'] ?? $t['status']);
 
     // --- Handle Attachment Deletions (Update) ---
     if (!empty($_POST['deleted_attachments'])) {
