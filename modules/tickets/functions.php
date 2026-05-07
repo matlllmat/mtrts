@@ -202,19 +202,16 @@ function create_ticket(PDO $pdo, array $d): int {
 
     $pdo->prepare("
         INSERT INTO tickets
-            (ticket_number, requester_id, asset_tag, asset_id, category_id, location_id, model, warranty_status,
+            (ticket_number, requester_id, asset_id, category_id, location_id,
              title, description, impact, urgency, priority, channel,
              is_event_support, preferred_window, status)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ")->execute([
         $ticket_number,
         $d['requester_id'],
-        $d['asset_tag'] ?: null,
         $d['asset_id'] ?: null,
         $d['category_id'] ?: null,
         $d['location_id'] ?: null,
-        $d['model'] ?: null,
-        $d['warranty_status'] ?: null,
         $d['title'],
         $d['description'] ?: null,
         $d['impact'] ?? 'medium',
@@ -242,14 +239,13 @@ function create_ticket(PDO $pdo, array $d): int {
 }
 
 function update_ticket(PDO $pdo, int $id, array $d): void {
-    // For IT staff updating status
     if (isset($d['status'])) {
+        $priority = calculate_priority($d['urgency'], $d['impact']);
         $pdo->prepare("
             UPDATE tickets SET
                 title=?, description=?, status=?, on_hold_reason=?,
                 impact=?, urgency=?, priority=?, is_event_support=?,
-                assigned_to=?, category_id=?, location_id=?,
-                model=?, warranty_status=?, asset_tag=?
+                assigned_to=?, category_id=?, location_id=?
             WHERE ticket_id=?
         ")->execute([
             $d['title'],
@@ -258,29 +254,24 @@ function update_ticket(PDO $pdo, int $id, array $d): void {
             $d['on_hold_reason'] ?: null,
             $d['impact'],
             $d['urgency'],
-            $d['priority'],
+            $priority,
             $d['is_event_support'] ?? 0,
             $d['assigned_to'] ?: null,
             $d['category_id'] ?: null,
             $d['location_id'] ?: null,
-            $d['model'] ?: null,
-            $d['warranty_status'] ?: null,
-            $d['asset_tag'] ?: null,
-            $id
+            $id,
         ]);
-        
+
         if ($d['status'] === 'resolved' || $d['status'] === 'closed') {
             $pdo->prepare("UPDATE tickets SET ".($d['status'] === 'resolved' ? "resolved_at" : "closed_at")." = NOW() WHERE ticket_id=?")->execute([$id]);
         }
-        
+
     } else {
-        // Just the basic user update
         $priority = calculate_priority($d['urgency'], $d['impact']);
         $pdo->prepare("
             UPDATE tickets SET
                 title=?, description=?, impact=?, urgency=?, priority=?,
-                is_event_support=?, category_id=?, location_id=?, preferred_window=?,
-                model=?, warranty_status=?, asset_tag=?
+                is_event_support=?, category_id=?, location_id=?, preferred_window=?
             WHERE ticket_id=?
         ")->execute([
             $d['title'],
@@ -292,10 +283,7 @@ function update_ticket(PDO $pdo, int $id, array $d): void {
             $d['category_id'] ?: null,
             $d['location_id'] ?: null,
             $d['preferred_window'] ?: null,
-            $d['model'] ?: null,
-            $d['warranty_status'] ?: null,
-            $d['asset_tag'] ?: null,
-            $id
+            $id,
         ]);
     }
     

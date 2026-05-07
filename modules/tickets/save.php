@@ -12,8 +12,7 @@ $is_staff = in_array($_SESSION['role_id'], [1, 2, 3, 4, 8]);
 if ($action === 'create') {
     // Basic sanitization
     $d = [
-        'requester_id'     => $user_id, // Hardcode to current user for security
-        'asset_tag'        => trim($_POST['asset_tag'] ?? ''),
+        'requester_id'     => $user_id,
         'title'            => trim($_POST['title'] ?? ''),
         'description'      => trim($_POST['description'] ?? ''),
         'impact'           => $_POST['impact'] ?? 'medium',
@@ -22,11 +21,9 @@ if ($action === 'create') {
         'category_id'      => ((int)($_POST['category_id'] ?? 0)) ?: null,
         'location_id'      => ((int)($_POST['location_id'] ?? 0)) ?: null,
         'asset_id'         => ((int)($_POST['asset_id'] ?? 0)) ?: null,
-        'model'            => trim($_POST['model'] ?? ''),
-        'warranty_status'  => trim($_POST['warranty_status'] ?? ''),
         'preferred_window' => $_POST['preferred_window'] ?: null,
         'dynamic_fields'   => $_POST['dynamic_fields'] ?? [],
-        'channel'          => 'web'
+        'channel'          => 'web',
     ];
 
     // Check duplicate
@@ -42,7 +39,9 @@ if ($action === 'create') {
 
     // Notify IT Managers / Admins
     $notif_targets = $pdo->query("SELECT user_id FROM users WHERE role_id IN (1, 2) AND is_active = 1")->fetchAll(PDO::FETCH_COLUMN);
-    $ticket_num = $pdo->query("SELECT ticket_number FROM tickets WHERE ticket_id = $ticket_id")->fetchColumn();
+    $stmt_num = $pdo->prepare("SELECT ticket_number FROM tickets WHERE ticket_id = ?");
+    $stmt_num->execute([$ticket_id]);
+    $ticket_num = $stmt_num->fetchColumn();
     
     foreach ($notif_targets as $target_id) {
         notify_user($pdo, (int)$target_id, 'New Ticket: ' . $ticket_num, $d['title'], BASE_URL . 'modules/tickets/view.php?id=' . $ticket_id);
@@ -62,7 +61,6 @@ if ($action === 'create') {
     }
 
     $d = [
-        'asset_tag'        => trim($_POST['asset_tag'] ?? ''),
         'title'            => trim($_POST['title'] ?? ''),
         'description'      => trim($_POST['description'] ?? ''),
         'impact'           => $_POST['impact'] ?? 'medium',
@@ -70,15 +68,14 @@ if ($action === 'create') {
         'is_event_support' => isset($_POST['is_event_support']) ? 1 : 0,
         'category_id'      => ((int)($_POST['category_id'] ?? 0)) ?: null,
         'location_id'      => ((int)($_POST['location_id'] ?? 0)) ?: null,
-        'model'            => trim($_POST['model'] ?? ''),
-        'warranty_status'  => trim($_POST['warranty_status'] ?? ''),
         'preferred_window' => $_POST['preferred_window'] ?: null,
         'dynamic_fields'   => $_POST['dynamic_fields'] ?? [],
     ];
 
     if ($is_staff) {
-        $d['status'] = $_POST['status'] ?? 'new';
-        $d['assigned_to'] = ((int)($_POST['assigned_to'] ?? 0)) ?: null;
+        $d['status']         = $_POST['status'] ?? 'new';
+        $d['assigned_to']    = ((int)($_POST['assigned_to'] ?? 0)) ?: null;
+        $d['on_hold_reason'] = $_POST['on_hold_reason'] ?? null;
     }
 
     update_ticket($pdo, $ticket_id, $d);
@@ -89,13 +86,13 @@ if ($action === 'create') {
         foreach ($del_ids as $att_id) {
             $att_id = (int)$att_id;
             // Verify this attachment belongs to this ticket before deleting
-            $att = $pdo->query("SELECT file_path FROM ticket_attachments WHERE attachment_id = $att_id AND ticket_id = $ticket_id")->fetch();
+            $stmt_att = $pdo->prepare("SELECT file_path FROM ticket_attachments WHERE attachment_id = ? AND ticket_id = ?");
+            $stmt_att->execute([$att_id, $ticket_id]);
+            $att = $stmt_att->fetch();
             if ($att) {
-                // Delete from disk
                 $full_path = __DIR__ . '/../../' . $att['file_path'];
                 if (file_exists($full_path)) @unlink($full_path);
-                // Delete from DB
-                $pdo->query("DELETE FROM ticket_attachments WHERE attachment_id = $att_id");
+                $pdo->prepare("DELETE FROM ticket_attachments WHERE attachment_id = ?")->execute([$att_id]);
             }
         }
     }

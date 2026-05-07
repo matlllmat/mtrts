@@ -1,3 +1,19 @@
+<?php
+/**
+ * Injected by add.php / edit.php before require.
+ *
+ * @var array  $t              Ticket row (or default values for a new ticket)
+ * @var bool   $is_edit
+ * @var bool   $is_staff
+ * @var array  $categories
+ * @var array  $locations
+ * @var array  $assets
+ * @var array  $assignables
+ * @var array  $kb_articles
+ * @var array  $dynamic_fields
+ * @var array  $attachments
+ */
+?>
 <div class="mb-4 flex items-center justify-between">
   <div>
     <a href="<?= $is_edit ? "view.php?id={$t['ticket_id']}" : "index.php" ?>" class="text-sm text-olfu-green hover:underline flex items-center gap-1 mb-2">
@@ -48,8 +64,8 @@
         <div class="md:col-span-2">
            <label class="block text-sm font-medium text-gray-700 mb-1">Asset ID / Serial Number</label>
            <div class="flex gap-2">
-             <input type="text" name="asset_tag" id="asset-tag-input" list="asset-list" 
-                    value="<?= htmlspecialchars($t['asset_tag'] ?? '') ?>" 
+             <input type="text" name="asset_tag" id="asset-tag-input" list="asset-list"
+                    value="<?= htmlspecialchars($t['asset_tag_linked'] ?? $t['asset_tag'] ?? '') ?>"
                     placeholder="Type or scan Asset ID" class="fin flex-1">
              <datalist id="asset-list">
                <?php foreach ($assets as $a): ?>
@@ -64,11 +80,11 @@
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Model</label>
-          <input type="text" name="model" id="input-model" value="<?= htmlspecialchars($t['model'] ?? '') ?>" placeholder="Type what type of model" class="fin w-full">
+          <input type="text" id="input-model" value="<?= htmlspecialchars($t['asset_model'] ?? $t['model'] ?? '') ?>" placeholder="Auto-filled from asset" class="fin w-full bg-gray-50 text-gray-500 cursor-default" readonly>
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Warranty Status</label>
-          <input type="text" name="warranty_status" value="<?= htmlspecialchars($t['warranty_status'] ?? '') ?>" placeholder="Warranty info" class="fin w-full">
+          <input type="text" id="input-warranty" value="<?= htmlspecialchars($t['warranty_status'] ?? '') ?>" placeholder="Auto-filled from asset" class="fin w-full bg-gray-50 text-gray-500 cursor-default" readonly>
         </div>
       </div>
     </div>
@@ -118,9 +134,10 @@
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Urgency <span class="text-red-500">*</span></label>
             <select name="urgency" class="fsel w-full" required>
-               <option value="low" <?= ($t['urgency'] ?? '') == 'low' ? 'selected' : '' ?>>Low</option>
-               <option value="medium" <?= (($t['urgency'] ?? '') == 'medium' || ($t['urgency'] ?? '') == 'mid') ? 'selected' : '' ?>>Mid</option>
-               <option value="critical" <?= ($t['urgency'] ?? '') == 'critical' ? 'selected' : '' ?>>Critical</option>
+               <option value="low"      <?= ($t['urgency'] ?? '') === 'low'      ? 'selected' : '' ?>>Low</option>
+               <option value="medium"   <?= ($t['urgency'] ?? '') === 'medium'   ? 'selected' : '' ?>>Medium</option>
+               <option value="high"     <?= ($t['urgency'] ?? '') === 'high'     ? 'selected' : '' ?>>High</option>
+               <option value="critical" <?= ($t['urgency'] ?? '') === 'critical' ? 'selected' : '' ?>>Critical</option>
             </select>
           </div>
         </div>
@@ -181,7 +198,7 @@
         <div class="space-y-3" id="kb-suggestions-container">
           <?php if (!empty($kb_articles)): foreach ($kb_articles as $article): ?>
             <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:border-olfu-green transition-all cursor-pointer group kb-article-card"
-                 onclick="openKbModal('<?= htmlspecialchars($article['title'], ENT_QUOTES) ?>', `<?= htmlspecialchars($article['content'], ENT_QUOTES) ?>`)">
+                 onclick="openKbModal(<?= json_encode($article['title']) ?>, <?= json_encode($article['content']) ?>)">
               <div class="flex items-center justify-between">
                 <span class="text-[10px] font-bold text-olfu-green uppercase tracking-wider bg-green-50 px-2 py-0.5 rounded">Article</span>
                 <svg class="w-4 h-4 text-gray-300 group-hover:text-olfu-green transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>

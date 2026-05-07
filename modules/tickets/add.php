@@ -56,7 +56,8 @@ $assets     = $pdo->query("SELECT asset_id, asset_tag, manufacturer, model FROM 
 $assignables= $is_staff ? $pdo->query("SELECT user_id, full_name, role_id FROM users WHERE role_id IN (2,3,4,8) AND is_active = 1 ORDER BY full_name")->fetchAll() : [];
 
 $dynamic_fields = [];
-$is_edit = false;
+$attachments    = [];
+$is_edit        = false;
 
 require __DIR__ . '/_form.view.php';
 require_once __DIR__ . '/../../includes/footer.php';

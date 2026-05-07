@@ -12,6 +12,7 @@ $new_password = '123123123';
 $hash = password_hash($new_password, PASSWORD_BCRYPT, ['cost' => 12]);
 
 $stmt = $pdo->prepare(
+
     "UPDATE users SET password_hash = ? WHERE email = 'admin@olfu.edu.ph' LIMIT 1"
 );
 $stmt->execute([$hash]);
