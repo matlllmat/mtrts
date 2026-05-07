@@ -1,3 +1,24 @@
+<?php
+/**
+ * @var callable   $v
+ * @var callable   $wv
+ * @var bool       $is_edit
+ * @var int        $edit_id
+ * @var array      $errors
+ * @var array      $categories
+ * @var array      $owners
+ * @var array      $parents
+ * @var array      $departments
+ * @var array      $loc_data
+ * @var int        $current_loc_id
+ * @var string     $current_building
+ * @var string     $current_floor
+ * @var string     $page_heading
+ * @var string     $back_url
+ * @var array      $warranty_docs
+ * @var array|null $asset
+ */
+?>
 <!-- Back row -->
 <div class="flex items-center gap-2 mb-4">
   <a href="<?= $back_url ?>"
@@ -151,7 +172,7 @@
           </div>
 
           <!-- Bulb Hours (shown conditionally) -->
-          <div id="bulb-row" class="<?= !$is_edit || !$asset['has_bulb_hours'] ? 'hidden' : '' ?>">
+          <div id="bulb-row" class="<?= !$is_edit || !($asset['has_bulb_hours'] ?? false) ? 'hidden' : '' ?>">
             <label class="flbl" for="bulb_hours">Bulb Hours</label>
             <input type="number" id="bulb_hours" name="bulb_hours" min="0"
                    value="<?= htmlspecialchars((string)$v('bulb_hours')) ?>"
@@ -256,6 +277,53 @@
             <input type="text" id="contract_reference" name="contract_reference"
                    value="<?= htmlspecialchars((string)$wv('contract_reference')) ?>"
                    class="fin" placeholder="e.g. EP-2022-1104">
+          </div>
+
+          <!-- Warranty & Contract Documents -->
+          <div class="col-span-2 pt-4 border-t border-gray-100">
+            <p class="flbl mb-2">Attached Documents</p>
+            <?php if ($is_edit): ?>
+              <div id="wd-list" class="flex flex-col gap-2 mb-3">
+                <?php if ($warranty_docs): ?>
+                  <?php foreach ($warranty_docs as $wd): ?>
+                    <?php
+                    $wd_lbl   = $wd['document_type'] === 'contract' ? 'Contract' : 'Warranty';
+                    $wd_color = $wd['document_type'] === 'contract' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700';
+                    $wd_sz    = $wd['file_size_kb'] >= 1024
+                        ? round($wd['file_size_kb'] / 1024, 1) . ' MB'
+                        : number_format($wd['file_size_kb']) . ' KB';
+                    ?>
+                    <div class="flex items-center gap-2 p-2 bg-gray-50 rounded-lg border border-gray-200" data-wd-id="<?= $wd['document_id'] ?>">
+                      <span class="text-xs font-semibold <?= $wd_color ?> px-2 py-0.5 rounded-full flex-shrink-0"><?= $wd_lbl ?></span>
+                      <span class="text-sm text-gray-700 flex-1 truncate"><?= htmlspecialchars($wd['document_name']) ?></span>
+                      <span class="text-xs text-gray-400 flex-shrink-0"><?= $wd_sz ?></span>
+                      <a href="doc_download.php?id=<?= $wd['document_id'] ?>" class="text-olfu-green hover:text-olfu-green-md flex-shrink-0" title="Download">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                        </svg>
+                      </a>
+                    </div>
+                  <?php endforeach; ?>
+                <?php else: ?>
+                  <p id="wd-empty" class="text-sm text-gray-400 italic">No warranty or contract documents attached yet.</p>
+                <?php endif; ?>
+              </div>
+              <div class="flex items-center gap-2 flex-wrap">
+                <select id="wd-type" class="fsel" style="width:auto">
+                  <option value="warranty">Warranty</option>
+                  <option value="contract">Contract</option>
+                </select>
+                <button type="button" onclick="document.getElementById('wd-file-input').click()"
+                        class="text-sm border border-dashed border-gray-300 rounded-lg px-3 py-1.5 text-gray-500 hover:border-olfu-green hover:text-olfu-green transition-colors">
+                  + Attach Document
+                </button>
+                <input type="file" id="wd-file-input" class="hidden" accept=".pdf,.jpg,.jpeg,.png,.dwg,.zip"
+                       onchange="wdFileSelected(this.files)">
+                <span id="wd-msg" class="text-xs hidden"></span>
+              </div>
+            <?php else: ?>
+              <p class="text-sm text-gray-400 italic">Warranty and contract documents can be attached after the asset is saved.</p>
+            <?php endif; ?>
           </div>
         </div>
       </div>
@@ -423,3 +491,84 @@ document.addEventListener('DOMContentLoaded', () => {
   toggleBulbHours();
 });
 </script>
+
+<?php if ($is_edit && $edit_id): ?>
+<script>
+(function () {
+  const _wdAssetId = <?= $edit_id ?>;
+  const _wdCsrf    = <?= json_encode($_SESSION['csrf_token'] ?? '') ?>;
+  let _wdFile = null;
+
+  window.wdFileSelected = function (files) {
+    if (!files.length) return;
+    _wdFile = files[0];
+    document.getElementById('wd-file-input').value = '';
+    wdSubmit();
+  };
+
+  function wdSubmit() {
+    if (!_wdFile) return;
+    const type = document.getElementById('wd-type').value;
+    const msg  = document.getElementById('wd-msg');
+    msg.textContent = 'Uploading…';
+    msg.className   = 'text-xs text-gray-500';
+    msg.classList.remove('hidden');
+
+    const fd = new FormData();
+    fd.append('csrf_token',    _wdCsrf);
+    fd.append('asset_id',      _wdAssetId);
+    fd.append('file',          _wdFile);
+    fd.append('document_type', type);
+
+    fetch('doc_upload.php', { method: 'POST', body: fd })
+      .then(r => r.json())
+      .then(data => {
+        _wdFile = null;
+        if (data.success) {
+          msg.textContent = 'Uploaded successfully.';
+          msg.className   = 'text-xs text-green-600';
+          document.getElementById('wd-empty')?.remove();
+          wdAppendRow(data);
+        } else {
+          msg.textContent = data.message || 'Upload failed.';
+          msg.className   = 'text-xs text-red-500';
+        }
+      })
+      .catch(() => {
+        _wdFile = null;
+        msg.textContent = 'Network error. Please try again.';
+        msg.className   = 'text-xs text-red-500';
+      });
+  }
+
+  function wdAppendRow(d) {
+    let list = document.getElementById('wd-list');
+    if (!list) {
+      list = document.createElement('div');
+      list.id        = 'wd-list';
+      list.className = 'flex flex-col gap-2 mb-3';
+      document.getElementById('wd-type').closest('.flex').before(list);
+    }
+    const isContract = d.document_type === 'contract';
+    const lbl   = isContract ? 'Contract' : 'Warranty';
+    const color = isContract ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700';
+    const sz    = d.file_size_kb >= 1024
+      ? (d.file_size_kb / 1024).toFixed(1) + ' MB'
+      : d.file_size_kb.toLocaleString() + ' KB';
+    const row = document.createElement('div');
+    row.className    = 'flex items-center gap-2 p-2 bg-gray-50 rounded-lg border border-gray-200';
+    row.dataset.wdId = d.document_id;
+    row.innerHTML = `
+      <span class="text-xs font-semibold ${color} px-2 py-0.5 rounded-full flex-shrink-0">${lbl}</span>
+      <span class="text-sm text-gray-700 flex-1 truncate">${d.document_name}</span>
+      <span class="text-xs text-gray-400 flex-shrink-0">${sz}</span>
+      <a href="doc_download.php?id=${d.document_id}" class="text-olfu-green hover:text-olfu-green-md flex-shrink-0" title="Download">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+        </svg>
+      </a>`;
+    list.prepend(row);
+  }
+}());
+</script>
+<?php endif; ?>

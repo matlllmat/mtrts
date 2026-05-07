@@ -1,3 +1,18 @@
+<?php
+/**
+ * @var array      $asset
+ * @var array|null $warranty
+ * @var array      $documents
+ * @var array      $children
+ * @var array      $history
+ * @var int        $open_ticket_count
+ * @var array      $wp
+ * @var string     $active_tab
+ * @var bool       $show_warn_banner
+ * @var bool       $expired_banner
+ * @var int        $id
+ */
+?>
 <!-- Back + breadcrumb row -->
 <div class="flex items-center gap-2 mb-4">
   <a href="index.php"
@@ -163,7 +178,7 @@
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
       <div class="tab-nav">
         <?php
-        $tabs = ['warranty' => 'Warranty & Contract', 'documents' => 'Documents', 'history' => 'Repair History', 'children' => 'Child Assets (' . count($children) . ')'];
+        $tabs = ['warranty' => 'Warranty & Contract', 'documents' => 'Documents', 'history' => 'Repair History (' . count($history) . ')', 'children' => 'Child Assets (' . count($children) . ')'];
         foreach ($tabs as $key => $label):
         ?>
         <button class="tab-btn <?= $active_tab === $key ? 'tab-on' : '' ?>"
@@ -213,6 +228,50 @@
               <div class="h-full rounded-full <?= $wp['color'] ?>" style="width:<?= $wp['pct'] ?>%"></div>
             </div>
           </div>
+
+          <?php
+          $wdocs = array_filter($documents, fn($d) => in_array($d['document_type'], ['warranty', 'contract']));
+          ?>
+          <?php if ($wdocs): ?>
+          <div class="mt-4 pt-4 border-t border-gray-100">
+            <p class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">Related Documents</p>
+            <div class="flex flex-col gap-2">
+              <?php foreach ($wdocs as $wd): ?>
+                <?php
+                $wd_lbl   = $wd['document_type'] === 'contract' ? 'Contract' : 'Warranty';
+                $wd_color = $wd['document_type'] === 'contract' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700';
+                $wd_sz    = $wd['file_size_kb'] >= 1024
+                    ? round($wd['file_size_kb'] / 1024, 1) . ' MB'
+                    : number_format($wd['file_size_kb']) . ' KB';
+                $wd_viewable = in_array($wd['file_type'], ['pdf', 'jpg', 'jpeg', 'png']);
+                ?>
+                <div class="flex items-center gap-2 p-2 bg-gray-50 rounded-lg border border-gray-200">
+                  <span class="text-xs font-semibold <?= $wd_color ?> px-2 py-0.5 rounded-full flex-shrink-0"><?= $wd_lbl ?></span>
+                  <span class="text-sm text-gray-700 flex-1 truncate"><?= htmlspecialchars($wd['document_name']) ?></span>
+                  <span class="text-xs text-gray-400 flex-shrink-0"><?= $wd_sz ?></span>
+                  <?php if ($wd_viewable): ?>
+                  <a href="doc_view.php?id=<?= $wd['document_id'] ?>" target="_blank"
+                     class="text-gray-400 hover:text-blue-500 transition-colors flex-shrink-0" title="View">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                    </svg>
+                  </a>
+                  <?php endif; ?>
+                  <a href="doc_download.php?id=<?= $wd['document_id'] ?>"
+                     class="text-olfu-green hover:text-olfu-green-md transition-colors flex-shrink-0" title="Download">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                    </svg>
+                  </a>
+                </div>
+              <?php endforeach; ?>
+            </div>
+          </div>
+          <?php endif; ?>
+          <div class="mt-3">
+            <a href="edit.php?id=<?= $id ?>" class="text-xs text-olfu-green hover:underline">Edit warranty info →</a>
+          </div>
         <?php else: ?>
           <p class="text-sm text-gray-400 italic">No warranty information recorded for this asset.</p>
           <a href="edit.php?id=<?= $id ?>" class="text-sm text-olfu-green hover:underline mt-2 inline-block">Add warranty info →</a>
@@ -240,6 +299,14 @@
                 ? round($doc['file_size_kb'] / 1024, 1) . ' MB'
                 : number_format($doc['file_size_kb']) . ' KB';
               $viewable = in_array($doc['file_type'], ['pdf','jpg','jpeg','png']);
+              $type_labels = [
+                'warranty'      => ['Warranty',      'bg-blue-100 text-blue-700'],
+                'contract'      => ['Contract',       'bg-purple-100 text-purple-700'],
+                'manual'        => ['Manual',         'bg-gray-100 text-gray-600'],
+                'wiring_diagram'=> ['Wiring',         'bg-yellow-100 text-yellow-700'],
+                'config_backup' => ['Config',         'bg-orange-100 text-orange-700'],
+              ];
+              $type_info = !empty($doc['document_type']) ? ($type_labels[$doc['document_type']] ?? null) : null;
               ?>
               <div class="doc-row" data-doc-id="<?= $doc['document_id'] ?>">
                 <div class="doc-ic <?= $ic ?>"><?= strtoupper(htmlspecialchars($doc['file_type'])) ?></div>
@@ -256,7 +323,10 @@
                       </svg>
                     </button>
                   </div>
-                  <div class="doc-meta">
+                  <div class="doc-meta flex items-center gap-2">
+                    <?php if ($type_info): ?>
+                      <span class="text-xs font-semibold <?= $type_info[1] ?> px-1.5 py-0 rounded-full"><?= $type_info[0] ?></span>
+                    <?php endif; ?>
                     <?= (new DateTime($doc['uploaded_at']))->format('M j, Y') ?>
                     · <?= $size_fmt ?>
                   </div>
@@ -309,11 +379,19 @@
 
         <!-- Upload panel -->
         <div id="doc-upload-panel" class="hidden mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
-          <div class="flex items-center gap-3">
+          <div class="flex items-center gap-3 flex-wrap">
             <svg class="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
             </svg>
-            <span id="doc-selected-name" class="text-sm text-gray-700 truncate flex-1"></span>
+            <span id="doc-selected-name" class="text-sm text-gray-700 truncate flex-1 min-w-0"></span>
+            <select id="doc-type-sel" class="text-sm border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-olfu-green flex-shrink-0">
+              <option value="">General</option>
+              <option value="manual">Manual</option>
+              <option value="warranty">Warranty</option>
+              <option value="contract">Contract</option>
+              <option value="wiring_diagram">Wiring Diagram</option>
+              <option value="config_backup">Config Backup</option>
+            </select>
             <button onclick="docSubmitUpload()" id="doc-upload-btn"
                     class="bg-olfu-green text-white text-sm font-semibold px-4 py-1.5 rounded-lg hover:bg-olfu-green-md transition-colors whitespace-nowrap">
               Upload
@@ -337,31 +415,52 @@
 
       <!-- Repair history tab -->
       <div id="tab-history" class="p-5 <?= $active_tab !== 'history' ? 'hidden' : '' ?>">
+        <div class="flex justify-end mb-3">
+          <a href="<?= BASE_URL ?>modules/tickets/add.php?asset_id=<?= $id ?>&asset_tag=<?= urlencode($asset['asset_tag']) ?>"
+             class="inline-flex items-center gap-1.5 border border-olfu-green text-olfu-green text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-green-50 transition-colors">
+            + Submit Ticket for this Asset
+          </a>
+        </div>
         <?php if ($history): ?>
           <table class="w-full border-collapse text-sm">
             <thead>
               <tr class="border-b border-gray-200">
-                <th class="py-2 px-3 text-left text-xs font-bold uppercase tracking-wider text-gray-400">Ticket ID</th>
+                <th class="py-2 px-3 text-left text-xs font-bold uppercase tracking-wider text-gray-400">Ticket #</th>
                 <th class="py-2 px-3 text-left text-xs font-bold uppercase tracking-wider text-gray-400">Date</th>
                 <th class="py-2 px-3 text-left text-xs font-bold uppercase tracking-wider text-gray-400">Issue</th>
+                <th class="py-2 px-3 text-left text-xs font-bold uppercase tracking-wider text-gray-400">Priority</th>
                 <th class="py-2 px-3 text-left text-xs font-bold uppercase tracking-wider text-gray-400">Status</th>
                 <th class="py-2 px-3 text-left text-xs font-bold uppercase tracking-wider text-gray-400">WO #</th>
               </tr>
             </thead>
             <tbody>
               <?php foreach ($history as $h): ?>
-                <tr class="border-b border-gray-50">
-                  <td class="py-2 px-3 asset-tag"><?= htmlspecialchars($h['ticket_id']) ?></td>
-                  <td class="py-2 px-3 text-gray-600"><?= htmlspecialchars($h['date']) ?></td>
-                  <td class="py-2 px-3 text-gray-700"><?= htmlspecialchars($h['summary']) ?></td>
-                  <td class="py-2 px-3"><?= status_badge($h['status']) ?></td>
-                  <td class="py-2 px-3 asset-tag"><?= htmlspecialchars($h['wo_number']) ?></td>
+                <tr class="border-b border-gray-50 hover:bg-gray-50 cursor-pointer"
+                    onclick="window.location='<?= BASE_URL ?>modules/tickets/view.php?id=<?= $h['ticket_id'] ?>'">
+                  <td class="py-2 px-3">
+                    <span class="asset-tag"><?= htmlspecialchars($h['ticket_number']) ?></span>
+                  </td>
+                  <td class="py-2 px-3 text-gray-500 text-xs whitespace-nowrap">
+                    <?= (new DateTime($h['created_at']))->format('M j, Y') ?>
+                  </td>
+                  <td class="py-2 px-3 text-gray-700 max-w-xs truncate">
+                    <?= htmlspecialchars($h['title']) ?>
+                  </td>
+                  <td class="py-2 px-3"><?= ticket_priority_badge($h['priority']) ?></td>
+                  <td class="py-2 px-3"><?= ticket_status_badge($h['status']) ?></td>
+                  <td class="py-2 px-3">
+                    <?php if ($h['wo_number']): ?>
+                      <span class="asset-tag text-xs"><?= htmlspecialchars($h['wo_number']) ?></span>
+                    <?php else: ?>
+                      <span class="text-gray-300 text-xs">—</span>
+                    <?php endif; ?>
+                  </td>
                 </tr>
               <?php endforeach; ?>
             </tbody>
           </table>
         <?php else: ?>
-          <p class="text-sm text-gray-400 italic">No repair history yet. Ticket data will appear here once Module 1 is connected.</p>
+          <p class="text-sm text-gray-400 italic">No repair history for this asset yet.</p>
         <?php endif; ?>
       </div>
 
@@ -420,7 +519,14 @@
         </div>
         <div class="rp-row">
           <span class="rp-lbl">Open Tickets</span>
-          <span class="rp-val text-gray-400 italic text-xs">Module 1 pending</span>
+          <?php if ($open_ticket_count > 0): ?>
+            <a href="<?= BASE_URL ?>modules/tickets/index.php?asset_id=<?= $id ?>"
+               class="rp-val font-semibold text-red-600 hover:underline">
+              <?= $open_ticket_count ?>
+            </a>
+          <?php else: ?>
+            <span class="rp-val text-gray-500">0</span>
+          <?php endif; ?>
         </div>
         <div class="rp-row">
           <span class="rp-lbl">Building</span>
@@ -564,6 +670,7 @@ function docCancelUpload() {
   document.getElementById('doc-upload-panel').classList.add('hidden');
   document.getElementById('doc-upload-bar').classList.add('hidden');
   document.getElementById('doc-upload-fill').style.width = '0%';
+  document.getElementById('doc-type-sel').value = '';
 }
 function docSubmitUpload() {
   if (!_docFile) return;
@@ -579,9 +686,10 @@ function docSubmitUpload() {
   fill.style.width = '0%';
 
   const fd = new FormData();
-  fd.append('csrf_token', _csrfToken);
-  fd.append('asset_id',   _assetId);
-  fd.append('file',       _docFile);
+  fd.append('csrf_token',    _csrfToken);
+  fd.append('asset_id',      _assetId);
+  fd.append('file',          _docFile);
+  fd.append('document_type', document.getElementById('doc-type-sel')?.value || '');
 
   const xhr = new XMLHttpRequest();
   xhr.upload.onprogress = e => {
@@ -616,6 +724,18 @@ function docSubmitUpload() {
   xhr.send(fd);
 }
 
+function docTypeBadge(type) {
+  const map = {
+    warranty:       ['Warranty',  'bg-blue-100 text-blue-700'],
+    contract:       ['Contract',  'bg-purple-100 text-purple-700'],
+    manual:         ['Manual',    'bg-gray-100 text-gray-600'],
+    wiring_diagram: ['Wiring',    'bg-yellow-100 text-yellow-700'],
+    config_backup:  ['Config',    'bg-orange-100 text-orange-700'],
+  };
+  if (!type || !map[type]) return '';
+  const [lbl, cls] = map[type];
+  return `<span class="text-xs font-semibold ${cls} px-1.5 py-0 rounded-full">${lbl}</span>`;
+}
 function docAppendRow(d) {
   const list = document.getElementById('doc-list');
   const ic   = docIcColors[d.file_type] || 'bg-gray-100 text-gray-600';
@@ -646,7 +766,7 @@ function docAppendRow(d) {
           </svg>
         </button>
       </div>
-      <div class="doc-meta">${d.uploaded_at} · ${size}</div>
+      <div class="doc-meta" style="display:flex;align-items:center;gap:6px">${docTypeBadge(d.document_type)}${d.uploaded_at} · ${size}</div>
     </div>
     <div class="flex items-center gap-2 flex-shrink-0">
       <span class="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">v${d.version}</span>

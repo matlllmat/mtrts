@@ -16,12 +16,13 @@ if (!$asset) {
     exit;
 }
 
-$warranty   = get_asset_warranty($pdo, $id);
-$documents  = get_asset_documents($pdo, $id);
-$children   = get_asset_children($pdo, $id);
-$history    = get_asset_repair_history($pdo, $id);
-$wp         = warranty_progress($warranty['warranty_start'] ?? null, $warranty['warranty_end'] ?? null);
-$active_tab = $_GET['tab'] ?? 'warranty';
+$warranty          = get_asset_warranty($pdo, $id);
+$documents         = get_asset_documents($pdo, $id);
+$children          = get_asset_children($pdo, $id);
+$history           = get_asset_repair_history($pdo, $id);
+$open_ticket_count = get_open_ticket_count($pdo, $id);
+$wp                = warranty_progress($warranty['warranty_start'] ?? null, $warranty['warranty_end'] ?? null);
+$active_tab        = $_GET['tab'] ?? 'warranty';
 
 $show_warn_banner = $warranty && !$wp['expired'] && isset($wp['days_left']) && $wp['days_left'] <= 30;
 $expired_banner   = $warranty && $wp['expired'];

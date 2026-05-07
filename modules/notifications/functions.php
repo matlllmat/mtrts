@@ -91,37 +91,54 @@ function mark_all_notifications_read(PDO $pdo, int $user_id): void {
 // ── Warranty expiry check ─────────────────────────────────────
 
 /**
- * Scans asset_warranty for upcoming expirations and fires notifications
- * for admin / it_manager / it_staff / super_admin (role_ids 1, 2, 3, 8).
+ * Scans asset_warranty for upcoming expirations and fires notifications.
+ *
+ * Standard notice  → roles 1, 2, 3, 8 (all IT staff + admins)
+ * Escalation alert → roles 1, 2 only (managers/admins) when the asset
+ *                    also has unresolved tickets — they need to act before
+ *                    warranty coverage ends.
  *
  * Alert thresholds: 60, 30, 7 days before warranty_end.
  * Each asset fires only the MOST SPECIFIC (smallest) applicable threshold.
- * notif_key format: warranty_{asset_id}_{warranty_end}_{threshold}
- * — guarantees each threshold fires exactly once per asset, even across
- *   multiple page loads.
+ *
+ * notif_key format:
+ *   warranty_{asset_id}_{warranty_end}_{threshold}         — standard notice
+ *   warranty_esc_{asset_id}_{warranty_end}_{threshold}     — escalation
+ * Guarantees each alert fires exactly once per asset per threshold.
  *
  * Call this on page load, throttled to once per hour via $_SESSION.
  */
 function check_warranty_expiry(PDO $pdo): void {
-    // Assets expiring within 60 days, not yet expired
+    // Assets expiring within 60 days, with open-ticket count per asset
     $assets = $pdo->query("
         SELECT a.asset_id, a.asset_tag, a.manufacturer, a.model,
                w.warranty_end,
-               DATEDIFF(w.warranty_end, CURDATE()) AS days_left
+               DATEDIFF(w.warranty_end, CURDATE()) AS days_left,
+               COUNT(t.ticket_id) AS open_tickets
         FROM asset_warranty w
-        JOIN assets a ON a.asset_id = w.asset_id
+        JOIN  assets  a ON a.asset_id = w.asset_id
+        LEFT JOIN tickets t ON t.asset_id = a.asset_id
+                           AND t.status NOT IN ('resolved', 'closed')
         WHERE w.warranty_end >= CURDATE()
           AND w.warranty_end <= DATE_ADD(CURDATE(), INTERVAL 60 DAY)
+        GROUP BY a.asset_id, a.asset_tag, a.manufacturer, a.model, w.warranty_end
     ")->fetchAll();
 
     if (!$assets) return;
 
-    $recipients = $pdo->query("
+    // All IT staff receive the standard warranty notice
+    $all_recipients = $pdo->query("
         SELECT user_id FROM users
         WHERE role_id IN (1, 2, 3, 8) AND is_active = 1
     ")->fetchAll(PDO::FETCH_COLUMN);
 
-    if (!$recipients) return;
+    // Only managers/admins receive the open-ticket escalation
+    $managers = $pdo->query("
+        SELECT user_id FROM users
+        WHERE role_id IN (1, 2) AND is_active = 1
+    ")->fetchAll(PDO::FETCH_COLUMN);
+
+    if (!$all_recipients) return;
 
     $thresholds = [
         7  => '7-Day Warranty Warning',
@@ -132,17 +149,35 @@ function check_warranty_expiry(PDO $pdo): void {
     foreach ($assets as $asset) {
         $days = (int) $asset['days_left'];
         $end  = $asset['warranty_end'];
+        $open = (int) $asset['open_tickets'];
+        $link = BASE_URL . "modules/assets/view.php?id={$asset['asset_id']}";
+        $name = "{$asset['manufacturer']} {$asset['model']} ({$asset['asset_tag']})";
 
         foreach ($thresholds as $t => $title) {
             if ($days > $t) continue;
 
-            $notif_key = "warranty_{$asset['asset_id']}_{$end}_{$t}";
-            $body = "{$asset['manufacturer']} {$asset['model']} ({$asset['asset_tag']}) "
-                  . "— warranty expires on {$end}.";
-            $link = BASE_URL . "modules/assets/view.php?id={$asset['asset_id']}";
+            // ── Standard notice (all staff) ────────────────────────────
+            $body = "{$name} — warranty expires on {$end}.";
+            if ($open > 0) {
+                $body .= " {$open} open ticket(s) still unresolved.";
+            }
 
-            foreach ($recipients as $user_id) {
+            $notif_key = "warranty_{$asset['asset_id']}_{$end}_{$t}";
+            foreach ($all_recipients as $user_id) {
                 notify_user($pdo, (int) $user_id, $title, $body, $link, $notif_key);
+            }
+
+            // ── Escalation (managers only, when open tickets exist) ────
+            if ($open > 0 && $managers) {
+                $esc_title = "Action Required: Open Tickets on Expiring Asset";
+                $esc_body  = "{$name} has {$open} open ticket(s) and warranty expires "
+                           . "in {$days} day(s) ({$end}). Resolve tickets before "
+                           . "coverage ends.";
+                $esc_key   = "warranty_esc_{$asset['asset_id']}_{$end}_{$t}";
+
+                foreach ($managers as $user_id) {
+                    notify_user($pdo, (int) $user_id, $esc_title, $esc_body, $link, $esc_key);
+                }
             }
 
             break; // Only fire the most specific threshold

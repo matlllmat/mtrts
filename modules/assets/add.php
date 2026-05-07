@@ -7,8 +7,9 @@ require_once __DIR__ . '/../../config/guard.php';
 require_once __DIR__ . '/functions.php';
 require_once __DIR__ . '/_styles.php';
 
-$is_edit   = false;
-$edit_id   = 0;
+$is_edit      = false;
+$edit_id      = 0;
+$warranty_docs = [];
 $parent_id = (int)($_GET['parent_id'] ?? 0);
 $asset     = null;
 $warranty  = null;

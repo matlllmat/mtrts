@@ -11,7 +11,11 @@ $is_edit   = true;
 $edit_id   = (int)($_GET['id'] ?? 0);
 $parent_id = 0;
 $asset     = $edit_id ? get_asset_by_id($pdo, $edit_id) : null;
-$warranty  = $edit_id ? get_asset_warranty($pdo, $edit_id) : null;
+$warranty      = $edit_id ? get_asset_warranty($pdo, $edit_id) : null;
+$warranty_docs = $edit_id ? array_values(array_filter(
+    get_asset_documents($pdo, $edit_id),
+    fn($d) => in_array($d['document_type'], ['warranty', 'contract'])
+)) : [];
 
 if (!$asset) {
     echo '<div class="text-red-600 text-sm p-4">Asset not found.</div>';

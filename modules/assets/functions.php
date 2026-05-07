@@ -177,8 +177,41 @@ function get_asset_children(PDO $pdo, int $id): array {
 }
 
 function get_asset_repair_history(PDO $pdo, int $id): array {
-    // Wire up when Module 1 (tickets) and Module 3 (work_orders) are built.
-    return [];
+    $stmt = $pdo->prepare("
+        SELECT t.ticket_id, t.ticket_number, t.title, t.status, t.priority,
+               t.created_at, t.resolved_at,
+               u.full_name AS requester_name,
+               wo.wo_number
+        FROM tickets t
+        LEFT JOIN users u ON t.requester_id = u.user_id
+        LEFT JOIN work_orders wo ON wo.wo_id = (
+            SELECT wo2.wo_id FROM work_orders wo2
+            WHERE wo2.ticket_id = t.ticket_id
+            ORDER BY wo2.wo_id DESC LIMIT 1
+        )
+        WHERE t.asset_id = ?
+        ORDER BY t.created_at DESC
+    ");
+    $stmt->execute([$id]);
+    return $stmt->fetchAll();
+}
+
+function has_open_tickets(PDO $pdo, int $asset_id): bool {
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*) FROM tickets
+        WHERE asset_id = ? AND status NOT IN ('closed','cancelled')
+    ");
+    $stmt->execute([$asset_id]);
+    return (int)$stmt->fetchColumn() > 0;
+}
+
+function get_open_ticket_count(PDO $pdo, int $asset_id): int {
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*) FROM tickets
+        WHERE asset_id = ? AND status NOT IN ('closed','cancelled')
+    ");
+    $stmt->execute([$asset_id]);
+    return (int)$stmt->fetchColumn();
 }
 
 function get_departments(PDO $pdo): array {
@@ -311,11 +344,6 @@ function serial_exists(PDO $pdo, string $serial, string $mfr, int $exclude = 0):
     return (int) $stmt->fetchColumn() > 0;
 }
 
-function has_open_tickets(PDO $pdo, int $asset_id): bool {
-    // Wire up when Module 1 (tickets) is built.
-    return false;
-}
-
 // ── Render helpers ────────────────────────────────────────────
 
 function status_badge(string $status): string {
@@ -325,6 +353,33 @@ function status_badge(string $status): string {
         'retired' => '<span class="asset-badge badge-retired"><span class="bdot"></span>Retired</span>',
         default   => '<span class="asset-badge badge-retired">' . htmlspecialchars(ucfirst($status)) . '</span>',
     };
+}
+
+function ticket_status_badge(string $status): string {
+    $map = [
+        'new'         => ['bg-gray-100 text-gray-600',    'bg-gray-400',   'New'],
+        'assigned'    => ['bg-blue-50 text-blue-700',     'bg-blue-500',   'Assigned'],
+        'scheduled'   => ['bg-indigo-50 text-indigo-700', 'bg-indigo-500', 'Scheduled'],
+        'in_progress' => ['bg-amber-50 text-amber-700',   'bg-amber-500',  'In Progress'],
+        'on_hold'     => ['bg-orange-50 text-orange-700', 'bg-orange-400', 'On Hold'],
+        'resolved'    => ['bg-green-50 text-green-700',   'bg-green-500',  'Resolved'],
+        'closed'      => ['bg-gray-100 text-gray-500',    'bg-gray-400',   'Closed'],
+        'cancelled'   => ['bg-red-50 text-red-600',       'bg-red-400',    'Cancelled'],
+    ];
+    [$cls, $dot, $label] = $map[$status] ?? ['bg-gray-100 text-gray-500', 'bg-gray-400', ucfirst(str_replace('_', ' ', $status))];
+    return "<span class=\"inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full $cls\"><span class=\"w-1.5 h-1.5 rounded-full $dot\"></span>$label</span>";
+}
+
+function ticket_priority_badge(?string $priority): string {
+    if (!$priority) return '<span class="text-gray-300 text-xs">—</span>';
+    $map = [
+        'low'      => 'bg-gray-100 text-gray-500',
+        'medium'   => 'bg-blue-50 text-blue-600',
+        'high'     => 'bg-amber-50 text-amber-700',
+        'critical' => 'bg-red-50 text-red-700',
+    ];
+    $cls = $map[$priority] ?? 'bg-gray-100 text-gray-500';
+    return "<span class=\"text-xs font-semibold px-2 py-0.5 rounded-full $cls\">" . ucfirst($priority) . '</span>';
 }
 
 function cat_badge(string $name): string {
