@@ -91,14 +91,18 @@ $e = fn($k) => isset($errors[$k]) ? 'fin-err' : '';
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label class="flbl">Assign To</label>
-            <select name="assigned_to" id="f-assigned-to" class="fsel <?= $e('assigned_to') ?>">
-              <option value="">— Unassigned —</option>
-              <?php foreach ($technicians as $t): ?>
-                <option value="<?= $t['user_id'] ?>" <?= ($v('assigned_to') ?: '') == $t['user_id'] ? 'selected' : '' ?>>
-                  <?= htmlspecialchars($t['full_name']) ?>
-                </option>
-              <?php endforeach; ?>
-            </select>
+            <div class="relative">
+              <input type="text" id="assignee-search" list="tech-list" 
+                     class="fin w-full <?= $e('assigned_to') ?>" 
+                     placeholder="Search technician..."
+                     value="<?= $wo['technician_name'] ?? '' ?>">
+              <input type="hidden" name="assigned_to" id="hidden-assigned-to" value="<?= $v('assigned_to') ?>">
+              <datalist id="tech-list">
+                <?php foreach ($technicians as $t): ?>
+                  <option value="<?= htmlspecialchars($t['full_name']) ?>" data-id="<?= $t['user_id'] ?>">
+                <?php endforeach; ?>
+              </datalist>
+            </div>
           </div>
 
           <div>
@@ -230,6 +234,26 @@ if (ticketSearch) {
         }
         hiddenTicketId.value = foundId;
     });
+}
+
+// --- Assignee Searchable Logic ---
+const assigneeSearch = document.getElementById('assignee-search');
+const techList       = document.getElementById('tech-list');
+const hiddenAssigned = document.getElementById('hidden-assigned-to');
+
+if (assigneeSearch) {
+    assigneeSearch.addEventListener('input', function() {
+        const val = this.value;
+        const opts = techList.options;
+        let foundId = '';
+        for (let i = 0; i < opts.length; i++) {
+            if (opts[i].value === val) {
+                foundId = opts[i].dataset.id;
+                break;
+            }
+        }
+        hiddenAssigned.value = foundId;
+        checkConflict(); // Trigger conflict check on assignment change
     });
 }
 
@@ -242,7 +266,6 @@ function toggleHoldReason() {
 }
 
 // Double booking conflict checker
-const fAssigned = document.getElementById('f-assigned-to');
 const fStart    = document.getElementById('f-start');
 const fEnd      = document.getElementById('f-end');
 const warnBox   = document.getElementById('conflict-warning');
@@ -250,26 +273,28 @@ const warnMsg   = document.getElementById('conflict-msg');
 const woId      = <?= $is_edit ? $wo['wo_id'] : '0' ?>;
 
 function checkConflict() {
-  const assigned = fAssigned.value;
+  const assigned = hiddenAssigned.value;
   const start    = fStart.value;
   const end      = fEnd.value;
   
+  // Reset UI
+  warnMsg.textContent = "";
+  warnBox.classList.add('hidden');
+  warnBox.classList.replace('banner-danger', 'banner-warn');
+
   // 1. Basic validation: End must be after Start
   if (start && end) {
       if (new Date(end) <= new Date(start)) {
           warnMsg.textContent = "⚠️ Scheduled End must be AFTER the Start time.";
           warnBox.classList.remove('hidden');
-          warnBox.classList.replace('banner-warn', 'banner-danger'); // Make it red for validation
+          warnBox.classList.replace('banner-warn', 'banner-danger'); 
           return;
-      } else {
-          warnBox.classList.replace('banner-danger', 'banner-warn');
       }
   }
 
   // 2. AJAX conflict check
   if (!assigned || !start || !end) {
-    warnBox.classList.add('hidden');
-    return;
+    return; // Stay hidden
   }
   
   const params = new URLSearchParams({
@@ -292,9 +317,13 @@ function checkConflict() {
     .catch(err => console.error(err));
 }
 
-if (fAssigned && fStart && fEnd) {
-  fAssigned.addEventListener('change', checkConflict);
+if (fStart && fEnd) {
   fStart.addEventListener('change', checkConflict);
   fEnd.addEventListener('change', checkConflict);
 }
+
+// Initial state
+document.addEventListener('DOMContentLoaded', () => {
+    warnBox.classList.add('hidden');
+});
 </script>
