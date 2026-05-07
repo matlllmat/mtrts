@@ -15,7 +15,7 @@ if ($action === 'create') {
     // Basic sanitization
     $description = trim($_POST['description'] ?? '');
     if (!empty($_POST['category_others'])) {
-        $description = "[Category: " . trim($_POST['category_others']) . "]\n" . $description;
+        $description = "Category: " . trim($_POST['category_others']) . "\n\n" . $description;
     }
 
     $d = [
