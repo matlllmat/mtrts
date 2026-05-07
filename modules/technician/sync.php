@@ -233,6 +233,22 @@ switch ($action) {
                 } else {
                     $results[] = ['id' => $itemId, 'ok' => false, 'action' => $itemAction, 'error' => 'Missing wo_id'];
                 }
+            } elseif ($itemAction === 'time_start') {
+                if ($woId > 0) {
+                    save_time_log($pdo, $woId, (int)($_SESSION['user_id'] ?? 0), 'start');
+                    update_work_order_status($pdo, $woId, 'in_progress');
+                    $results[] = ['id' => $itemId, 'ok' => true, 'action' => $itemAction];
+                }
+            } elseif ($itemAction === 'time_pause') {
+                if ($woId > 0) {
+                    save_time_log($pdo, $woId, (int)($_SESSION['user_id'] ?? 0), 'pause');
+                    $results[] = ['id' => $itemId, 'ok' => true, 'action' => $itemAction];
+                }
+            } elseif ($itemAction === 'time_resume') {
+                if ($woId > 0) {
+                    save_time_log($pdo, $woId, (int)($_SESSION['user_id'] ?? 0), 'resume');
+                    $results[] = ['id' => $itemId, 'ok' => true, 'action' => $itemAction];
+                }
             } else {
                 // Other actions - acknowledge without specific handling
                 $results[] = ['id' => $itemId, 'ok' => true, 'action' => $itemAction];
@@ -255,16 +271,16 @@ switch ($action) {
         }
         
         foreach (array_keys($itemIds) as $itemId) {
-          $itemAction = $_POST["item_${itemId}_action"] ?? '';
-          $woId = (int)($_POST["item_${itemId}_wo_id"] ?? 0);
+          $itemAction = $_POST["item_{$itemId}_action"] ?? '';
+          $woId = (int)($_POST["item_{$itemId}_wo_id"] ?? 0);
           
           if ($itemAction === 'evidence_add') {
-            $side = $_POST["item_${itemId}_side"] ?? '';
-            $kind = $_POST["item_${itemId}_kind"] ?? 'image';
-            $name = $_POST["item_${itemId}_name"] ?? '';
+            $side = $_POST["item_{$itemId}_side"] ?? '';
+            $kind = $_POST["item_{$itemId}_kind"] ?? 'image';
+            $name = $_POST["item_{$itemId}_name"] ?? '';
             
-            if (isset($_FILES["item_${itemId}_file"])) {
-              $file = $_FILES["item_${itemId}_file"];
+            if (isset($_FILES["item_{$itemId}_file"])) {
+              $file = $_FILES["item_{$itemId}_file"];
               
               // Validate file type and size
               $validation = validateUploadedFile($file, $kind);
@@ -296,10 +312,10 @@ switch ($action) {
               $results[] = ['id' => $itemId, 'ok' => false, 'action' => 'evidence_add', 'error' => 'No file'];
             }
           } elseif ($itemAction === 'config_add') {
-            $name = $_POST["item_${itemId}_name"] ?? '';
+            $name = $_POST["item_{$itemId}_name"] ?? '';
             
-            if (isset($_FILES["item_${itemId}_file"])) {
-              $file = $_FILES["item_${itemId}_file"];
+            if (isset($_FILES["item_{$itemId}_file"])) {
+              $file = $_FILES["item_{$itemId}_file"];
               
               // Validate file type and size (config includes logs and backups)
               $validation = validateUploadedFile($file, 'config');
@@ -330,8 +346,8 @@ switch ($action) {
             }
           } elseif ($itemAction === 'checklist_update') {
             // Process checklist updates in batch sync
-            $itemIdField = (int)($_POST["item_${itemId}_itemId"] ?? $_POST["item_${itemId}_item_id"] ?? $_POST["item_${itemId}_id"] ?? 0);
-            $completed = filter_var($_POST["item_${itemId}_completed"] ?? $_POST["item_${itemId}_is_done"] ?? false, FILTER_VALIDATE_BOOLEAN);
+            $itemIdField = (int)($_POST["item_{$itemId}_itemId"] ?? $_POST["item_{$itemId}_item_id"] ?? $_POST["item_{$itemId}_id"] ?? 0);
+            $completed = filter_var($_POST["item_{$itemId}_completed"] ?? $_POST["item_{$itemId}_is_done"] ?? false, FILTER_VALIDATE_BOOLEAN);
             if ($woId && $itemIdField) {
               update_checklist_completion($pdo, $woId, $itemIdField, $completed);
               $results[] = ['id' => $itemId, 'ok' => true, 'action' => $itemAction];
@@ -340,8 +356,8 @@ switch ($action) {
             }
           } elseif ($itemAction === 'safety_update') {
             // Process safety updates in batch sync
-            $safetyIdField = (int)($_POST["item_${itemId}_safetyId"] ?? $_POST["item_${itemId}_safety_id"] ?? $_POST["item_${itemId}_id"] ?? 0);
-            $completed = filter_var($_POST["item_${itemId}_completed"] ?? $_POST["item_${itemId}_is_done"] ?? false, FILTER_VALIDATE_BOOLEAN);
+            $safetyIdField = (int)($_POST["item_{$itemId}_safetyId"] ?? $_POST["item_{$itemId}_safety_id"] ?? $_POST["item_{$itemId}_id"] ?? 0);
+            $completed = filter_var($_POST["item_{$itemId}_completed"] ?? $_POST["item_{$itemId}_is_done"] ?? false, FILTER_VALIDATE_BOOLEAN);
             if ($woId && $safetyIdField) {
               update_safety_completion($pdo, $woId, $safetyIdField, $completed);
               $results[] = ['id' => $itemId, 'ok' => true, 'action' => $itemAction];

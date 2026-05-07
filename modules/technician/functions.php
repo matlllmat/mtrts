@@ -586,7 +586,7 @@ function complete_work_order_transactional(PDO $pdo, array $payload, int $techni
             }
         }
 
-        $sql = "UPDATE work_orders SET status = 'resolved', actual_end = NOW()" .
+        $sql = "UPDATE work_orders SET status = 'resolved', actual_end = COALESCE(actual_end, NOW()), actual_start = COALESCE(actual_start, NOW())" .
                ($resolution_notes !== '' ? ", resolution_notes = ?" : '') .
                " WHERE wo_id = ?";
         $params = $resolution_notes !== '' ? [$resolution_notes, $wo_id] : [$wo_id];
@@ -743,9 +743,9 @@ function update_work_order_status(PDO $pdo, int $wo_id, string $status): void {
     $params = [$status, $wo_id];
 
     if ($status === 'in_progress') {
-        $update[] = 'actual_start = NOW()';
+        $update[] = 'actual_start = COALESCE(actual_start, NOW())';
     } elseif ($status === 'resolved') {
-        $update[] = 'actual_end = NOW()';
+        $update[] = 'actual_end = COALESCE(actual_end, NOW())';
     }
 
     $sql = "UPDATE work_orders SET status = ?" . (count($update) ? ', ' . implode(', ', $update) : '') . " WHERE wo_id = ?";

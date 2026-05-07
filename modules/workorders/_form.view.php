@@ -138,7 +138,7 @@ $e = fn($k) => isset($errors[$k]) ? 'fin-err' : '';
         <?php if (isset($errors['scheduled_end'])): ?><p class="ferr-msg mt-2"><?= $errors['scheduled_end'] ?></p><?php endif; ?>
         
         <!-- Conflict Warning -->
-        <div id="conflict-warning" class="wo-banner banner-warn mt-4 hidden">
+        <div id="conflict-warning" class="wo-banner banner-warn mt-4" style="display: none;">
           <svg class="flex-shrink-0 w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
           </svg>
@@ -371,14 +371,14 @@ function checkConflict() {
   
   // Reset UI
   warnMsg.textContent = "";
-  warnBox.classList.add('hidden');
+  warnBox.style.display = 'none';
   warnBox.classList.replace('banner-danger', 'banner-warn');
 
   // 1. Basic validation: End must be after Start
   if (start && end) {
       if (new Date(end) <= new Date(start)) {
           warnMsg.textContent = "⚠️ Scheduled End must be AFTER the Start time.";
-          warnBox.classList.remove('hidden');
+          warnBox.style.display = 'flex';
           warnBox.classList.replace('banner-warn', 'banner-danger'); 
           return;
       }
@@ -402,9 +402,9 @@ function checkConflict() {
     .then(data => {
       if (data.conflict) {
         warnMsg.textContent = "⚠️ Conflict: " + data.message;
-        warnBox.classList.remove('hidden');
+        warnBox.style.display = 'flex';
       } else {
-        warnBox.classList.add('hidden');
+        warnBox.style.display = 'none';
       }
     })
     .catch(err => console.error(err));
@@ -425,20 +425,27 @@ const partsContainer = document.getElementById('parts-container');
 
 function addPartRow(partId = '', qty = 1) {
     const rowId = 'part-row-' + Date.now();
+    
+    let optionsHtml = '<option value="">— Select Part —</option>';
+    if (!allParts || allParts.length === 0) {
+        optionsHtml = '<option value="">— No parts available —</option>';
+    } else {
+        optionsHtml += allParts.map(p => `
+            <option value="${p.part_id}" ${p.part_id == partId ? 'selected' : ''}>
+                ${p.part_name} (${p.part_number}) — Stock: ${p.quantity_on_hand}
+            </option>
+        `).join('');
+    }
+
     const html = `
         <div id="${rowId}" class="flex items-center gap-2 bg-gray-50 p-2 rounded-lg border border-gray-100">
             <div class="flex-1">
-                <select name="parts[${rowId}][id]" class="fsel w-full text-xs" required>
-                    <option value="">— Select Part —</option>
-                    ${allParts.map(p => `
-                        <option value="${p.part_id}" ${p.part_id == partId ? 'selected' : ''}>
-                            ${p.part_name} (${p.part_number}) — Stock: ${p.quantity_on_hand}
-                        </option>
-                    `).join('')}
+                <select name="parts[${rowId}][id]" class="fsel w-full text-xs" required ${!allParts || allParts.length === 0 ? 'disabled' : ''}>
+                    ${optionsHtml}
                 </select>
             </div>
             <div class="w-16">
-                <input type="number" name="parts[${rowId}][qty]" value="${qty}" min="1" class="fin w-full text-xs" required>
+                <input type="number" name="parts[${rowId}][qty]" value="${qty}" min="1" class="fin w-full text-xs" required ${!allParts || allParts.length === 0 ? 'disabled' : ''}>
             </div>
             <button type="button" onclick="document.getElementById('${rowId}').remove()" class="text-red-400 hover:text-red-600 p-1">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>

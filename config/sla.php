@@ -24,9 +24,17 @@ function init_ticket_sla(PDO $pdo, int $ticket_id): void {
     // 3. Get location timezone
     $timezone = 'Asia/Manila';
     if ($t['location_id']) {
-        $stmt_tz = $pdo->prepare("SELECT timezone FROM locations WHERE location_id = ?");
-        $stmt_tz->execute([$t['location_id']]);
-        $timezone = $stmt_tz->fetchColumn() ?: 'Asia/Manila';
+        try {
+            $stmt_tz = $pdo->prepare("SELECT timezone FROM locations WHERE location_id = ?");
+            $stmt_tz->execute([$t['location_id']]);
+            $fetched_tz = $stmt_tz->fetchColumn();
+            if ($fetched_tz) {
+                $timezone = $fetched_tz;
+            }
+        } catch (PDOException $e) {
+            // Fallback if 'timezone' column doesn't exist in older DB schemas
+            $timezone = 'Asia/Manila';
+        }
     }
 
     // 4. Calculate deadlines
@@ -222,23 +230,26 @@ function get_matching_sla_policy(PDO $pdo, array $ticket_data): ?int {
         }
 
         // 2. Location Match (5 pts)
-        if (isset($ticket_data['location_id']) && $policy['location_id'] == $ticket_data['location_id']) {
+        $policy_location_id = $policy['location_id'] ?? null;
+        if (isset($ticket_data['location_id']) && $policy_location_id == $ticket_data['location_id']) {
             $score += 5;
-        } elseif ($policy['location_id'] !== null) {
+        } elseif ($policy_location_id !== null) {
             continue; // Explicitly defined for a DIFFERENT location
         }
 
         // 3. Category Match (3 pts)
-        if (isset($ticket_data['category_id']) && $policy['category_id'] == $ticket_data['category_id']) {
+        $policy_category_id = $policy['category_id'] ?? null;
+        if (isset($ticket_data['category_id']) && $policy_category_id == $ticket_data['category_id']) {
             $score += 3;
-        } elseif ($policy['category_id'] !== null) {
+        } elseif ($policy_category_id !== null) {
             continue; // Explicitly defined for a DIFFERENT category
         }
 
         // 4. Request Type Match (2 pts)
-        if (isset($ticket_data['request_type']) && $policy['request_type'] === $ticket_data['request_type']) {
+        $policy_request_type = $policy['request_type'] ?? null;
+        if (isset($ticket_data['request_type']) && $policy_request_type === $ticket_data['request_type']) {
             $score += 2;
-        } elseif ($policy['request_type'] !== null) {
+        } elseif ($policy_request_type !== null) {
             continue; // Explicitly defined for a DIFFERENT request type
         }
 
