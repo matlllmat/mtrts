@@ -472,11 +472,13 @@ function complete_work_order_transactional(PDO $pdo, array $payload, int $techni
         throw new InvalidArgumentException('Missing required fields: wo_id, signer_name');
     }
 
-    $stmt = $pdo->prepare("SELECT wo_id FROM work_orders WHERE wo_id = ?");
+    $stmt = $pdo->prepare("SELECT wo_id, ticket_id FROM work_orders WHERE wo_id = ?");
     $stmt->execute([$wo_id]);
-    if (!$stmt->fetch()) {
+    $wo = $stmt->fetch();
+    if (!$wo) {
         throw new RuntimeException('Work order not found');
     }
+    $ticket_id = $wo['ticket_id'] ?? null;
 
     // Signature path is required in some schemas, so always provide a value.
     $signature_path = 'data:inline';
@@ -591,6 +593,11 @@ function complete_work_order_transactional(PDO $pdo, array $payload, int $techni
                " WHERE wo_id = ?";
         $params = $resolution_notes !== '' ? [$resolution_notes, $wo_id] : [$wo_id];
         $pdo->prepare($sql)->execute($params);
+
+        // Update the parent ticket status to resolved
+        if ($ticket_id) {
+            $pdo->prepare("UPDATE tickets SET status = 'resolved', resolved_at = COALESCE(resolved_at, NOW()) WHERE ticket_id = ?")->execute([$ticket_id]);
+        }
 
         $pdo->commit();
     } catch (Throwable $e) {
@@ -750,6 +757,26 @@ function update_work_order_status(PDO $pdo, int $wo_id, string $status): void {
 
     $sql = "UPDATE work_orders SET status = ?" . (count($update) ? ', ' . implode(', ', $update) : '') . " WHERE wo_id = ?";
     $pdo->prepare($sql)->execute($params);
+
+    // Sync status to parent ticket
+    $stmt = $pdo->prepare("SELECT ticket_id FROM work_orders WHERE wo_id = ?");
+    $stmt->execute([$wo_id]);
+    if ($ticket_id = $stmt->fetchColumn()) {
+        $ticket_status = $status;
+        if ($status === 'scheduled') $ticket_status = 'assigned';
+        
+        $ticket_update_sql = "UPDATE tickets SET status = ?";
+        $ticket_params = [$ticket_status];
+        
+        if ($ticket_status === 'resolved') {
+            $ticket_update_sql .= ", resolved_at = COALESCE(resolved_at, NOW())";
+        }
+        
+        $ticket_update_sql .= " WHERE ticket_id = ?";
+        $ticket_params[] = $ticket_id;
+        
+        $pdo->prepare($ticket_update_sql)->execute($ticket_params);
+    }
 }
 
 function can_complete_work_order(PDO $pdo, int $wo_id): array {

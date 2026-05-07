@@ -30,8 +30,12 @@
         <script>
         function doExport(fmt) {
             const range = document.getElementById('date-range').value;
-            const end = new Date().toISOString().split('T')[0];
-            const start = new Date(Date.now() - range * 24*60*60*1000).toISOString().split('T')[0];
+            const dEnd = new Date();
+            const dStart = new Date();
+            dStart.setDate(dEnd.getDate() - range);
+            const toYMD = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+            const end = toYMD(dEnd);
+            const start = toYMD(dStart);
             window.location.href = '<?= BASE_URL ?>modules/reports/export.php?start=' + start + '&end=' + end + '&format=' + fmt;
             document.getElementById('export-dropdown').classList.add('hidden');
         }
@@ -366,8 +370,12 @@ const formatMinutes = (mins) => {
 
 const fetchStats = () => {
     const range = document.getElementById('date-range').value;
-    const end = new Date().toISOString().split('T')[0];
-    const start = new Date(Date.now() - range * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const dEnd = new Date();
+    const dStart = new Date();
+    dStart.setDate(dEnd.getDate() - range);
+    const toYMD = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const end = toYMD(dEnd);
+    const start = toYMD(dStart);
 
     fetch(`<?= BASE_URL ?>modules/reports/api_stats.php?start=${start}&end=${end}`)
         .then(r => r.json())
@@ -646,8 +654,12 @@ document.addEventListener('DOMContentLoaded', () => {
         title.textContent = titles[type] || 'Ticket Details';
 
         const range = document.getElementById('date-range').value;
-        const end = new Date().toISOString().split('T')[0];
-        const start = new Date(Date.now() - range * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        const dEnd = new Date();
+        const dStart = new Date();
+        dStart.setDate(dEnd.getDate() - range);
+        const toYMD = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        const end = toYMD(dEnd);
+        const start = toYMD(dStart);
 
         fetch(`<?= BASE_URL ?>modules/reports/api_stats.php?drilldown=${type}&start=${start}&end=${end}`)
             .then(r => r.json())
