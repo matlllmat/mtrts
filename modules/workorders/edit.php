@@ -20,6 +20,8 @@ unset($_SESSION['wo_errors'], $_SESSION['wo_old']);
 
 $technicians = get_all_technicians($pdo);
 $tickets     = get_available_tickets($pdo);
+$all_parts   = get_all_parts($pdo);
+$kb_articles = get_related_kb_articles($pdo, $wo['category_id'] ?? null);
 
 require __DIR__ . '/_form.view.php';
 require_once __DIR__ . '/../../includes/footer.php';

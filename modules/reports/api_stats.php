@@ -46,7 +46,10 @@ switch ($type) {
             'trends' => get_resolution_trends($pdo, $start_date, $end_date),
             'hotspots' => get_asset_hotspots($pdo, 5),
             'scorecards' => get_technician_scorecards($pdo),
-            'operational' => get_operational_stats($pdo, $start_date, $end_date)
+            'operational' => get_operational_stats($pdo, $start_date, $end_date),
+            'heatmap' => get_location_heatmap($pdo),
+            'warranty' => get_warranty_exposure($pdo),
+            'escalations' => get_active_escalations($pdo)
         ];
         break;
 }

@@ -55,12 +55,12 @@ $e = fn($k) => isset($errors[$k]) ? 'fin-err' : '';
         <div class="grid grid-cols-1 gap-4">
           <!-- Ticket Searchable -->
           <div>
-            <label class="flbl">Linked Ticket</label>
+            <label class="flbl">Linked Ticket <span class="text-red-400">*</span></label>
             <div class="relative">
               <input type="text" name="ticket_display" id="ticket-search" list="ticket-list" 
                      class="fin w-full <?= $e('ticket_id') ?>" 
-                     placeholder="Type Ticket ID or Subject to search..."
-                     value="<?= $v('ticket_display') ?: ($v('ticket_id') ? '#' . $v('ticket_number') : '') ?>">
+                     placeholder="Search for a ticket (ID or Subject)..."
+                     value="<?= $v('ticket_display') ?: ($v('ticket_id') ? '#' . $v('ticket_number') : '') ?>" required>
               <input type="hidden" name="ticket_id" id="hidden-ticket-id" value="<?= $v('ticket_id') ?>">
               <datalist id="ticket-list">
                 <?php foreach ($tickets as $tk): ?>
@@ -68,7 +68,7 @@ $e = fn($k) => isset($errors[$k]) ? 'fin-err' : '';
                 <?php endforeach; ?>
               </datalist>
             </div>
-            <p class="fhint">Enter Ticket # or keyword. Leave blank for Direct WO.</p>
+            <p class="fhint">Every work order must be linked to an active ticket.</p>
             <?php if (isset($errors['ticket_id'])): ?><p class="ferr-msg"><?= $errors['ticket_id'] ?></p><?php endif; ?>
           </div>
 
@@ -145,6 +145,22 @@ $e = fn($k) => isset($errors[$k]) ? 'fin-err' : '';
           <span id="conflict-msg" class="text-sm font-medium ml-2 text-red-800"></span>
         </div>
       </div>
+      <!-- Parts Pre-allocation -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <div class="sdiv mb-4 flex items-center justify-between" style="padding-top:0">
+          <span>Parts Pre-allocation</span>
+          <button type="button" onclick="addPartRow()" class="text-xs font-bold text-olfu-green hover:text-green-700 flex items-center gap-1">
+            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+            Add Part
+          </button>
+        </div>
+
+        <div id="parts-container" class="space-y-3">
+          <!-- Rows will be added here -->
+        </div>
+        
+        <p class="text-xs text-gray-400 mt-4 italic">Note: Selected parts will be reserved for this work order.</p>
+      </div>
     </div>
 
     <!-- Right Column: Status & Notes -->
@@ -211,6 +227,26 @@ $e = fn($k) => isset($errors[$k]) ? 'fin-err' : '';
           <?= $is_edit ? 'Update Work Order' : 'Create Work Order' ?>
         </button>
       </div>
+      <!-- Knowledge Aids -->
+      <div id="kb-aids-section" class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 <?= empty($kb_articles) ? 'hidden' : '' ?>">
+        <div class="sdiv mb-4 flex items-center gap-2" style="padding-top:0">
+          <svg class="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+          </svg>
+          Knowledge Aids
+        </div>
+        <div id="kb-list" class="space-y-3">
+          <?php if (!empty($kb_articles)): ?>
+            <?php foreach ($kb_articles as $kb): ?>
+              <div class="p-3 bg-blue-50/50 rounded-lg border border-blue-100">
+                <h4 class="text-xs font-bold text-blue-800 mb-1"><?= htmlspecialchars($kb['title']) ?></h4>
+                <p class="text-[11px] text-blue-600 line-clamp-2"><?= htmlspecialchars($kb['content']) ?></p>
+                <button type="button" class="text-[10px] font-bold text-blue-700 mt-1 hover:underline" onclick="alert(<?= htmlspecialchars(json_encode($kb['content'])) ?>)">View full script</button>
+              </div>
+            <?php endforeach; ?>
+          <?php endif; ?>
+        </div>
+      </div>
     </div>
   </div>
 </form>
@@ -233,7 +269,63 @@ if (ticketSearch) {
             }
         }
         hiddenTicketId.value = foundId;
+        
+        // Refresh Knowledge Aids
+        if (foundId) {
+            checkWarranty(foundId);
+            fetchKb(foundId);
+        }
     });
+
+    // Also check on blur to ensure we have a valid ID
+    ticketSearch.addEventListener('blur', function() {
+        if (!hiddenTicketId.value && this.value) {
+            // Try to find it again if they pasted it or something
+            const val = this.value;
+            const opts = ticketList.options;
+            for (let i = 0; i < opts.length; i++) {
+                if (opts[i].value === val) {
+                    hiddenTicketId.value = opts[i].dataset.id;
+                    break;
+                }
+            }
+        }
+    });
+}
+
+const ticketsData = <?= json_encode($tickets) ?>;
+function checkWarranty(ticketId) {
+    const ticket = ticketsData.find(t => t.ticket_id == ticketId);
+    if (ticket) {
+        const rmaCheckbox = document.getElementById('is-rma');
+        if (rmaCheckbox && ticket.warranty_status === 'under_warranty') {
+            rmaCheckbox.checked = true;
+        }
+    }
+}
+
+function fetchKb(ticketId) {
+    const section = document.getElementById('kb-aids-section');
+    const list    = document.getElementById('kb-list');
+    
+    fetch('get_kb_ajax.php?ticket_id=' + ticketId)
+        .then(r => r.json())
+        .then(data => {
+            if (data.kb && data.kb.length > 0) {
+                section.classList.remove('hidden');
+                list.innerHTML = data.kb.map(kb => `
+                    <div class="p-3 bg-blue-50/50 rounded-lg border border-blue-100">
+                        <h4 class="text-xs font-bold text-blue-800 mb-1">${kb.title}</h4>
+                        <p class="text-[11px] text-blue-600 line-clamp-2">${kb.content}</p>
+                        <button type="button" class="text-[10px] font-bold text-blue-700 mt-1 hover:underline" onclick="alert(\`${kb.content.replace(/`/g, '\\`')}\`)">View full script</button>
+                    </div>
+                `).join('');
+            } else {
+                section.classList.add('hidden');
+                list.innerHTML = '';
+            }
+        })
+        .catch(err => console.error(err));
 }
 
 // --- Assignee Searchable Logic ---
@@ -301,7 +393,8 @@ function checkConflict() {
     assigned_to: assigned,
     start: start,
     end: end,
-    wo_id: woId
+    wo_id: woId,
+    ticket_id: hiddenTicketId.value
   });
   
   fetch('check_conflicts_ajax.php?' + params.toString())
@@ -326,4 +419,45 @@ if (fStart && fEnd) {
 document.addEventListener('DOMContentLoaded', () => {
     warnBox.classList.add('hidden');
 });
+// --- Parts Logic ---
+const allParts = <?= json_encode($all_parts) ?>;
+const partsContainer = document.getElementById('parts-container');
+
+function addPartRow(partId = '', qty = 1) {
+    const rowId = 'part-row-' + Date.now();
+    const html = `
+        <div id="${rowId}" class="flex items-center gap-2 bg-gray-50 p-2 rounded-lg border border-gray-100">
+            <div class="flex-1">
+                <select name="parts[${rowId}][id]" class="fsel w-full text-xs" required>
+                    <option value="">— Select Part —</option>
+                    ${allParts.map(p => `
+                        <option value="${p.part_id}" ${p.part_id == partId ? 'selected' : ''}>
+                            ${p.part_name} (${p.part_number}) — Stock: ${p.quantity_on_hand}
+                        </option>
+                    `).join('')}
+                </select>
+            </div>
+            <div class="w-16">
+                <input type="number" name="parts[${rowId}][qty]" value="${qty}" min="1" class="fin w-full text-xs" required>
+            </div>
+            <button type="button" onclick="document.getElementById('${rowId}').remove()" class="text-red-400 hover:text-red-600 p-1">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+    `;
+    partsContainer.insertAdjacentHTML('beforeend', html);
+}
+
+// Pre-fill existing parts if any (on edit)
+<?php 
+if ($is_edit && !empty($parts)) {
+    foreach ($parts as $p) {
+        echo "addPartRow({$p['part_id']}, {$p['quantity_used']});\n";
+    }
+}
+?>
+
+if (!partsContainer.children.length && !<?= $is_edit ? 'true' : 'false' ?>) {
+    // addPartRow(); // Optional: start with one empty row
+}
 </script>

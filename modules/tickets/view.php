@@ -43,7 +43,14 @@ if ($is_staff) {
     $related_wos = $stmt->fetchAll();
 }
 
-// Mark new comments as read? No notification check needed, notifications has its own mechanism.
+// Duplicate handling
+$original_ticket = null;
+if (!empty($ticket['duplicate_of_id'])) {
+    $original_ticket = get_ticket_by_id($pdo, (int)$ticket['duplicate_of_id']);
+}
+$stmt_dups = $pdo->prepare("SELECT ticket_id, ticket_number, status FROM tickets WHERE duplicate_of_id = ?");
+$stmt_dups->execute([$id]);
+$duplicates = $stmt_dups->fetchAll();
 
 require __DIR__ . '/view.view.php';
 require_once __DIR__ . '/../../includes/footer.php';

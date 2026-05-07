@@ -52,7 +52,7 @@ $categories = get_all_categories($pdo);
 $locations  = get_all_locations($pdo);
 $kb_articles = get_recommended_kb_articles($pdo, $t['category_id']);
 // Only fetch assets if we don't have one pre-filled or maybe we just want to fetch a list
-$assets     = $pdo->query("SELECT asset_id, asset_tag, manufacturer, model FROM assets WHERE status = 'active' ORDER BY asset_tag")->fetchAll();
+$assets     = $pdo->query("SELECT asset_id, asset_tag, serial_number, manufacturer, model FROM assets WHERE status IN ('active', 'spare') ORDER BY asset_tag")->fetchAll();
 $assignables= $is_staff ? $pdo->query("SELECT user_id, full_name, role_id FROM users WHERE role_id IN (2,3,4,8) AND is_active = 1 ORDER BY full_name")->fetchAll() : [];
 
 $dynamic_fields = [];

@@ -70,6 +70,9 @@
              <datalist id="asset-list">
                <?php foreach ($assets as $a): ?>
                  <option value="<?= htmlspecialchars($a['asset_tag']) ?>" data-id="<?= $a['asset_id'] ?>" data-model="<?= htmlspecialchars($a['model']) ?>">
+                 <?php if ($a['serial_number']): ?>
+                    <option value="<?= htmlspecialchars($a['serial_number']) ?>" data-id="<?= $a['asset_id'] ?>" data-model="<?= htmlspecialchars($a['model']) ?>">
+                 <?php endif; ?>
                <?php endforeach; ?>
              </datalist>
              <button type="button" onclick="openScanner()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-lg border border-gray-300 flex items-center gap-2 transition-colors">
@@ -80,11 +83,17 @@
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Model</label>
-          <input type="text" name="model" id="input-model" value="<?= htmlspecialchars($t['asset_model'] ?? $t['model'] ?? '') ?>" placeholder="Enter model" class="fin w-full">
+          <input type="text" name="model" id="input-model" 
+                 value="<?= htmlspecialchars($t['asset_model'] ?? $t['model'] ?? '') ?>" 
+                 readonly placeholder="Auto-filled from Asset ID" 
+                 class="fin w-full bg-gray-50 border-gray-200 text-gray-600 cursor-not-allowed">
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Warranty Status</label>
-          <input type="text" name="warranty_status" id="input-warranty" value="<?= htmlspecialchars($t['warranty_status'] ?? '') ?>" placeholder="Enter warranty status" class="fin w-full">
+          <input type="text" name="warranty_status" id="input-warranty" 
+                 value="<?= htmlspecialchars($t['warranty_status'] ?? '') ?>" 
+                 readonly placeholder="Auto-filled from Asset ID" 
+                 class="fin w-full bg-gray-50 border-gray-200 text-gray-600 cursor-not-allowed">
         </div>
       </div>
     </div>
@@ -117,7 +126,10 @@
             <input type="text" name="category_others" id="category-others" class="fin w-full" placeholder="Specify category/issue">
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Location / Room <span class="text-red-500">*</span></label>
+            <label class="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
+              Location / Room <span class="text-red-500">*</span>
+              <svg onclick="showHelp('Location', 'The exact room where the issue is. This helps us calculate travel time and locate the asset.')" class="w-3.5 h-3.5 text-gray-400 cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            </label>
             <select name="location_id" id="location-select" class="fsel w-full" required>
               <option value="">-- Select Room --</option>
               <?php foreach ($locations as $l): ?>
@@ -128,7 +140,22 @@
             </select>
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Impact <span class="text-red-500">*</span></label>
+            <label class="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
+              Request Type <span class="text-red-500">*</span>
+              <svg onclick="showHelp('Request Type', 'Standard Repair: Fix broken gear. \nEvent Support: Live technical assistance for classes/events. \nMaintenance: Non-urgent cleanup/updates.')" class="w-3.5 h-3.5 text-gray-400 cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            </label>
+            <select name="request_type" class="fsel w-full" required>
+               <option value="repair" <?= ($t['request_type'] ?? '') == 'repair' ? 'selected' : '' ?>>Standard Repair</option>
+               <option value="event" <?= ($t['request_type'] ?? '') == 'event' ? 'selected' : '' ?>>Event Support</option>
+               <option value="maintenance" <?= ($t['request_type'] ?? '') == 'maintenance' ? 'selected' : '' ?>>Maintenance</option>
+               <option value="other" <?= ($t['request_type'] ?? '') == 'other' ? 'selected' : '' ?>>Other</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
+              Impact <span class="text-red-500">*</span>
+              <svg onclick="showHelp('Impact', 'How many people are affected? \nLow: One person. \nMedium: A whole class. \nHigh: Multiple rooms/Department.')" class="w-3.5 h-3.5 text-gray-400 cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            </label>
             <select name="impact" class="fsel w-full" required>
                <option value="low" <?= ($t['impact'] ?? '') == 'low' ? 'selected' : '' ?>>Low</option>
                <option value="medium" <?= ($t['impact'] ?? '') == 'medium' ? 'selected' : '' ?>>Medium</option>
@@ -136,7 +163,10 @@
             </select>
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Urgency <span class="text-red-500">*</span></label>
+            <label class="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
+              Urgency <span class="text-red-500">*</span>
+              <svg onclick="showHelp('Urgency', 'How fast do you need it? \nCritical: Class is happening NOW. \nHigh: Class in < 2 hours. \nMedium: Next day.')" class="w-3.5 h-3.5 text-gray-400 cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            </label>
             <select name="urgency" class="fsel w-full" required>
                <option value="low"      <?= ($t['urgency'] ?? '') === 'low'      ? 'selected' : '' ?>>Low</option>
                <option value="medium"   <?= ($t['urgency'] ?? '') === 'medium'   ? 'selected' : '' ?>>Medium</option>
@@ -328,8 +358,15 @@
     <div class="p-6">
       <div id="qr-reader" class="rounded-xl overflow-hidden bg-gray-100 aspect-square"></div>
       <div id="qr-reader-results" class="mt-4 text-center text-sm text-gray-500 italic">Scanning...</div>
+      
+      <div class="mt-6 pt-6 border-t border-gray-100">
+        <label class="block text-sm font-bold text-gray-700 mb-2">Or Upload QR Image</label>
+        <div class="flex items-center gap-3">
+          <input type="file" id="qr-file-input" accept="image/*" class="text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-olfu-green hover:file:bg-green-100">
+        </div>
+      </div>
     </div>
-    <div class="px-6 py-4 bg-gray-50 flex justify-end">
+    <div class="px-6 py-4 bg-gray-50 flex justify-end gap-3">
       <button type="button" onclick="closeScanner()" class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-50">Cancel</button>
     </div>
   </div>
@@ -343,6 +380,7 @@ const hiddenAssetId  = document.getElementById('hidden-asset-id');
 const modelInput     = document.getElementById('input-model');
 const warrantyInput  = document.getElementById('input-warranty');
 const assetList      = document.getElementById('asset-list');
+const qrFileInput    = document.getElementById('qr-file-input');
 
 function checkCategoryOthers(sel) {
   const container = document.getElementById('others-specify-container');
@@ -410,20 +448,73 @@ function closeKbModal() {
   document.body.style.overflow = '';
 }
 
+assetTagInput.addEventListener('change', function() {
+  const val = this.value.trim();
+  if (!val) {
+    modelInput.value = '';
+    warrantyInput.value = '';
+    hiddenAssetId.value = '';
+    return;
+  }
+  
+  // Try to find in datalist first for immediate feedback
+  const opts = assetList.options;
+  let foundLocal = false;
+  for (let i = 0; i < opts.length; i++) {
+    if (opts[i].value === val) {
+      hiddenAssetId.value = opts[i].dataset.id;
+      modelInput.value = opts[i].dataset.model || '';
+      foundLocal = true;
+      break;
+    }
+  }
+
+  // Always fetch from server to get full details (like warranty)
+  fetch(`asset_lookup_ajax.php?q=${encodeURIComponent(val)}`)
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        hiddenAssetId.value = data.asset_id;
+        modelInput.value = data.model;
+        warrantyInput.value = data.warranty_status;
+        
+        // Auto-select category and location if available
+        if (data.category_id) {
+            const catSel = document.getElementById('category-select');
+            catSel.value = data.category_id;
+            catSel.dispatchEvent(new Event('change'));
+        }
+        if (data.location_id) {
+            const locSel = document.querySelector('select[name="location_id"]');
+            if (locSel) locSel.value = data.location_id;
+        }
+      } else if (!foundLocal) {
+        modelInput.value = '';
+        warrantyInput.value = '';
+        hiddenAssetId.value = '';
+      }
+    })
+    .catch(err => console.error('Error fetching asset details:', err));
+});
+
 assetTagInput.addEventListener('input', function() {
-  const val = this.value;
+  const val = this.value.trim();
   const opts = assetList.options;
   let found = false;
   for (let i = 0; i < opts.length; i++) {
     if (opts[i].value === val) {
       hiddenAssetId.value = opts[i].dataset.id;
-      // Removed auto-filling of model to comply with "dont make it automatic"
+      modelInput.value = opts[i].dataset.model || '';
       found = true;
       break;
     }
   }
   if (!found) {
     hiddenAssetId.value = '';
+    if (val === '') {
+        modelInput.value = '';
+        warrantyInput.value = '';
+    }
   }
 });
 
@@ -434,6 +525,35 @@ if (categorySelect) {
   checkCategoryOthers(categorySelect);
 }
 updateFormBehavior();
+
+function onScanSuccess(decodedText) {
+    let tag = decodedText;
+    // Handle URL format: http://.../view.php?id=123 or ...?asset_tag=TAG
+    if (decodedText.includes('?')) {
+        const urlParams = new URLSearchParams(decodedText.split('?')[1]);
+        tag = urlParams.get('asset_tag') || urlParams.get('id') || decodedText;
+    }
+    
+    assetTagInput.value = tag;
+    assetTagInput.dispatchEvent(new Event('change'));
+    closeScanner();
+}
+
+if (qrFileInput) {
+    qrFileInput.addEventListener('change', e => {
+        if (e.target.files.length === 0) return;
+        const file = e.target.files[0];
+        const html5QrCodeFile = new Html5Qrcode("qr-reader");
+        html5QrCodeFile.scanFile(file, true)
+            .then(decodedText => {
+                onScanSuccess(decodedText);
+            })
+            .catch(err => {
+                console.error("Error scanning file", err);
+                alert("Could not find a valid QR code in this image.");
+            });
+    });
+}
 
 // --- QR SCANNER ---
 let html5QrCode;
@@ -551,5 +671,15 @@ function renderPreviews() {
     }
     attachmentsGrid.appendChild(card);
   });
+function showHelp(title, content) {
+  document.getElementById('kb-modal-title').innerText = title;
+  document.getElementById('kb-modal-content').innerHTML = `
+    <div class="bg-blue-50 border-l-4 border-blue-400 p-4 rounded mb-4">
+      <p class="text-sm text-blue-700 leading-relaxed whitespace-pre-line">${content}</p>
+    </div>
+    <p class="text-xs text-gray-500 italic">This information helps our SLA engine calculate the best response time for your request.</p>
+  `;
+  document.getElementById('kb-modal').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
 }
 </script>

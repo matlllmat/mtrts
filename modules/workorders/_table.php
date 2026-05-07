@@ -50,7 +50,7 @@ $total_pages = max(1, (int) ceil($total / $per_page));
                 <?php if ($wo['ticket_number']): ?>
                   <span class="wo-tag"><?= htmlspecialchars($wo['ticket_number']) ?></span>
                 <?php else: ?>
-                  <span class="text-gray-300 italic text-xs">Direct WO</span>
+                  <span class="text-red-300 italic text-xs">Unlinked (Fix Required)</span>
                 <?php endif; ?>
               </td>
               <td class="py-3 px-3"><?= wo_type_badge($wo['wo_type']) ?></td>
