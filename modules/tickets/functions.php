@@ -203,15 +203,18 @@ function create_ticket(PDO $pdo, array $d): int {
     $pdo->prepare("
         INSERT INTO tickets
             (ticket_number, requester_id, asset_id, category_id, location_id,
+             model, warranty_status,
              title, description, impact, urgency, priority, channel,
              is_event_support, preferred_window, status)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ")->execute([
         $ticket_number,
         $d['requester_id'],
         $d['asset_id'] ?: null,
         $d['category_id'] ?: null,
         $d['location_id'] ?: null,
+        $d['model'] ?: null,
+        $d['warranty_status'] ?: null,
         $d['title'],
         $d['description'] ?: null,
         $d['impact'] ?? 'medium',
@@ -245,7 +248,8 @@ function update_ticket(PDO $pdo, int $id, array $d): void {
             UPDATE tickets SET
                 title=?, description=?, status=?, on_hold_reason=?,
                 impact=?, urgency=?, priority=?, is_event_support=?,
-                assigned_to=?, category_id=?, location_id=?
+                assigned_to=?, category_id=?, location_id=?,
+                model=?, warranty_status=?
             WHERE ticket_id=?
         ")->execute([
             $d['title'],
@@ -259,6 +263,8 @@ function update_ticket(PDO $pdo, int $id, array $d): void {
             $d['assigned_to'] ?: null,
             $d['category_id'] ?: null,
             $d['location_id'] ?: null,
+            $d['model'] ?: null,
+            $d['warranty_status'] ?: null,
             $id,
         ]);
 
@@ -271,7 +277,8 @@ function update_ticket(PDO $pdo, int $id, array $d): void {
         $pdo->prepare("
             UPDATE tickets SET
                 title=?, description=?, impact=?, urgency=?, priority=?,
-                is_event_support=?, category_id=?, location_id=?, preferred_window=?
+                is_event_support=?, category_id=?, location_id=?, preferred_window=?,
+                model=?, warranty_status=?
             WHERE ticket_id=?
         ")->execute([
             $d['title'],
@@ -283,6 +290,8 @@ function update_ticket(PDO $pdo, int $id, array $d): void {
             $d['category_id'] ?: null,
             $d['location_id'] ?: null,
             $d['preferred_window'] ?: null,
+            $d['model'] ?: null,
+            $d['warranty_status'] ?: null,
             $id,
         ]);
     }

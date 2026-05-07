@@ -13,14 +13,16 @@ if (empty($kb_articles)) {
 } else {
     foreach ($kb_articles as $article) {
         ?>
-        <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:border-olfu-green transition-all cursor-pointer group kb-article-card" 
-             onclick="openKbModal(<?= json_encode($article['title']) ?>, <?= json_encode($article['content']) ?>)">
-          <div class="flex items-center justify-between">
+        <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:border-olfu-green transition-all cursor-pointer group kb-article-card relative" 
+             onclick="openKbModal(<?= htmlspecialchars(json_encode($article['title'])) ?>, <?= htmlspecialchars(json_encode($article['content'])) ?>)">
+          <div class="flex items-center justify-between mb-1">
             <span class="text-[10px] font-bold text-olfu-green uppercase tracking-wider bg-green-50 px-2 py-0.5 rounded">Article</span>
-            <svg class="w-4 h-4 text-gray-300 group-hover:text-olfu-green transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+            <span class="text-[10px] text-olfu-green font-bold opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+              Read Full Article <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+            </span>
           </div>
-          <h4 class="text-sm font-bold text-gray-900 mt-2"><?= htmlspecialchars($article['title']) ?></h4>
-          <p class="text-xs text-gray-500 mt-1 line-clamp-2"><?= strip_tags($article['content']) ?></p>
+          <h4 class="text-sm font-bold text-gray-900 group-hover:text-olfu-green transition-colors"><?= htmlspecialchars($article['title']) ?></h4>
+          <p class="text-xs text-gray-500 mt-1 line-clamp-3 leading-relaxed"><?= strip_tags($article['content']) ?></p>
         </div>
         <?php
     }
