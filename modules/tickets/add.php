@@ -52,7 +52,8 @@ $categories = get_all_categories($pdo);
 $locations  = get_all_locations($pdo);
 $kb_articles = get_recommended_kb_articles($pdo, $t['category_id']);
 // Only fetch assets if we don't have one pre-filled or maybe we just want to fetch a list
-$assets     = $pdo->query("SELECT asset_id, asset_tag, serial_number, manufacturer, model FROM assets WHERE status IN ('active', 'spare') ORDER BY asset_tag")->fetchAll();
+$assets         = $pdo->query("SELECT asset_id, asset_tag, serial_number, manufacturer, model FROM assets WHERE status IN ('active', 'spare') ORDER BY asset_tag")->fetchAll();
+$sla_policies   = $pdo->query("SELECT * FROM sla_policies WHERE is_active = 1 ORDER BY FIELD(priority, 'critical', 'high', 'medium', 'low'), policy_id ASC")->fetchAll();
 
 $dynamic_fields = [];
 $attachments    = [];
