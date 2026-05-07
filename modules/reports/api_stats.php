@@ -17,6 +17,12 @@ $start_date = $_GET['start'] ?? date('Y-m-d', strtotime('-30 days'));
 $end_date = $_GET['end'] ?? date('Y-m-d');
 
 $type = $_GET['type'] ?? 'all';
+
+if (isset($_GET['drilldown'])) {
+    echo json_encode(get_drilldown_tickets($pdo, $_GET['drilldown'], $start_date, $end_date));
+    exit;
+}
+
 $data = [];
 
 switch ($type) {

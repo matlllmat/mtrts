@@ -231,9 +231,9 @@ function get_sla_compliance_stats(PDO $pdo, string $start_date, string $end_date
             ROUND((SUM(CASE WHEN is_resolution_breached = 0 THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) as compliance_rate
         FROM ticket_sla ts
         JOIN tickets t ON ts.ticket_id = t.ticket_id
-        WHERE t.created_at BETWEEN ? AND ?
+        WHERE t.created_at >= ? AND t.created_at <= ?
     ");
-    $stmt->execute([$start_date, $end_date]);
+    $stmt->execute([$start_date . ' 00:00:00', $end_date . ' 23:59:59']);
     return $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
 }
 
@@ -249,9 +249,9 @@ function get_mttr_stats(PDO $pdo, string $start_date, string $end_date): array {
         FROM tickets
         WHERE status IN ('resolved', 'closed')
           AND resolved_at IS NOT NULL
-          AND created_at BETWEEN ? AND ?
+          AND created_at >= ? AND created_at <= ?
     ");
-    $stmt->execute([$start_date, $end_date]);
+    $stmt->execute([$start_date . ' 00:00:00', $end_date . ' 23:59:59']);
     return $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
 }
 
@@ -266,18 +266,24 @@ function get_operational_stats(PDO $pdo, string $start_date, string $end_date): 
             SUM(CASE WHEN (SELECT COUNT(*) FROM work_orders w WHERE w.ticket_id = t.ticket_id) <= 1 THEN 1 ELSE 0 END) as ftfr_count
         FROM tickets t
         WHERE t.status IN ('resolved', 'closed')
-          AND t.created_at BETWEEN ? AND ?
+          AND t.created_at >= ? AND t.created_at <= ?
     ");
-    $stmt->execute([$start_date, $end_date]);
+    $stmt->execute([$start_date . ' 00:00:00', $end_date . ' 23:59:59']);
     $ftfr_data = $stmt->fetch(PDO::FETCH_ASSOC);
     $ftfr_rate = !empty($ftfr_data['total_resolved']) ? round(($ftfr_data['ftfr_count'] / $ftfr_data['total_resolved']) * 100, 1) : 0;
+
+    // Total Tickets in range
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM tickets WHERE created_at >= ? AND created_at <= ?");
+    $stmt->execute([$start_date . ' 00:00:00', $end_date . ' 23:59:59']);
+    $total_tickets = $stmt->fetchColumn();
 
     // Backlog: All currently open tickets
     $backlog = $pdo->query("SELECT COUNT(*) FROM tickets WHERE status NOT IN ('resolved', 'closed')")->fetchColumn();
 
     return [
         'ftfr_rate' => $ftfr_rate,
-        'backlog' => $backlog
+        'backlog' => $backlog,
+        'total_tickets' => $total_tickets
     ];
 }
 
@@ -352,6 +358,66 @@ function get_audit_logs(PDO $pdo, array $f = [], int $page = 1, int $per = 20): 
         ORDER BY l.created_at DESC
         LIMIT $per OFFSET $offset
     ");
+    $stmt->execute($params);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+/**
+ * ── DRILL-DOWN QUERIES ──────────────────────────────────────────
+ */
+function get_drilldown_tickets(PDO $pdo, string $type, string $start_date, string $end_date): array {
+    $base_query = "
+        SELECT 
+            t.ticket_id, t.ticket_number, t.priority, c.category_name, 
+            t.status, t.created_at, u.full_name as requester
+        FROM tickets t
+        LEFT JOIN asset_categories c ON t.category_id = c.category_id
+        LEFT JOIN users u ON t.requester_id = u.user_id
+        LEFT JOIN ticket_sla ts ON t.ticket_id = ts.ticket_id
+        WHERE 1=1
+    ";
+    
+    $params = [];
+    
+    switch ($type) {
+        case 'backlog':
+            $base_query .= " AND t.status NOT IN ('resolved', 'closed')";
+            break;
+            
+        case 'ftfr':
+            $base_query .= " AND t.status IN ('resolved', 'closed') 
+                             AND t.created_at >= ? AND t.created_at <= ?
+                             AND (SELECT COUNT(*) FROM work_orders w WHERE w.ticket_id = t.ticket_id) <= 1";
+            $params = [$start_date . ' 00:00:00', $end_date . ' 23:59:59'];
+            break;
+            
+        case 'mttr':
+            $base_query .= " AND t.status IN ('resolved', 'closed') 
+                             AND t.resolved_at IS NOT NULL
+                             AND t.created_at >= ? AND t.created_at <= ?";
+            $params = [$start_date . ' 00:00:00', $end_date . ' 23:59:59'];
+            break;
+            
+        case 'breaches':
+            $base_query .= " AND t.created_at >= ? AND t.created_at <= ?
+                             AND (ts.is_response_breached = 1 OR ts.is_resolution_breached = 1)";
+            $params = [$start_date . ' 00:00:00', $end_date . ' 23:59:59'];
+            break;
+            
+        case 'event_support':
+            $base_query .= " AND t.is_event_support = 1 AND t.status NOT IN ('resolved', 'closed')";
+            break;
+            
+        case 'total':
+        default:
+            $base_query .= " AND t.created_at >= ? AND t.created_at <= ?";
+            $params = [$start_date . ' 00:00:00', $end_date . ' 23:59:59'];
+            break;
+    }
+    
+    $base_query .= " ORDER BY t.created_at DESC LIMIT 50";
+    
+    $stmt = $pdo->prepare($base_query);
     $stmt->execute($params);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
