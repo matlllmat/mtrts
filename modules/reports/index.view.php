@@ -270,6 +270,18 @@ const TERMS = {
     'Asset Hotspots': {
         desc: 'Specific equipment models or locations that report failures significantly more often than others.',
         impact: 'Used to justify equipment replacements or perform preventive maintenance on specific brands.'
+    },
+    'Location Heatmap': {
+        desc: 'Visual representation of repair request density across different buildings and rooms.',
+        impact: 'Helps identify environmental factors or power issues affecting specific areas.'
+    },
+    'Warranty Exposure': {
+        desc: 'List of assets whose manufacturer warranty is expiring within the next 90 days.',
+        impact: 'Allows management to plan for service contracts or replacements before coverage ends.'
+    },
+    'Escalations': {
+        desc: 'Tickets that have missed their SLA targets and have been flagged for management attention.',
+        impact: 'Ensures that overdue issues are not forgotten and receive additional resources if needed.'
     }
 };
 

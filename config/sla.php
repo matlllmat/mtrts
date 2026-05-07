@@ -3,13 +3,61 @@
 // Shared SLA Engine logic for MTRTS
 
 /**
+ * Initializes a new SLA record for a ticket using the specificity-based policy selection.
+ */
+function init_ticket_sla(PDO $pdo, int $ticket_id): void {
+    // 1. Get ticket details
+    $stmt = $pdo->prepare("SELECT ticket_id, priority, category_id, location_id, request_type, is_event_support, created_at FROM tickets WHERE ticket_id = ?");
+    $stmt->execute([$ticket_id]);
+    $t = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$t) return;
+
+    // 2. Find matching policy
+    $policy_id = get_matching_sla_policy($pdo, $t);
+    if (!$policy_id) return;
+
+    $stmt = $pdo->prepare("SELECT * FROM sla_policies WHERE policy_id = ?");
+    $stmt->execute([$policy_id]);
+    $policy = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$policy) return;
+
+    // 3. Get location timezone
+    $timezone = 'Asia/Manila';
+    if ($t['location_id']) {
+        $stmt_tz = $pdo->prepare("SELECT timezone FROM locations WHERE location_id = ?");
+        $stmt_tz->execute([$t['location_id']]);
+        $timezone = $stmt_tz->fetchColumn() ?: 'Asia/Manila';
+    }
+
+    // 4. Calculate deadlines
+    $resp_due = calculate_sla_deadline($pdo, $t['created_at'], $policy['response_minutes'], $policy['uses_business_hours'], $timezone);
+    $diag_due = calculate_sla_deadline($pdo, $t['created_at'], $policy['diagnosis_minutes'], $policy['uses_business_hours'], $timezone);
+    $res_due  = calculate_sla_deadline($pdo, $t['created_at'], $policy['resolution_minutes'], $policy['uses_business_hours'], $timezone);
+
+    // 5. Save to ticket_sla
+    $stmt = $pdo->prepare("
+        INSERT INTO ticket_sla 
+            (ticket_id, policy_id, response_due, diagnosis_due, resolution_due)
+        VALUES (?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE 
+            policy_id = VALUES(policy_id),
+            response_due = VALUES(response_due),
+            diagnosis_due = VALUES(diagnosis_due),
+            resolution_due = VALUES(resolution_due)
+    ");
+    $stmt->execute([$ticket_id, $policy['policy_id'], $resp_due, $diag_due, $res_due]);
+}
+
+/**
  * The "Brain" - Calculates a deadline by skipping non-working time
  */
-function calculate_sla_deadline(PDO $pdo, string $start_time, int $minutes, bool $use_business_hours = true): string {
-    $current = new DateTime($start_time);
+function calculate_sla_deadline(PDO $pdo, string $start_time, int $minutes, bool $use_business_hours = true, string $timezone = 'Asia/Manila'): string {
+    $current = new DateTime($start_time, new DateTimeZone('UTC'));
+    $current->setTimezone(new DateTimeZone($timezone));
     
     if (!$use_business_hours) {
         $current->modify("+$minutes minutes");
+        $current->setTimezone(new DateTimeZone('UTC'));
         return $current->format('Y-m-d H:i:s');
     }
 
@@ -48,8 +96,8 @@ function calculate_sla_deadline(PDO $pdo, string $start_time, int $minutes, bool
             continue;
         }
 
-        $start_of_work = new DateTime($date_str . ' ' . $biz_hours[$dow]['start_time']);
-        $end_of_work = new DateTime($date_str . ' ' . $biz_hours[$dow]['end_time']);
+        $start_of_work = new DateTime($date_str . ' ' . $biz_hours[$dow]['start_time'], new DateTimeZone($timezone));
+        $end_of_work = new DateTime($date_str . ' ' . $biz_hours[$dow]['end_time'], new DateTimeZone($timezone));
 
         if ($current < $start_of_work) {
             $current = clone $start_of_work;
@@ -74,6 +122,7 @@ function calculate_sla_deadline(PDO $pdo, string $start_time, int $minutes, bool
         }
     }
 
+    $current->setTimezone(new DateTimeZone('UTC'));
     return $current->format('Y-m-d H:i:s');
 }
 
@@ -148,4 +197,66 @@ function check_sla_escalations(PDO $pdo): array {
     }
     
     return $breached;
+}
+/**
+ * Find the best matching SLA policy for a ticket using a weighted specificity system.
+ * Priority (10) > Location (5) > Category (3) > Request Type (2)
+ */
+function get_matching_sla_policy(PDO $pdo, array $ticket_data): ?int {
+    $policies = $pdo->query("SELECT * FROM sla_policies WHERE is_active = 1")->fetchAll(PDO::FETCH_ASSOC);
+    
+    if (empty($policies)) return null;
+
+    $best_policy_id = null;
+    $highest_score = -1;
+
+    foreach ($policies as $policy) {
+        $score = 0;
+        
+        // 1. Priority Match (10 pts)
+        if ($policy['priority'] === $ticket_data['priority']) {
+            $score += 10;
+        } elseif ($policy['priority'] !== null) {
+            continue; // Explicitly defined for a DIFFERENT priority
+        }
+
+        // 2. Location Match (5 pts)
+        if (isset($ticket_data['location_id']) && $policy['location_id'] == $ticket_data['location_id']) {
+            $score += 5;
+        } elseif ($policy['location_id'] !== null) {
+            continue; // Explicitly defined for a DIFFERENT location
+        }
+
+        // 3. Category Match (3 pts)
+        if (isset($ticket_data['category_id']) && $policy['category_id'] == $ticket_data['category_id']) {
+            $score += 3;
+        } elseif ($policy['category_id'] !== null) {
+            continue; // Explicitly defined for a DIFFERENT category
+        }
+
+        // 4. Request Type Match (2 pts)
+        if (isset($ticket_data['request_type']) && $policy['request_type'] === $ticket_data['request_type']) {
+            $score += 2;
+        } elseif ($policy['request_type'] !== null) {
+            continue; // Explicitly defined for a DIFFERENT request type
+        }
+
+        // Ties go to the first one found or highest score
+        if ($score > $highest_score) {
+            $highest_score = $score;
+            $best_policy_id = (int)$policy['policy_id'];
+        }
+    }
+
+    // Default to the first general policy if no specific match
+    if ($best_policy_id === null && !empty($policies)) {
+        foreach($policies as $p) {
+            if ($p['priority'] === null && $p['location_id'] === null && $p['category_id'] === null) {
+                return (int)$p['policy_id'];
+            }
+        }
+        return (int)$policies[0]['policy_id'];
+    }
+
+    return $best_policy_id;
 }

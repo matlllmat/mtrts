@@ -117,7 +117,10 @@
             <input type="text" name="category_others" id="category-others" class="fin w-full" placeholder="Specify category/issue">
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Location / Room <span class="text-red-500">*</span></label>
+            <label class="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
+              Location / Room <span class="text-red-500">*</span>
+              <svg onclick="showHelp('Location', 'The exact room where the issue is. This helps us calculate travel time and locate the asset.')" class="w-3.5 h-3.5 text-gray-400 cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            </label>
             <select name="location_id" class="fsel w-full" required>
               <option value="">-- Select Room --</option>
               <?php foreach ($locations as $l): ?>
@@ -128,7 +131,22 @@
             </select>
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Impact <span class="text-red-500">*</span></label>
+            <label class="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
+              Request Type <span class="text-red-500">*</span>
+              <svg onclick="showHelp('Request Type', 'Standard Repair: Fix broken gear. \nEvent Support: Live technical assistance for classes/events. \nMaintenance: Non-urgent cleanup/updates.')" class="w-3.5 h-3.5 text-gray-400 cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            </label>
+            <select name="request_type" class="fsel w-full" required>
+               <option value="repair" <?= ($t['request_type'] ?? '') == 'repair' ? 'selected' : '' ?>>Standard Repair</option>
+               <option value="event" <?= ($t['request_type'] ?? '') == 'event' ? 'selected' : '' ?>>Event Support</option>
+               <option value="maintenance" <?= ($t['request_type'] ?? '') == 'maintenance' ? 'selected' : '' ?>>Maintenance</option>
+               <option value="other" <?= ($t['request_type'] ?? '') == 'other' ? 'selected' : '' ?>>Other</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
+              Impact <span class="text-red-500">*</span>
+              <svg onclick="showHelp('Impact', 'How many people are affected? \nLow: One person. \nMedium: A whole class. \nHigh: Multiple rooms/Department.')" class="w-3.5 h-3.5 text-gray-400 cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            </label>
             <select name="impact" class="fsel w-full" required>
                <option value="low" <?= ($t['impact'] ?? '') == 'low' ? 'selected' : '' ?>>Low</option>
                <option value="medium" <?= ($t['impact'] ?? '') == 'medium' ? 'selected' : '' ?>>Medium</option>
@@ -136,7 +154,10 @@
             </select>
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Urgency <span class="text-red-500">*</span></label>
+            <label class="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
+              Urgency <span class="text-red-500">*</span>
+              <svg onclick="showHelp('Urgency', 'How fast do you need it? \nCritical: Class is happening NOW. \nHigh: Class in < 2 hours. \nMedium: Next day.')" class="w-3.5 h-3.5 text-gray-400 cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            </label>
             <select name="urgency" class="fsel w-full" required>
                <option value="low"      <?= ($t['urgency'] ?? '') === 'low'      ? 'selected' : '' ?>>Low</option>
                <option value="medium"   <?= ($t['urgency'] ?? '') === 'medium'   ? 'selected' : '' ?>>Medium</option>
@@ -520,5 +541,15 @@ function renderPreviews() {
     }
     attachmentsGrid.appendChild(card);
   });
+function showHelp(title, content) {
+  document.getElementById('kb-modal-title').innerText = title;
+  document.getElementById('kb-modal-content').innerHTML = `
+    <div class="bg-blue-50 border-l-4 border-blue-400 p-4 rounded mb-4">
+      <p class="text-sm text-blue-700 leading-relaxed whitespace-pre-line">${content}</p>
+    </div>
+    <p class="text-xs text-gray-500 italic">This information helps our SLA engine calculate the best response time for your request.</p>
+  `;
+  document.getElementById('kb-modal').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
 }
 </script>

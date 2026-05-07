@@ -28,6 +28,7 @@ if ($action === 'create') {
         'category_id'      => ((int)($_POST['category_id'] ?? 0)) ?: null,
         'location_id'      => ((int)($_POST['location_id'] ?? 0)) ?: null,
         'asset_id'         => ((int)($_POST['asset_id'] ?? 0)) ?: null,
+        'request_type'     => $_POST['request_type'] ?? 'repair',
         'model'            => trim($_POST['model'] ?? ''),
         'warranty_status'  => trim($_POST['warranty_status'] ?? ''),
         'preferred_window' => $_POST['preferred_window'] ?: null,
@@ -83,6 +84,7 @@ if ($action === 'create') {
         'model'            => trim($_POST['model'] ?? ''),
         'warranty_status'  => trim($_POST['warranty_status'] ?? ''),
         'preferred_window' => $_POST['preferred_window'] ?: null,
+        'request_type'     => $_POST['request_type'] ?? 'repair',
         'dynamic_fields'   => $_POST['dynamic_fields'] ?? [],
     ];
 

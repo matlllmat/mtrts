@@ -226,8 +226,8 @@ function create_ticket(PDO $pdo, array $d): int {
             (ticket_number, requester_id, asset_id, category_id, location_id,
              model, warranty_status,
              title, description, impact, urgency, priority, channel,
-             is_event_support, preferred_window, status)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+             is_event_support, request_type, preferred_window, status)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ")->execute([
         $ticket_number,
         $d['requester_id'],
@@ -243,6 +243,7 @@ function create_ticket(PDO $pdo, array $d): int {
         $priority,
         $d['channel'] ?? 'web',
         $d['is_event_support'] ?? 0,
+        $d['request_type'] ?? 'repair',
         $d['preferred_window'] ?: null,
         'new',
     ]);
@@ -268,7 +269,7 @@ function update_ticket(PDO $pdo, int $id, array $d): void {
         $pdo->prepare("
             UPDATE tickets SET
                 title=?, description=?, status=?, on_hold_reason=?,
-                impact=?, urgency=?, priority=?, is_event_support=?,
+                impact=?, urgency=?, priority=?, is_event_support=?, request_type=?,
                 assigned_to=?, category_id=?, location_id=?,
                 model=?, warranty_status=?
             WHERE ticket_id=?
@@ -281,6 +282,7 @@ function update_ticket(PDO $pdo, int $id, array $d): void {
             $d['urgency'],
             $priority,
             $d['is_event_support'] ?? 0,
+            $d['request_type'] ?? 'repair',
             $d['assigned_to'] ?: null,
             $d['category_id'] ?: null,
             $d['location_id'] ?: null,
@@ -298,7 +300,7 @@ function update_ticket(PDO $pdo, int $id, array $d): void {
         $pdo->prepare("
             UPDATE tickets SET
                 title=?, description=?, impact=?, urgency=?, priority=?,
-                is_event_support=?, category_id=?, location_id=?, preferred_window=?,
+                is_event_support=?, request_type=?, category_id=?, location_id=?, preferred_window=?,
                 model=?, warranty_status=?
             WHERE ticket_id=?
         ")->execute([
@@ -308,6 +310,7 @@ function update_ticket(PDO $pdo, int $id, array $d): void {
             $d['urgency'],
             $priority,
             $d['is_event_support'] ?? 0,
+            $d['request_type'] ?? 'repair',
             $d['category_id'] ?: null,
             $d['location_id'] ?: null,
             $d['preferred_window'] ?: null,
