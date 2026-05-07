@@ -17,12 +17,22 @@ try {
         exit;
     }
 
-    $input               = json_decode(file_get_contents('php://input'), true) ?? [];
+    // TEMP DEBUG: Log the raw payload to find what's wrong
+    $raw_input = file_get_contents('php://input');
+    error_log('[COMPLETE_WO] Raw input length: ' . strlen($raw_input));
+    error_log('[COMPLETE_WO] Raw input (first 500 chars): ' . substr($raw_input, 0, 500));
+    
+    $input               = json_decode($raw_input, true) ?? [];
+    
+    error_log('[COMPLETE_WO] Parsed keys: ' . implode(', ', array_keys($input)));
+    error_log('[COMPLETE_WO] wo_id=' . ($input['wo_id'] ?? 'MISSING') . ', signer_name=' . ($input['signer_name'] ?? 'MISSING') . ', session_user=' . ($_SESSION['user_id'] ?? 'MISSING'));
+    
     $wo_id         = (int)($input['wo_id'] ?? 0);
     $signer_name   = trim($input['signer_name'] ?? '');
     $technician_id = (int)($_SESSION['user_id'] ?? 0);
 
     if (!$wo_id || !$signer_name || !$technician_id) {
+        error_log('[COMPLETE_WO] VALIDATION FAILED: wo_id=' . $wo_id . ', signer_name=' . $signer_name . ', tech_id=' . $technician_id);
         http_response_code(400);
         echo json_encode(['error' => 'Missing required fields: wo_id, signer_name']);
         exit;

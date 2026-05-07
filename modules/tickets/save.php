@@ -5,6 +5,7 @@ require_once __DIR__ . '/../../config/auth_only.php';
 require_once __DIR__ . '/functions.php';
 require_once __DIR__ . '/../notifications/functions.php';
 require_once __DIR__ . '/../reports/functions.php';
+require_once __DIR__ . '/../../config/sla.php';
 
 $action = $_POST['action'] ?? '';
 $user_id = $_SESSION['user_id'];
@@ -27,6 +28,7 @@ if ($action === 'create') {
         'category_id'      => ((int)($_POST['category_id'] ?? 0)) ?: null,
         'location_id'      => ((int)($_POST['location_id'] ?? 0)) ?: null,
         'asset_id'         => ((int)($_POST['asset_id'] ?? 0)) ?: null,
+        'request_type'     => $_POST['request_type'] ?? 'repair',
         'model'            => trim($_POST['model'] ?? ''),
         'warranty_status'  => trim($_POST['warranty_status'] ?? ''),
         'preferred_window' => $_POST['preferred_window'] ?: null,
@@ -100,6 +102,7 @@ if ($action === 'create') {
         'model'            => trim($_POST['model'] ?? ''),
         'warranty_status'  => trim($_POST['warranty_status'] ?? ''),
         'preferred_window' => $_POST['preferred_window'] ?: null,
+        'request_type'     => $_POST['request_type'] ?? 'repair',
         'dynamic_fields'   => $_POST['dynamic_fields'] ?? [],
     ];
 
@@ -112,7 +115,7 @@ if ($action === 'create') {
     update_ticket($pdo, $ticket_id, $d);
 
     // Update SLA actual timestamps (Response, Diagnosis, Resolution)
-    update_ticket_sla_actuals($pdo, $ticket_id, $d['status'] ?? $t['status']);
+    update_ticket_sla($pdo, $ticket_id, $d['status'] ?? $t['status']);
 
     // --- Handle Attachment Deletions (Update) ---
     if (!empty($_POST['deleted_attachments'])) {
@@ -150,6 +153,9 @@ if ($action === 'create') {
         if ($status === 'resolved' || $status === 'closed') {
             $pdo->prepare("UPDATE tickets SET ".($status === 'resolved' ? "resolved_at" : "closed_at")." = NOW() WHERE ticket_id=?")->execute([$ticket_id]);
         }
+        
+        // Update SLA actual timestamps
+        update_ticket_sla($pdo, $ticket_id, $status);
         
         // Notify requester
         if ($t['status'] !== $status) {

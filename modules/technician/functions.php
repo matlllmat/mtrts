@@ -1,5 +1,7 @@
 <?php
 // modules/technician/functions.php
+define('TECH_DEBUG', true);
+date_default_timezone_set('Asia/Manila');
 // All database queries and helpers for the Technician Operations module.
 // $pdo is provided by the hub; never create a new connection here.
 
@@ -592,7 +594,14 @@ function complete_work_order_transactional(PDO $pdo, array $payload, int $techni
 
         $pdo->commit();
     } catch (Throwable $e) {
-        if ($pdo->inTransaction()) $pdo->rollBack();
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        tech_dbg('H_COMPLETE', 'modules/technician/functions.php:complete_work_order_transactional', 'Transaction failed', [
+            'wo_id' => $wo_id,
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
         throw $e;
     }
 
