@@ -43,6 +43,7 @@ switch ($type) {
         $data = [
             'sla' => get_sla_compliance_stats($pdo, $start_date, $end_date),
             'mttr' => get_mttr_stats($pdo, $start_date, $end_date),
+            'trends' => get_resolution_trends($pdo, $start_date, $end_date),
             'hotspots' => get_asset_hotspots($pdo, 5),
             'scorecards' => get_technician_scorecards($pdo),
             'operational' => get_operational_stats($pdo, $start_date, $end_date)

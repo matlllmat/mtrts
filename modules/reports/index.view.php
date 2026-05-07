@@ -22,31 +22,67 @@
 
 <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
     <div onclick="openDrilldown('total')" class="bg-white rounded-xl p-4 shadow-sm border border-gray-100 flex flex-col justify-between h-full cursor-pointer hover:shadow-md hover:border-[#1a5c2a] transition-all">
-        <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Total Tickets</p>
+        <div class="flex items-center gap-1 mb-2 group/tooltip relative">
+            <p class="text-xs font-bold text-gray-500 uppercase tracking-wider">Total Tickets</p>
+            <svg class="w-3.5 h-3.5 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <div class="absolute bottom-full left-0 mb-1 hidden group-hover/tooltip:block w-48 p-2 bg-gray-800 text-white text-[10px] normal-case tracking-normal font-normal rounded shadow-lg z-50 pointer-events-none">
+                Total number of tickets created within the selected date range.
+            </div>
+        </div>
         <div class="flex items-end justify-between">
             <span id="stat-total" class="text-3xl font-extrabold text-[#1a5c2a] leading-none">-</span>
         </div>
     </div>
     <div onclick="openDrilldown('breaches')" class="bg-white rounded-xl p-4 shadow-sm border border-gray-100 flex flex-col justify-between h-full cursor-pointer hover:shadow-md hover:border-[#1a5c2a] transition-all">
-        <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">SLA Compliance</p>
+        <div class="flex items-center gap-1 mb-2 group/tooltip relative">
+            <p class="text-xs font-bold text-gray-500 uppercase tracking-wider">SLA Compliance</p>
+            <svg class="w-3.5 h-3.5 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <div class="absolute bottom-full left-0 mb-1 hidden group-hover/tooltip:block w-48 p-2 bg-gray-800 text-white text-[10px] normal-case tracking-normal font-normal rounded shadow-lg z-50 pointer-events-none">
+                Percentage of tickets resolved without breaching their deadline.
+            </div>
+        </div>
         <div class="flex items-end justify-between">
             <span id="stat-compliance" class="text-3xl font-extrabold text-[#1a5c2a] leading-none">-</span>
         </div>
     </div>
     <div onclick="openDrilldown('mttr')" class="bg-white rounded-xl p-4 shadow-sm border border-gray-100 flex flex-col justify-between h-full cursor-pointer hover:shadow-md hover:border-[#1a5c2a] transition-all">
-        <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Avg MTTR</p>
+        <div class="flex items-center gap-1 mb-2 group/tooltip relative">
+            <p class="text-xs font-bold text-gray-500 uppercase tracking-wider">Avg MTTR</p>
+            <svg class="w-3.5 h-3.5 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <div class="absolute bottom-full left-0 mb-1 hidden group-hover/tooltip:block w-48 p-2 bg-gray-800 text-white text-[10px] normal-case tracking-normal font-normal rounded shadow-lg z-50 pointer-events-none">
+                Mean Time To Resolve: The average time taken to fix and close a ticket.
+            </div>
+        </div>
         <span id="stat-mttr" class="text-2xl font-extrabold text-gray-800 leading-none">-</span>
     </div>
     <div onclick="openDrilldown('ftfr')" class="bg-white rounded-xl p-4 shadow-sm border border-gray-100 flex flex-col justify-between h-full cursor-pointer hover:shadow-md hover:border-[#1a5c2a] transition-all">
-        <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">FTFR</p>
+        <div class="flex items-center gap-1 mb-2 group/tooltip relative">
+            <p class="text-xs font-bold text-gray-500 uppercase tracking-wider">FTFR</p>
+            <svg class="w-3.5 h-3.5 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <div class="absolute bottom-full left-0 mb-1 hidden group-hover/tooltip:block w-48 p-2 bg-gray-800 text-white text-[10px] normal-case tracking-normal font-normal rounded shadow-lg z-50 pointer-events-none">
+                First-Time Fix Rate: Percentage of tickets resolved with only a single work order.
+            </div>
+        </div>
         <span id="stat-ftfr" class="text-2xl font-extrabold text-gray-800 leading-none">-</span>
     </div>
     <div onclick="openDrilldown('backlog')" class="bg-white rounded-xl p-4 shadow-sm border border-gray-100 flex flex-col justify-between h-full cursor-pointer hover:shadow-md hover:border-red-500 transition-all">
-        <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Backlog</p>
+        <div class="flex items-center gap-1 mb-2 group/tooltip relative">
+            <p class="text-xs font-bold text-gray-500 uppercase tracking-wider">Backlog</p>
+            <svg class="w-3.5 h-3.5 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <div class="absolute bottom-full right-0 mb-1 hidden group-hover/tooltip:block w-48 p-2 bg-gray-800 text-white text-[10px] normal-case tracking-normal font-normal rounded shadow-lg z-50 pointer-events-none">
+                Total number of unresolved tickets currently open in the system (Lifetime).
+            </div>
+        </div>
         <span id="stat-backlog" class="text-2xl font-extrabold text-red-600 leading-none">-</span>
     </div>
     <div class="bg-white rounded-xl p-4 shadow-sm border-t-4 border-t-yellow-400 border-x-gray-100 border-b-gray-100 flex flex-col justify-between h-full">
-        <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Audit Status</p>
+        <div class="flex items-center gap-1 mb-2 group/tooltip relative">
+            <p class="text-xs font-bold text-gray-500 uppercase tracking-wider">Audit Status</p>
+            <svg class="w-3.5 h-3.5 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <div class="absolute bottom-full right-0 mb-1 hidden group-hover/tooltip:block w-48 p-2 bg-gray-800 text-white text-[10px] normal-case tracking-normal font-normal rounded shadow-lg z-50 pointer-events-none">
+                Indicates if the system's background audit logger is securely active.
+            </div>
+        </div>
         <span class="text-lg font-extrabold text-[#1a5c2a] leading-none flex items-center gap-1">
             <svg class="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
             Secure
@@ -55,15 +91,30 @@
 </div>
 
 <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
-    <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100 min-h-[320px] flex flex-col xl:col-span-2">
-        <h3 class="font-bold text-gray-800 mb-4 text-base">Resolution Trends</h3>
+    <div onclick="openDrilldown('resolved')" class="bg-white rounded-xl p-5 shadow-sm border border-gray-100 min-h-[320px] flex flex-col xl:col-span-2 cursor-pointer hover:shadow-md hover:border-[#1a5c2a] transition-all group">
+        <div class="flex justify-between items-center mb-4">
+            <div class="flex items-center gap-1 group/tooltip relative">
+                <h3 class="font-bold text-gray-800 text-base group-hover:text-[#1a5c2a] transition-colors">Resolution Trends</h3>
+                <svg class="w-4 h-4 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <div class="absolute bottom-full left-0 mb-1 hidden group-hover/tooltip:block w-64 p-2 bg-gray-800 text-white text-[10px] normal-case tracking-normal font-normal rounded shadow-lg z-50 pointer-events-none">
+                    Tracks the total number of tickets successfully resolved per day within the selected timeframe.
+                </div>
+            </div>
+            <span class="text-[10px] text-gray-400 font-medium uppercase tracking-wider bg-gray-50 px-2 py-1 rounded">Click for Details</span>
+        </div>
         <div class="flex-1 relative w-full h-full min-h-[240px]">
             <canvas id="lineChart"></canvas>
         </div>
     </div>
     
     <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100 min-h-[320px] flex flex-col">
-        <h3 class="font-bold text-gray-800 mb-4 text-base">Failure Hotspots</h3>
+        <div class="flex items-center gap-1 mb-4 group/tooltip relative">
+            <h3 class="font-bold text-gray-800 text-base">Failure Hotspots</h3>
+            <svg class="w-4 h-4 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <div class="absolute bottom-full right-0 mb-1 hidden group-hover/tooltip:block w-56 p-2 bg-gray-800 text-white text-[10px] normal-case tracking-normal font-normal rounded shadow-lg z-50 pointer-events-none">
+                Identifies equipment models or categories with the highest volume of reported issues.
+            </div>
+        </div>
         <div class="flex-1 overflow-y-auto pr-2" id="hotspots-container">
             <div class="flex justify-center items-center h-full text-sm text-gray-400 italic">Loading...</div>
         </div>
@@ -72,7 +123,13 @@
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-8">
     <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-        <h3 class="font-bold text-gray-800 mb-4 text-base">Technician Scorecards</h3>
+        <div class="flex items-center gap-1 mb-4 group/tooltip relative">
+            <h3 class="font-bold text-gray-800 text-base">Technician Scorecards</h3>
+            <svg class="w-4 h-4 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <div class="absolute bottom-full left-0 mb-1 hidden group-hover/tooltip:block w-56 p-2 bg-gray-800 text-white text-[10px] normal-case tracking-normal font-normal rounded shadow-lg z-50 pointer-events-none">
+                Performance metrics based on job completion volume and average user ratings.
+            </div>
+        </div>
         <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse">
                 <thead>
@@ -172,6 +229,20 @@ const fetchStats = () => {
                 document.getElementById('stat-mttr').textContent = formatMinutes(data.mttr.avg_mttr_minutes);
             }
 
+            // Update Chart
+            if (data.trends && window.resolutionChart) {
+                const labels = data.trends.map(t => t.resolve_date);
+                const counts = data.trends.map(t => t.ticket_count);
+                if (labels.length === 0) {
+                    window.resolutionChart.data.labels = ['No Data'];
+                    window.resolutionChart.data.datasets[0].data = [0];
+                } else {
+                    window.resolutionChart.data.labels = labels;
+                    window.resolutionChart.data.datasets[0].data = counts;
+                }
+                window.resolutionChart.update();
+            }
+
             // Update Hotspots
             const hotspotsContainer = document.getElementById('hotspots-container');
             if (data.hotspots && data.hotspots.length > 0) {
@@ -230,7 +301,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const initChart = () => {
         const ctx = document.getElementById('lineChart').getContext('2d');
-        resolutionChart = new Chart(ctx, {
+    window.resolutionChart = new Chart(ctx, {
             type: 'line',
             data: {
                 labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'], // Placeholder
@@ -299,6 +370,7 @@ document.addEventListener('DOMContentLoaded', () => {
             'breaches': 'SLA Breached Tickets',
             'ftfr': 'First-Time Fix Tickets',
             'mttr': 'Resolved Tickets (MTTR Calculation)',
+            'resolved': 'Resolution Trends (All Resolved Tickets)',
             'backlog': 'Current Backlog (Open Tickets)'
         };
         title.textContent = titles[type] || 'Ticket Details';

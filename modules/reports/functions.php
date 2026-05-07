@@ -288,6 +288,25 @@ function get_operational_stats(PDO $pdo, string $start_date, string $end_date): 
 }
 
 /**
+ * Resolution Trends (Chart Data)
+ */
+function get_resolution_trends(PDO $pdo, string $start_date, string $end_date): array {
+    $stmt = $pdo->prepare("
+        SELECT 
+            DATE(resolved_at) as resolve_date,
+            COUNT(*) as ticket_count
+        FROM tickets
+        WHERE status IN ('resolved', 'closed')
+          AND resolved_at IS NOT NULL
+          AND resolved_at >= ? AND resolved_at <= ?
+        GROUP BY DATE(resolved_at)
+        ORDER BY resolve_date ASC
+    ");
+    $stmt->execute([$start_date . ' 00:00:00', $end_date . ' 23:59:59']);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+/**
  * Identifies Asset Hotspots (Most problematic equipment)
  */
 function get_asset_hotspots(PDO $pdo, int $limit = 10): array {
@@ -395,6 +414,13 @@ function get_drilldown_tickets(PDO $pdo, string $type, string $start_date, strin
             $base_query .= " AND t.status IN ('resolved', 'closed') 
                              AND t.resolved_at IS NOT NULL
                              AND t.created_at >= ? AND t.created_at <= ?";
+            $params = [$start_date . ' 00:00:00', $end_date . ' 23:59:59'];
+            break;
+            
+        case 'resolved':
+            $base_query .= " AND t.status IN ('resolved', 'closed') 
+                             AND t.resolved_at IS NOT NULL
+                             AND t.resolved_at >= ? AND t.resolved_at <= ?";
             $params = [$start_date . ' 00:00:00', $end_date . ' 23:59:59'];
             break;
             
