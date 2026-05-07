@@ -1309,6 +1309,7 @@ function renderSafety() {
     // Render the time logs list
     renderTimeLogs();
     renderChecklistTimeLogs(); // keep checklist panel in sync
+    if (typeof updateCompletionBadges === 'function') updateCompletionBadges();
     
     updateCompletionBlocker();
   }
@@ -1527,34 +1528,37 @@ function validateCompletion() {
 
   // ── Browse-by-category parts picker ──────────────────────────
   (function () {
-    const PARTS_CATALOG = {
-      cables:     ['HDMI cable','VGA cable','DisplayPort cable','AUX 3.5mm cable','XLR cable','Ethernet cable','USB cable','Coaxial cable'],
-      projector:  ['Projector lamp','Air filter','LCD panel','Ballast (lamp driver)','Lens assembly','DLP chip','Cooling fan (projector)'],
-      audio:      ['Speaker driver','Audio jack 3.5mm','XLR connector','Volume potentiometer','Amplifier board','Audio transformer'],
-      electrical: ['Power cable (AC)','Power adapter','Fuse 5A','Fuse 10A','Circuit breaker','Power strip','Surge protector'],
-      electronic: ['Capacitor 100µF','Capacitor 470µF','Resistor 10kΩ','Diode','Transistor','IC relay','MOSFET'],
-      cooling:    ['Cooling fan 80mm','Cooling fan 120mm','Thermal paste','Heat sink','Dust filter'],
-      mounting:   ['M3 screw set','M4 screw set','Bracket kit','Cable ties','Wall plate','Rack mount rails'],
-    };
+    // Live parts from DB injected by PHP via window.__PARTS_INVENTORY__
+    const rawParts = window.__PARTS_INVENTORY__ || [];
 
-    let activeCat = 'all';
+    let activeCat    = 'all';
     let selectedPart = null;
-
-    function allParts() {
-      return Object.entries(PARTS_CATALOG).flatMap(([cat, names]) => names.map(n => ({ name: n, cat })));
-    }
 
     function renderChips() {
       const grid = document.getElementById('partsChipGrid');
       if (!grid) return;
-      const items = activeCat === 'all' ? allParts() : (PARTS_CATALOG[activeCat] || []).map(n => ({ name: n, cat: activeCat }));
-      grid.innerHTML = items.map(({ name, cat }) => {
-        const on = selectedPart && selectedPart.name === name && selectedPart.cat === cat;
-        return `<button type="button" class="part-chip${on ? ' part-chip--on' : ''}"
-                        onclick="window._pickPart('${name.replace(/'/g,"\\'")}','${cat}')">
+      const items = activeCat === 'all'
+        ? rawParts
+        : rawParts.filter(p => p.cat === activeCat);
+
+      if (!items.length) {
+        grid.innerHTML = '<p style="font-size:12px;color:var(--tech-gray-400);font-style:italic;padding:8px 0;">No parts found. Run the seed script to populate inventory.</p>';
+        return;
+      }
+
+      grid.innerHTML = items.map(p => {
+        const on       = selectedPart && selectedPart.part_id === p.part_id;
+        const out      = p.qty === 0;
+        const low      = !out && p.qty <= p.reorder;
+        const qtyColor = out ? '#dc2626' : low ? '#d97706' : '#6b7280';
+        const qtyLabel = out ? '⊘ Out of stock' : (low ? '⚠ Low: ' + p.qty : 'Qty: ' + p.qty);
+        return `<button type="button" class="part-chip${on ? ' part-chip--on' : ''}${out ? ' part-chip--disabled' : ''}"
+                        onclick="window._pickPart(${p.part_id})"
+                        ${out ? 'disabled title="Out of stock"' : ''}>
                   <div>
-                    <div class="part-chip__label">${name}</div>
-                    <div class="part-chip__sub">${cat}</div>
+                    <div class="part-chip__label">${escapeHtml(p.name)}</div>
+                    <div class="part-chip__sub">${escapeHtml(p.cat)}</div>
+                    <div style="font-size:10px;color:${qtyColor};margin-top:2px;font-weight:600;">${qtyLabel}</div>
                   </div>
                 </button>`;
       }).join('');
@@ -1565,8 +1569,10 @@ function validateCompletion() {
       const btn  = document.getElementById('btnAddBrowsePart');
       if (!prev || !btn) return;
       if (selectedPart) {
-        prev.innerHTML = `<span style="font-size:13px;font-weight:500;color:var(--tech-gray-700);">${selectedPart.name}</span>
-                          <span style="margin-left:auto;font-size:10px;font-weight:500;padding:2px 8px;border-radius:999px;background:var(--tech-gray-100);color:var(--tech-gray-500);">${selectedPart.cat}</span>`;
+        const low = selectedPart.qty <= selectedPart.reorder;
+        prev.innerHTML = `<span style="font-size:13px;font-weight:500;color:var(--tech-gray-700);">${escapeHtml(selectedPart.name)}</span>
+                          <span style="margin-left:auto;font-size:10px;font-weight:500;padding:2px 8px;border-radius:999px;background:var(--tech-gray-100);color:var(--tech-gray-500);">${escapeHtml(selectedPart.cat)}</span>
+                          ${low ? '<span style="font-size:10px;color:#d97706;font-weight:600;margin-left:6px;">⚠ Low stock</span>' : ''}`;
         btn.disabled = false;
         btn.style.background = 'var(--tech-green)';
         btn.style.cursor = 'pointer';
@@ -1582,18 +1588,16 @@ function validateCompletion() {
       }
     }
 
-    window._pickPart = function (name, cat) {
-      if (selectedPart && selectedPart.name === name && selectedPart.cat === cat) {
-        selectedPart = null;
-      } else {
-        selectedPart = { name, cat };
-      }
+    window._pickPart = function (partId) {
+      const p = rawParts.find(x => x.part_id === partId);
+      if (!p || p.qty === 0) return;
+      selectedPart = (selectedPart && selectedPart.part_id === partId) ? null : p;
       renderChips();
       renderPreview();
     };
 
     window.setPartsCat = function (cat, el) {
-      activeCat = cat;
+      activeCat    = cat;
       selectedPart = null;
       document.querySelectorAll('.parts-cat-tab').forEach(t => t.classList.remove('parts-cat-tab--on'));
       if (el) el.classList.add('parts-cat-tab--on');
@@ -1622,33 +1626,90 @@ function validateCompletion() {
 
     const btnAddBrowse = document.getElementById('btnAddBrowsePart');
     if (btnAddBrowse) {
-      btnAddBrowse.addEventListener('click', () => {
+      btnAddBrowse.addEventListener('click', async () => {
         if (!canMutateOrWarn()) return;
         if (!selectedPart) return;
-        const qty = Math.max(1, parseInt(document.getElementById('browsePartQty').value) || 1);
+
+        const qty    = Math.max(1, parseInt(document.getElementById('browsePartQty').value) || 1);
         const serial = (document.getElementById('browsePartSerial').value || '').trim();
-        const item = {
-          id: `p_${Date.now()}_${Math.random().toString(16).slice(2)}`,
-          partNumber: selectedPart.name,
-          qty,
-          serial,
-          category: selectedPart.cat,
-        };
-        draft.parts.push(item);
-        selectedPart = null;
-        document.getElementById('browsePartQty').value = '1';
-        document.getElementById('browsePartSerial').value = '';
-        saveDraft(draft);
-        window.MRTS.offline.queueAction('part_add', woId, item);
-        renderChips();
-        renderPreview();
-        renderParts();
+
+        if (qty > selectedPart.qty) {
+          showPartsToast('Only ' + selectedPart.qty + ' in stock for "' + selectedPart.name + '"', 'error');
+          return;
+        }
+
+        const origText      = btnAddBrowse.textContent;
+        btnAddBrowse.disabled     = true;
+        btnAddBrowse.textContent  = 'Adding…';
+
+        try {
+          const res = await fetch(window.MRTS.APP_BASE + 'modules/technician/api/parts_use.php', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({
+              wo_id:         woId,
+              part_id:       selectedPart.part_id,
+              quantity_used: qty,
+              serial_number: serial || null,
+            }),
+          });
+          const data = await res.json();
+
+          if (!data.success) {
+            showPartsToast(data.error || 'Failed to record part usage', 'error');
+            return;
+          }
+
+          // Update local qty so chips re-render without a page reload
+          const local = rawParts.find(p => p.part_id === selectedPart.part_id);
+          if (local) local.qty = data.current_stock;
+
+          // Push into draft.parts so the Parts Used list renders it
+          draft.parts.push({
+            id:         'db_' + data.usage_id,
+            partNumber: selectedPart.name,
+            qty:        qty,
+            serial:     serial || '',
+            category:   selectedPart.cat,
+          });
+          saveDraft(draft);
+
+          if (data.low_stock_alert) {
+            showPartsToast('⚠ Low stock: "' + selectedPart.name + '" is now at ' + data.current_stock + ' (reorder at ' + data.reorder_level + ')', 'warning');
+          } else {
+            showPartsToast('Added ' + qty + '× ' + selectedPart.name, 'success');
+          }
+
+          selectedPart = null;
+          document.getElementById('browsePartQty').value   = '1';
+          document.getElementById('browsePartSerial').value = '';
+          renderChips();
+          renderPreview();
+          renderParts();
+        } catch (err) {
+          showPartsToast('Network error — part not recorded', 'error');
+        } finally {
+          btnAddBrowse.disabled    = false;
+          btnAddBrowse.textContent = origText;
+        }
       });
     }
 
     renderChips();
     renderPreview();
   })();
+
+  function showPartsToast(message, type) {
+    const colors = { success: '#1a5c2a', warning: '#b45309', error: '#dc2626', info: '#1d4ed8' };
+    const t = document.createElement('div');
+    t.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:9999;background:' +
+      (colors[type] || colors.info) +
+      ';color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;' +
+      'box-shadow:0 4px 12px rgba(0,0,0,.2);max-width:340px;line-height:1.4;';
+    t.textContent = message;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 4500);
+  }
 
   // Verify buttons exist
   if (!els.btnStart) console.error('[v0] btnStart element not found!');
@@ -1754,6 +1815,7 @@ function validateCompletion() {
     window.MRTS.offline.queueAction('signature_clear', woId, {});
     updateCompletionBlocker();
     renderChecklistTimeLogs(); // refresh signature status in checklist panel
+    if (typeof updateCompletionBadges === 'function') updateCompletionBadges();
   });
   els.btnSaveSig.addEventListener('click', () => {
     if (!canMutateOrWarn()) return;
@@ -1767,6 +1829,7 @@ function validateCompletion() {
     window.MRTS.offline.queueAction('signature_save', woId, { hasSignature: true }, { hasBlob: true });
     updateCompletionBlocker();
     renderChecklistTimeLogs(); // refresh signature status in checklist panel
+    if (typeof updateCompletionBadges === 'function') updateCompletionBadges();
   });
 
   els.btnSaveDraft.addEventListener('click', () => {

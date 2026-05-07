@@ -842,44 +842,44 @@ INSERT INTO wo_checklists (category_id, checklist_name, description) VALUES
   (4, 'Display Repair Checklist',      'Standard steps for diagnosing and repairing display units'),
   (NULL, 'General Repair Checklist',   'Generic checklist applicable to any equipment type');
 
-INSERT INTO wo_checklist_items (checklist_id, item_text, is_mandatory, requires_photo, sort_order) VALUES
-  (1, 'Record current bulb hours',            1, 0, 1),
-  (1, 'Inspect lamp/bulb for damage',         1, 1, 2),
-  (1, 'Clean or replace air filter',          1, 0, 3),
-  (1, 'Test all input sources (HDMI, VGA)',   1, 0, 4),
-  (1, 'Check and adjust focus, zoom, keystone', 0, 0, 5),
-  (1, 'Test remote control functionality',    0, 0, 6),
-  (1, 'Capture after-repair photo',           1, 1, 7);
-INSERT INTO wo_checklist_items (checklist_id, item_text, is_mandatory, requires_photo, sort_order) VALUES
-  (2, 'Capture before-repair photo',          1, 1, 1),
-  (2, 'Inspect all cables and connectors',    1, 0, 2),
-  (2, 'Test speaker output (left and right)', 1, 0, 3),
-  (2, 'Check mixer and amplifier settings',   1, 0, 4),
-  (2, 'Test for audio feedback and noise',    1, 0, 5),
-  (2, 'Verify microphone inputs if present',  0, 0, 6),
-  (2, 'Capture after-repair photo',           1, 1, 7);
-INSERT INTO wo_checklist_items (checklist_id, item_text, is_mandatory, requires_photo, sort_order) VALUES
-  (3, 'Capture before-repair photo',          1, 1, 1),
-  (3, 'Test all input ports',                 1, 0, 2),
-  (3, 'Test all output ports',                1, 0, 3),
-  (3, 'Verify input-switching functionality', 1, 0, 4),
-  (3, 'Check and record firmware version',    0, 0, 5),
-  (3, 'Inspect network connection if applicable', 0, 0, 6),
-  (3, 'Capture after-repair photo',           1, 1, 7);
-INSERT INTO wo_checklist_items (checklist_id, item_text, is_mandatory, requires_photo, sort_order) VALUES
-  (4, 'Capture before-repair photo',              1, 1, 1),
-  (4, 'Test display at all available inputs',     1, 0, 2),
-  (4, 'Inspect panel for dead pixels or damage',  1, 1, 3),
-  (4, 'Check cables and mounting hardware',       1, 0, 4),
-  (4, 'Verify network/smart features if present', 0, 0, 5),
-  (4, 'Capture after-repair photo',               1, 1, 6);
-INSERT INTO wo_checklist_items (checklist_id, item_text, is_mandatory, requires_photo, sort_order) VALUES
-  (5, 'Capture before-repair photo',   1, 1, 1),
-  (5, 'Perform visual inspection',     1, 0, 2),
-  (5, 'Perform power-on test',         1, 0, 3),
-  (5, 'Verify core functionality',     1, 0, 4),
-  (5, 'Document findings and actions', 1, 0, 5),
-  (5, 'Capture after-repair photo',    1, 1, 6);
+INSERT INTO wo_checklist_items (checklist_id, item_text, is_mandatory, requires_photo, is_verifiable, verification_type, sort_order) VALUES
+  (1, 'Record current bulb hours',              1, 0, 0, NULL,           1),
+  (1, 'Inspect lamp/bulb for damage',           1, 1, 0, NULL,           2),
+  (1, 'Clean or replace air filter',            1, 0, 0, NULL,           3),
+  (1, 'Test all input sources (HDMI, VGA)',     1, 0, 0, NULL,           4),
+  (1, 'Check and adjust focus, zoom, keystone', 0, 0, 0, NULL,           5),
+  (1, 'Test remote control functionality',      0, 0, 0, NULL,           6),
+  (1, 'Capture after-repair photo',             1, 1, 1, 'photo_after',  7);
+INSERT INTO wo_checklist_items (checklist_id, item_text, is_mandatory, requires_photo, is_verifiable, verification_type, sort_order) VALUES
+  (2, 'Capture before-repair photo',            1, 1, 1, 'photo_before', 1),
+  (2, 'Inspect all cables and connectors',      1, 0, 0, NULL,           2),
+  (2, 'Test speaker output (left and right)',   1, 0, 0, NULL,           3),
+  (2, 'Check mixer and amplifier settings',     1, 0, 0, NULL,           4),
+  (2, 'Test for audio feedback and noise',      1, 0, 0, NULL,           5),
+  (2, 'Verify microphone inputs if present',    0, 0, 0, NULL,           6),
+  (2, 'Capture after-repair photo',             1, 1, 1, 'photo_after',  7);
+INSERT INTO wo_checklist_items (checklist_id, item_text, is_mandatory, requires_photo, is_verifiable, verification_type, sort_order) VALUES
+  (3, 'Capture before-repair photo',            1, 1, 1, 'photo_before', 1),
+  (3, 'Test all input ports',                   1, 0, 0, NULL,           2),
+  (3, 'Test all output ports',                  1, 0, 0, NULL,           3),
+  (3, 'Verify input-switching functionality',   1, 0, 0, NULL,           4),
+  (3, 'Check and record firmware version',      0, 0, 0, NULL,           5),
+  (3, 'Inspect network connection if applicable', 0, 0, 0, NULL,         6),
+  (3, 'Capture after-repair photo',             1, 1, 1, 'photo_after',  7);
+INSERT INTO wo_checklist_items (checklist_id, item_text, is_mandatory, requires_photo, is_verifiable, verification_type, sort_order) VALUES
+  (4, 'Capture before-repair photo',                1, 1, 1, 'photo_before', 1),
+  (4, 'Test display at all available inputs',       1, 0, 0, NULL,           2),
+  (4, 'Inspect panel for dead pixels or damage',    1, 1, 0, NULL,           3),
+  (4, 'Check cables and mounting hardware',         1, 0, 0, NULL,           4),
+  (4, 'Verify network/smart features if present',   0, 0, 0, NULL,           5),
+  (4, 'Capture after-repair photo',                 1, 1, 1, 'photo_after',  6);
+INSERT INTO wo_checklist_items (checklist_id, item_text, is_mandatory, requires_photo, is_verifiable, verification_type, sort_order) VALUES
+  (5, 'Capture before-repair photo',   1, 1, 1, 'photo_before', 1),
+  (5, 'Perform visual inspection',     1, 0, 0, NULL,           2),
+  (5, 'Perform power-on test',         1, 0, 0, NULL,           3),
+  (5, 'Verify core functionality',     1, 0, 0, NULL,           4),
+  (5, 'Document findings and actions', 1, 0, 0, NULL,           5),
+  (5, 'Capture after-repair photo',    1, 1, 1, 'photo_after',  6);
 
 -- ============================================================
 -- SEED DATA: SAFETY CHECKS
