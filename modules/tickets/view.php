@@ -29,11 +29,7 @@ $attachments    = get_ticket_attachments($pdo, $id);
 $comments       = get_ticket_comments($pdo, $id, $is_staff);
 $dynamic_fields = get_ticket_dynamic_fields($pdo, $id);
 
-// If staff, get assignable users for the assign form
-$assignables = [];
-if ($is_staff) {
-    $assignables = $pdo->query("SELECT user_id, full_name, role_id FROM users WHERE role_id IN (2,3,4,8) AND is_active = 1 ORDER BY full_name")->fetchAll();
-}
+
 
 // See if there's an existing Work Order for this ticket
 $related_wos = [];
@@ -51,6 +47,18 @@ if (!empty($ticket['duplicate_of_id'])) {
 $stmt_dups = $pdo->prepare("SELECT ticket_id, ticket_number, status FROM tickets WHERE duplicate_of_id = ?");
 $stmt_dups->execute([$id]);
 $duplicates = $stmt_dups->fetchAll();
+
+// Fetch SLA data for this ticket (for the SLA countdown widget)
+$ticket_sla = null;
+$sla_policy = null;
+$stmt_sla = $pdo->prepare("
+    SELECT ts.*, sp.policy_name, sp.response_minutes, sp.diagnosis_minutes, sp.resolution_minutes, sp.uses_business_hours
+    FROM ticket_sla ts
+    JOIN sla_policies sp ON ts.policy_id = sp.policy_id
+    WHERE ts.ticket_id = ?
+");
+$stmt_sla->execute([$id]);
+$ticket_sla = $stmt_sla->fetch();
 
 require __DIR__ . '/view.view.php';
 require_once __DIR__ . '/../../includes/footer.php';

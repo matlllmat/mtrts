@@ -24,6 +24,7 @@ echo "[SLA WORKER] Starting run at " . date('Y-m-d H:i:s') . "\n";
  * Updates the flags for tickets that have passed their due date but are not yet resolved.
  */
 $pdo->query("UPDATE ticket_sla SET is_response_breached = 1 WHERE responded_at IS NULL AND response_due < NOW() AND is_response_breached = 0");
+$pdo->query("UPDATE ticket_sla SET is_diagnosis_breached = 1 WHERE diagnosed_at IS NULL AND diagnosis_due < NOW() AND is_diagnosis_breached = 0");
 $pdo->query("UPDATE ticket_sla SET is_resolution_breached = 1 WHERE resolved_at IS NULL AND resolution_due < NOW() AND is_resolution_breached = 0");
 
 
@@ -83,6 +84,18 @@ while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
     }
     
     $pdo->prepare("UPDATE ticket_sla SET escalation_level = 2 WHERE sla_id = ?")->execute([$row['sla_id']]);
+    
+    // AUTO-REPRIORITIZE: Bump ticket priority one level on breach
+    $priority_ladder = ['low' => 'medium', 'medium' => 'high', 'high' => 'critical'];
+    $stmt_pri = $pdo->prepare("SELECT priority FROM tickets WHERE ticket_id = ?");
+    $stmt_pri->execute([$row['ticket_id']]);
+    $current_priority = $stmt_pri->fetchColumn();
+    if (isset($priority_ladder[$current_priority])) {
+        $new_priority = $priority_ladder[$current_priority];
+        $pdo->prepare("UPDATE tickets SET priority = ? WHERE ticket_id = ?")->execute([$new_priority, $row['ticket_id']]);
+        echo "[SLA WORKER] Auto-reprioritized ticket #{$row['ticket_number']}: $current_priority → $new_priority\n";
+    }
+    
     $l2_count++;
 }
 if ($l2_count > 0) echo "[SLA WORKER] Processed $l2_count L2 Breaches.\n";

@@ -298,28 +298,7 @@
   <div class="space-y-6">
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 sticky top-6">
       <h3 class="text-base font-bold text-gray-900 mb-4 pb-2 border-b border-gray-100">Submission</h3>
-      <?php if ($is_edit && $is_staff): ?>
-      <div class="space-y-4 mb-6 p-4 bg-blue-50 rounded-lg border border-blue-100">
-        <h4 class="text-xs font-bold text-blue-800 uppercase tracking-wider">Staff Options</h4>
-        <div>
-          <label class="block text-xs font-bold text-blue-700 mb-1">Status</label>
-          <select name="status" class="fsel w-full border-blue-200">
-            <?php foreach(['new'=>'New','assigned'=>'Assigned','in_progress'=>'In Progress','on_hold'=>'On Hold','resolved'=>'Resolved','closed'=>'Closed','cancelled'=>'Cancelled'] as $k=>$v): ?>
-               <option value="<?= $k ?>" <?= ($t['status'] ?? 'new')==$k ? 'selected':'' ?>><?= $v ?></option>
-            <?php endforeach; ?>
-          </select>
-        </div>
-        <div>
-          <label class="block text-xs font-bold text-blue-700 mb-1">Assign To</label>
-          <select name="assigned_to" class="fsel w-full border-blue-200">
-            <option value="">-- Unassigned --</option>
-            <?php foreach($assignables as $a): ?>
-               <option value="<?= $a['user_id'] ?>" <?= ($t['assigned_to'] ?? 0)==$a['user_id'] ? 'selected':'' ?>><?= htmlspecialchars($a['full_name']) ?></option>
-            <?php endforeach; ?>
-          </select>
-        </div>
-      </div>
-      <?php endif; ?>
+
       <button type="submit" class="w-full bg-olfu-green hover:bg-olfu-green-md text-white font-bold py-3 px-4 rounded-xl shadow-md transition-all text-base flex items-center justify-center gap-2">
         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         <?= $is_edit ? 'Save Changes' : 'Submit Ticket' ?>
@@ -579,13 +558,17 @@ function fillAssetFromLookup(data) {
 function openScanner() {
   document.getElementById('scanner-modal').classList.remove('hidden');
   document.getElementById('qr-reader-results').textContent = 'Scanning...';
-  html5QrCode = new Html5Qrcode("qr-reader");
+
+  if (!html5QrCode) {
+    html5QrCode = new Html5Qrcode("qr-reader");
+  }
+
   const config = { fps: 10, qrbox: { width: 250, height: 250 } };
 
-  html5QrCode.start({ facingMode: "environment" }, config, (decodedText) => {
+  function handleScan(decodedText) {
     closeScanner();
 
-    // Try to extract asset_id from a URL like .../assets/view.php?id=12
+    // Extract asset_id from a URL like .../assets/view.php?id=12
     let assetId = null;
     try {
       const url = new URL(decodedText);
@@ -607,18 +590,27 @@ function openScanner() {
       assetTagInput.value = decodedText;
       assetTagInput.dispatchEvent(new Event('input'));
     }
-  }, () => {
-    // frame decode error — ignore
-  }).catch((err) => {
-    console.error("Scanner error", err);
-    alert("Could not start camera. Make sure you have given camera permission.");
-    closeScanner();
-  });
+  }
+
+  html5QrCode.start({ facingMode: "environment" }, config, handleScan, () => {})
+    .catch((err) => {
+      console.error("Scanner start error:", err);
+      document.getElementById('qr-reader-results').innerText = "Camera error: " + err;
+      // Fallback: try front camera if rear fails
+      html5QrCode.start({ facingMode: "user" }, config, handleScan, () => {})
+        .catch(() => {
+          alert("Could not access camera. Please ensure permissions are granted.");
+          closeScanner();
+        });
+    });
 }
 
 function closeScanner() {
   if (html5QrCode && html5QrCode.isScanning) {
     html5QrCode.stop().then(() => {
+        document.getElementById('scanner-modal').classList.add('hidden');
+    }).catch(err => {
+        console.error("Error stopping scanner:", err);
         document.getElementById('scanner-modal').classList.add('hidden');
     });
   } else {
@@ -671,6 +663,8 @@ function renderPreviews() {
     }
     attachmentsGrid.appendChild(card);
   });
+}
+
 function showHelp(title, content) {
   document.getElementById('kb-modal-title').innerText = title;
   document.getElementById('kb-modal-content').innerHTML = `
