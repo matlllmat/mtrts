@@ -5,9 +5,6 @@ debug-*.log
 # Uploaded files
 public/uploads/
 
-# Environment / secrets
-config/db.php
-
 # OS noise
 .DS_Store
 Thumbs.db
