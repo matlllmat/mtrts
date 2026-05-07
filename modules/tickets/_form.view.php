@@ -118,7 +118,7 @@
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Location / Room <span class="text-red-500">*</span></label>
-            <select name="location_id" class="fsel w-full" required>
+            <select name="location_id" id="location-select" class="fsel w-full" required>
               <option value="">-- Select Room --</option>
               <?php foreach ($locations as $l): ?>
                 <option value="<?= $l['location_id'] ?>" <?= ($t['location_id'] ?? 0) == $l['location_id'] ? 'selected' : '' ?>>
@@ -437,30 +437,61 @@ updateFormBehavior();
 
 // --- QR SCANNER ---
 let html5QrCode;
+
+function fillAssetFromLookup(data) {
+  assetTagInput.value  = data.asset_tag;
+  hiddenAssetId.value  = data.asset_id;
+
+  if (data.category_id && categorySelect) {
+    categorySelect.value = data.category_id;
+    categorySelect.dispatchEvent(new Event('change'));
+  }
+
+  const locSelect = document.getElementById('location-select');
+  if (data.location_id && locSelect) {
+    locSelect.value = data.location_id;
+  }
+
+  if (modelInput)   modelInput.value   = data.model            || '';
+  if (warrantyInput) warrantyInput.value = data.warranty_status || '';
+}
+
 function openScanner() {
   document.getElementById('scanner-modal').classList.remove('hidden');
+  document.getElementById('qr-reader-results').textContent = 'Scanning...';
   html5QrCode = new Html5Qrcode("qr-reader");
   const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-  
+
   html5QrCode.start({ facingMode: "environment" }, config, (decodedText) => {
-    // Check if it's a URL or just a tag
-    let tag = decodedText;
-    if (decodedText.includes('id=')) {
-        const urlParams = new URLSearchParams(decodedText.split('?')[1]);
-        const id = urlParams.get('id');
-        // If we only have ID, we need to find the tag. But usually QR encodes the URL.
-        // For simplicity, if it's a URL from our system, we try to match.
-        // Or if the QR just contains the tag.
-    }
-    
-    assetTagInput.value = tag;
-    assetTagInput.dispatchEvent(new Event('input'));
     closeScanner();
-  }, (errorMessage) => {
-    // parse error, ignore
+
+    // Try to extract asset_id from a URL like .../assets/view.php?id=12
+    let assetId = null;
+    try {
+      const url = new URL(decodedText);
+      assetId = url.searchParams.get('id');
+    } catch (e) {
+      // Not a URL — fall through to raw tag match
+    }
+
+    if (assetId) {
+      fetch('asset_lookup.php?asset_id=' + encodeURIComponent(assetId))
+        .then(r => r.json())
+        .then(data => {
+          if (data.error) { alert('Asset not found in the system.'); return; }
+          fillAssetFromLookup(data);
+        })
+        .catch(() => alert('Could not look up asset. Please try again.'));
+    } else {
+      // Raw asset tag scanned — fall back to datalist match
+      assetTagInput.value = decodedText;
+      assetTagInput.dispatchEvent(new Event('input'));
+    }
+  }, () => {
+    // frame decode error — ignore
   }).catch((err) => {
     console.error("Scanner error", err);
-    alert("Could not start camera. Make sure you have given permission.");
+    alert("Could not start camera. Make sure you have given camera permission.");
     closeScanner();
   });
 }
