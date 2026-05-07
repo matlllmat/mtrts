@@ -1,6 +1,7 @@
 <?php
 // modules/workorders/functions.php
 // All database queries and helpers for the Work Orders module.
+date_default_timezone_set('Asia/Manila');
 // $pdo is provided by guard.php; never create a new connection here.
 
 // ── Stats ─────────────────────────────────────────────────────
