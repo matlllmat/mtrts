@@ -842,14 +842,16 @@ function renderSafety() {
       const categoryBadge = `<div class="absolute bottom-1 left-1 px-1.5 py-0.5 bg-gray-800/70 text-white text-xs rounded font-medium">${fileLabel}</div>`;
       
       return `
-        <div class="mediaTile">
+        <div class="mediaTile" 
+             style="cursor:pointer;" 
+             onclick="const url = '${m.serverUrl || m.dataUrl || ''}'; if(url && event.target.tagName !== 'BUTTON') window.open(url, '_blank')">
           <div class="mediaTile__content flex flex-col items-center justify-center h-full">
             ${getFileIcon(m.name)}
             <div class="text-xs text-gray-600 mt-1 truncate max-w-full px-1" title="${escapeHtml(m.name)}">${escapeHtml(m.name)}</div>
           </div>
           ${categoryBadge}
           ${badge}
-          <button class="mediaTile__x" type="button" data-config-remove="${m.id}" aria-label="Remove">×</button>
+          <button class="mediaTile__x" type="button" data-config-remove="${m.id}" aria-label="Remove" onclick="event.stopPropagation()">×</button>
         </div>
       `;
     }).join('');
@@ -876,8 +878,9 @@ function renderSafety() {
 
   function mediaTile(side, m) {
     const isVideo = m.kind === 'video';
-    const srcAttr = m.dataUrl ? `src="${m.dataUrl}"` : '';
     const state = m.state || 'saved';
+    const displayUrl = m.dataUrl || m.serverUrl;
+    const srcAttr = displayUrl ? `src="${displayUrl}"` : '';
     
     // Show error state
     if (state === 'error') {
@@ -895,7 +898,7 @@ function renderSafety() {
     }
     
     // Show loading/processing state
-    if (!m.dataUrl) {
+    if (!displayUrl) {
       return `
         <div class="mediaTile mediaTile--loading">
           <div class="absolute inset-0 flex flex-col items-center justify-center bg-gray-50/95 rounded">
@@ -910,7 +913,9 @@ function renderSafety() {
     // Normal state
     const inner = isVideo
       ? `<video ${srcAttr} muted playsinline controls></video>`
-      : `<img ${srcAttr} alt="${escapeHtml(m.name || 'photo')}" />`;
+      : `<img ${srcAttr} alt="${escapeHtml(m.name || 'photo')}" 
+             style="cursor:pointer;" 
+             onclick="window.open('${displayUrl}', '_blank')" />`;
     
     // Add checkmark for synced state
     const badge = state === 'synced' ? `
@@ -1839,7 +1844,7 @@ function validateCompletion() {
       checklist: wo.checklist,
       time_logs_count: (wo.time_logs || []).length
     });
-    isEditableNow = !!(wo.can_execute_now && (wo.status === 'in_progress'));
+    isEditableNow = !!wo.can_execute_now;
 
     // Initialize draft.safety and draft.checklist from server data if not already set
     // This ensures the draft reflects the actual completion state from the database
@@ -1921,15 +1926,17 @@ function validateCompletion() {
     // Items the user DID interact with are already in the draft and kept as-is.
     if (wo && wo.safety) {
       wo.safety.forEach((item) => {
-        if (draft.safety[item.id] === undefined) {
-          draft.safety[item.id] = item.is_done === true || item.is_done === 1;
+        // Prioritize server status if local draft is missing or false
+        if (!draft.safety[item.id]) {
+          draft.safety[item.id] = (item.is_done === true || item.is_done === 1 || item.is_done === "1");
         }
       });
     }
     if (wo && wo.checklist) {
       wo.checklist.forEach((item) => {
-        if (draft.checklist[item.id] === undefined) {
-          draft.checklist[item.id] = item.is_done === true || item.is_done === 1;
+        // Prioritize server status if local draft is missing or false
+        if (!draft.checklist[item.id]) {
+          draft.checklist[item.id] = (item.is_done === true || item.is_done === 1 || item.is_done === "1");
         }
       });
     }

@@ -17,12 +17,17 @@ if (!$wo) {
 }
 
 // Everyone can view all work orders. Execution is role-gated (queue-without-claim).
+$user_id = (int)($_SESSION['user_id'] ?? 0);
 $role_id = (int)($_SESSION['role_id'] ?? 0);
 $is_admin = tech_is_admin_role($pdo);
 $assigned_role_id = technician_has_role_queue_schema($pdo) ? (int)($wo['assigned_role_id'] ?? 0) : 0;
-$can_edit = $is_admin || ($assigned_role_id > 0 && $assigned_role_id === $role_id);
+$assigned_to = (int)($wo['assigned_to'] ?? 0);
+
+// Access Logic: Admin or the specific Assigned Technician. 
+// Fallback to role-based if no specific user is assigned yet.
+$can_edit = $is_admin || ($assigned_to > 0 && $assigned_to === $user_id) || ($assigned_to === 0 && $assigned_role_id > 0 && $assigned_role_id === $role_id);
 $status_key = strtolower(trim((string)($wo['status'] ?? '')));
-$can_execute_now = $can_edit && $status_key === 'in_progress';
+$can_execute_now = $can_edit && in_array($status_key, ['assigned', 'scheduled', 'in_progress']);
 
 // #region agent log
 tech_dbg('H_ACCESS', 'modules/technician/view.php:access', 'Computed access', [

@@ -540,8 +540,8 @@ switch ($action) {
                 break;
             }
             
-            if ($wo['status'] !== 'assigned') {
-                echo json_encode(['success' => false, 'message' => 'Work order must be in assigned status to start work']);
+            if (!in_array($wo['status'], ['assigned', 'scheduled'])) {
+                echo json_encode(['success' => false, 'message' => 'Work order must be in assigned or scheduled status to start work']);
                 break;
             }
             

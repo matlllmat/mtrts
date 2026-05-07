@@ -112,7 +112,7 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
           </span>
         <?php endif; ?>
 
-        <?php if ($status === 'assigned' && !empty($can_edit)): ?>
+        <?php if (in_array($status, ['assigned', 'scheduled']) && !empty($can_edit)): ?>
           <button type="button"
                   id="startWorkBtn"
                   onclick="startWork(<?php echo (int)($wo['wo_id'] ?? 0); ?>, this)"

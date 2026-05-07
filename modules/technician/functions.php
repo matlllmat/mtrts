@@ -162,12 +162,14 @@ function get_work_order_detail(PDO $pdo, int $wo_id): ?array {
                t.title AS ticket_title, t.description AS ticket_description,
                l.building, l.floor, l.room,
                u.full_name AS requester_name, u.contact_number, u.email,
+               assigned_user.full_name AS assigned_to_name,
                ac.category_name,
                a.asset_tag, a.serial_number, a.manufacturer, a.model
         FROM work_orders wo
         LEFT JOIN tickets t ON wo.ticket_id = t.ticket_id
         LEFT JOIN locations l ON t.location_id = l.location_id
         LEFT JOIN users u ON t.requester_id = u.user_id
+        LEFT JOIN users assigned_user ON wo.assigned_to = assigned_user.user_id
         LEFT JOIN assets a ON t.asset_id = a.asset_id
         LEFT JOIN asset_categories ac ON a.category_id = ac.category_id
         WHERE wo.wo_id = ?
@@ -477,7 +479,7 @@ function complete_work_order_transactional(PDO $pdo, array $payload, int $techni
     // Signature path is required in some schemas, so always provide a value.
     $signature_path = 'data:inline';
     if ($signature_data_url && str_starts_with($signature_data_url, 'data:image/')) {
-        $upload_dir = __DIR__ . '/../uploads/signatures/' . $wo_id . '/';
+        $upload_dir = __DIR__ . '/uploads/signatures/' . $wo_id . '/';
         if (!is_dir($upload_dir)) { mkdir($upload_dir, 0755, true); }
         $img_data = base64_decode(preg_replace('/^data:image\/\w+;base64,/', '', $signature_data_url));
         $filename = 'signoff_' . time() . '.png';
