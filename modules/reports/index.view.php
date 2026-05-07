@@ -729,10 +729,46 @@ document.addEventListener('DOMContentLoaded', () => {
           <li><strong>Escalations:</strong> A background cron job (`cron_sla.php`) runs every 5 minutes to detect breaches, auto-escalate ticket priorities, and send email warnings.</li>
         </ul>
       </section>
+      
+      <!-- SLA Policies Table -->
+      <section>
+        <h3 class="text-lg font-bold text-gray-800 mb-3 border-b pb-1">2. Active Service Standards (SLA Policies)</h3>
+        <div class="overflow-x-auto rounded-lg border border-gray-100 shadow-sm">
+          <table class="w-full text-left border-collapse bg-white">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="py-2 px-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Policy Name</th>
+                <th class="py-2 px-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-center">Response</th>
+                <th class="py-2 px-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-center">Diagnosis</th>
+                <th class="py-2 px-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-center">Resolution</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+              <?php foreach ($sla_policies ?? [] as $policy): ?>
+                <tr class="hover:bg-gray-50 transition-colors">
+                  <td class="py-2 px-3">
+                    <p class="text-xs font-bold text-gray-900"><?= htmlspecialchars($policy['policy_name']) ?></p>
+                    <p class="text-[9px] text-gray-400 font-bold uppercase"><?= htmlspecialchars($policy['priority'] ?? 'General') ?></p>
+                  </td>
+                  <td class="py-2 px-3 text-center text-xs text-gray-600">
+                    <?= $policy['response_minutes'] >= 60 ? floor($policy['response_minutes']/60).'h '.($policy['response_minutes']%60).'m' : $policy['response_minutes'].'m' ?>
+                  </td>
+                  <td class="py-2 px-3 text-center text-xs text-gray-600">
+                    <?= $policy['diagnosis_minutes'] >= 60 ? floor($policy['diagnosis_minutes']/60).'h '.($policy['diagnosis_minutes']%60).'m' : $policy['diagnosis_minutes'].'m' ?>
+                  </td>
+                  <td class="py-2 px-3 text-center text-xs font-bold text-[#1a5c2a]">
+                    <?= $policy['resolution_minutes'] >= 60 ? floor($policy['resolution_minutes']/60).'h '.($policy['resolution_minutes']%60).'m' : $policy['resolution_minutes'].'m' ?>
+                  </td>
+                </tr>
+              <?php endforeach; ?>
+            </tbody>
+          </table>
+        </div>
+      </section>
 
       <!-- Integrations -->
       <section>
-        <h3 class="text-lg font-bold text-gray-800 mb-2 border-b pb-1">2. How it Integrates with Other Modules</h3>
+        <h3 class="text-lg font-bold text-gray-800 mb-2 border-b pb-1">3. How it Integrates with Other Modules</h3>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div class="bg-blue-50 p-3 rounded border border-blue-100">
             <h4 class="font-bold text-blue-800">Module 4 (Technician Ops)</h4>
@@ -755,7 +791,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       <!-- How to Test -->
       <section>
-        <h3 class="text-lg font-bold text-gray-800 mb-2 border-b pb-1">3. How to Test Everything Manually</h3>
+        <h3 class="text-lg font-bold text-gray-800 mb-2 border-b pb-1">4. How to Test Everything Manually</h3>
         <div class="space-y-3">
           <div class="bg-gray-50 p-3 rounded">
             <strong>A. Test SLA Deadlines & Pauses:</strong>
