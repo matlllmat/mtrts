@@ -586,7 +586,7 @@ function complete_work_order_transactional(PDO $pdo, array $payload, int $techni
             }
         }
 
-        $sql = "UPDATE work_orders SET status = 'resolved', actual_end = NOW()" .
+        $sql = "UPDATE work_orders SET status = 'resolved', actual_end = COALESCE(actual_end, NOW()), actual_start = COALESCE(actual_start, NOW())" .
                ($resolution_notes !== '' ? ", resolution_notes = ?" : '') .
                " WHERE wo_id = ?";
         $params = $resolution_notes !== '' ? [$resolution_notes, $wo_id] : [$wo_id];
@@ -743,9 +743,9 @@ function update_work_order_status(PDO $pdo, int $wo_id, string $status): void {
     $params = [$status, $wo_id];
 
     if ($status === 'in_progress') {
-        $update[] = 'actual_start = NOW()';
+        $update[] = 'actual_start = COALESCE(actual_start, NOW())';
     } elseif ($status === 'resolved') {
-        $update[] = 'actual_end = NOW()';
+        $update[] = 'actual_end = COALESCE(actual_end, NOW())';
     }
 
     $sql = "UPDATE work_orders SET status = ?" . (count($update) ? ', ' . implode(', ', $update) : '') . " WHERE wo_id = ?";
@@ -906,6 +906,103 @@ function record_part_usage(PDO $pdo, int $wo_id, int $part_id, int $quantity_use
             'error' => $e->getMessage(),
         ]);
         return false;
+    }
+}
+
+// ── Offline Sync Queue Management ────────────────────────────
+
+/**
+ * Get pending sync queue items for a specific work order.
+ */
+function get_sync_queue(PDO $pdo, int $wo_id): array {
+    try {
+        $stmt = $pdo->prepare("
+            SELECT sync_id AS id, action_type AS action, payload, sync_status AS status,
+                   retry_count, last_retry_at, error_message AS error_reason, created_at
+            FROM offline_sync_queue
+            WHERE wo_id = ?
+              AND sync_status IN ('pending', 'failed')
+            ORDER BY created_at ASC
+        ");
+        $stmt->execute([$wo_id]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Throwable $e) {
+        tech_dbg('H_SYNC', 'modules/technician/functions.php:get_sync_queue', 'Failed to get sync queue', [
+            'wo_id' => $wo_id,
+            'error' => $e->getMessage(),
+        ]);
+        return [];
+    }
+}
+
+/**
+ * Check if a queue item is ready to retry (exponential backoff).
+ * Returns true if the item is ready to be retried, false otherwise.
+ * Also increments the retry_count and updates last_retry_at.
+ */
+function process_retry_queue(PDO $pdo, int $queue_id): bool {
+    try {
+        $stmt = $pdo->prepare("
+            SELECT sync_id, retry_count, last_retry_at, sync_status
+            FROM offline_sync_queue
+            WHERE sync_id = ?
+        ");
+        $stmt->execute([$queue_id]);
+        $item = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$item || $item['sync_status'] === 'completed') {
+            return false;
+        }
+
+        $retry_count = (int)$item['retry_count'];
+
+        // Max 10 retries
+        if ($retry_count >= 10) {
+            $pdo->prepare("UPDATE offline_sync_queue SET sync_status = 'failed' WHERE sync_id = ?")->execute([$queue_id]);
+            return false;
+        }
+
+        // Exponential backoff: 2^retry_count seconds (1s, 2s, 4s, 8s, 16s, ...)
+        if ($item['last_retry_at']) {
+            $backoff_seconds = pow(2, $retry_count);
+            $next_retry = strtotime($item['last_retry_at']) + $backoff_seconds;
+            if (time() < $next_retry) {
+                return false; // Not yet time to retry
+            }
+        }
+
+        // Mark as processing and update retry metadata
+        $pdo->prepare("
+            UPDATE offline_sync_queue
+            SET sync_status = 'processing', retry_count = retry_count + 1, last_retry_at = NOW()
+            WHERE sync_id = ?
+        ")->execute([$queue_id]);
+
+        return true;
+    } catch (Throwable $e) {
+        tech_dbg('H_SYNC', 'modules/technician/functions.php:process_retry_queue', 'Failed to process retry queue', [
+            'queue_id' => $queue_id,
+            'error' => $e->getMessage(),
+        ]);
+        return false;
+    }
+}
+
+/**
+ * Mark a sync queue item as successfully synced.
+ */
+function mark_synced(PDO $pdo, int $queue_id): void {
+    try {
+        $pdo->prepare("
+            UPDATE offline_sync_queue
+            SET sync_status = 'completed', synced_at = NOW()
+            WHERE sync_id = ?
+        ")->execute([$queue_id]);
+    } catch (Throwable $e) {
+        tech_dbg('H_SYNC', 'modules/technician/functions.php:mark_synced', 'Failed to mark synced', [
+            'queue_id' => $queue_id,
+            'error' => $e->getMessage(),
+        ]);
     }
 }
 ?>

@@ -83,6 +83,7 @@ CREATE TABLE locations (
   building    VARCHAR(100)  NOT NULL,
   floor       VARCHAR(50)   NOT NULL,
   room        VARCHAR(100)  NOT NULL,
+  timezone    VARCHAR(50)   NOT NULL DEFAULT 'Asia/Manila',
   created_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
   UNIQUE (building, floor, room)
@@ -120,6 +121,8 @@ CREATE TABLE sla_policies (
   policy_name        VARCHAR(150)  NOT NULL,
   priority           ENUM('low','medium','high','critical') NULL,
   category_id        INT           NULL,
+  location_id        INT           NULL,
+  request_type       VARCHAR(50)   NULL,
   is_event_support   TINYINT(1)    NOT NULL DEFAULT 0,
   response_minutes   INT           NOT NULL,
   diagnosis_minutes  INT           NOT NULL,
@@ -128,7 +131,8 @@ CREATE TABLE sla_policies (
   is_active          TINYINT(1)   NOT NULL DEFAULT 1,
   created_at         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-  FOREIGN KEY (category_id) REFERENCES asset_categories(category_id)
+  FOREIGN KEY (category_id) REFERENCES asset_categories(category_id),
+  FOREIGN KEY (location_id) REFERENCES locations(location_id)
 );
 
 CREATE TABLE parts_inventory (
@@ -395,6 +399,7 @@ CREATE TABLE ticket_sla (
   paused_at               DATETIME   NULL,
   total_paused_minutes    INT        NOT NULL DEFAULT 0,
   pause_reason            VARCHAR(100) NULL,
+  escalation_level        TINYINT    NOT NULL DEFAULT 0,
 
   FOREIGN KEY (ticket_id) REFERENCES tickets(ticket_id),
   FOREIGN KEY (policy_id) REFERENCES sla_policies(policy_id)
@@ -605,14 +610,19 @@ CREATE TABLE wo_signoff (
 CREATE TABLE offline_sync_queue (
   sync_id       INT           PRIMARY KEY AUTO_INCREMENT,
   technician_id INT           NOT NULL,
+  wo_id         INT           NULL,
   action_type   ENUM('wo_start','wo_pause','wo_resume','wo_stop','wo_complete','wo_note','wo_photo','wo_checklist','wo_safety','parts_used') NOT NULL,
   payload       JSON          NOT NULL,
   created_at    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
   synced_at     DATETIME      NULL,
   sync_status   ENUM('pending','processing','completed','failed') NOT NULL DEFAULT 'pending',
   error_message VARCHAR(500)  NULL,
+  retry_count   INT           NOT NULL DEFAULT 0,
+  last_retry_at DATETIME      NULL,
+  error_reason  VARCHAR(500)  NULL,
 
-  FOREIGN KEY (technician_id) REFERENCES users(user_id)
+  FOREIGN KEY (technician_id) REFERENCES users(user_id),
+  FOREIGN KEY (wo_id)         REFERENCES work_orders(wo_id)
 );
 
 CREATE TABLE parts_inventory_audit (

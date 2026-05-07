@@ -506,13 +506,14 @@ function reassign_wo(PDO $pdo, int $wo_id, int $to, int $by, string $reason): vo
 
 function log_wo_audit(PDO $pdo, int $wo_id, string $field, mixed $old, mixed $new, int $by): void {
     $pdo->prepare("
-        INSERT INTO audit_log (asset_id, field_name, old_value, new_value, changed_by)
-        VALUES (?,?,?,?,?)
+        INSERT INTO audit_log (user_id, action, object_type, object_id, old_values, new_values, ip_address, created_at)
+        VALUES (?, 'UPDATE', 'work_order', ?, ?, ?, ?, NOW())
     ")->execute([
-        $wo_id, 'wo.' . $field,
-        $old !== null ? (string) $old : null,
-        $new !== null ? (string) $new : null,
         $by,
+        $wo_id,
+        json_encode([$field => $old !== null ? (string) $old : null]),
+        json_encode([$field => $new !== null ? (string) $new : null]),
+        $_SERVER['REMOTE_ADDR'] ?? 'CLI',
     ]);
 }
 

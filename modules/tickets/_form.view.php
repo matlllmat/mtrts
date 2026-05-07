@@ -449,7 +449,7 @@ assetTagInput.addEventListener('change', function() {
   }
 
   // Always fetch from server to get full details (like warranty)
-  fetch(`asset_lookup_ajax.php?q=${encodeURIComponent(val)}`)
+  fetch(`asset_lookup.php?asset_tag=${encodeURIComponent(val)}`)
     .then(res => res.json())
     .then(data => {
       if (data.success) {
@@ -466,6 +466,12 @@ assetTagInput.addEventListener('change', function() {
         if (data.location_id) {
             const locSel = document.querySelector('select[name="location_id"]');
             if (locSel) locSel.value = data.location_id;
+        }
+        
+        const titleInput = document.querySelector('input[name="title"]');
+        if (titleInput) {
+            titleInput.focus();
+            titleInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
       } else if (!foundLocal) {
         modelInput.value = '';
@@ -553,6 +559,12 @@ function fillAssetFromLookup(data) {
 
   if (modelInput)   modelInput.value   = data.model            || '';
   if (warrantyInput) warrantyInput.value = data.warranty_status || '';
+
+  const titleInput = document.querySelector('input[name="title"]');
+  if (titleInput) {
+      titleInput.focus();
+      titleInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
 }
 
 function openScanner() {

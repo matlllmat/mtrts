@@ -145,11 +145,11 @@ function get_audit_logs(PDO $pdo, array $f = [], int $page = 1, int $per = 20): 
     $params = [];
     
     if (!empty($f['user_id'])) {
-        $where[] = "user_id = ?";
+        $where[] = "l.user_id = ?";
         $params[] = $f['user_id'];
     }
     if (!empty($f['object_type'])) {
-        $where[] = "object_type = ?";
+        $where[] = "l.object_type = ?";
         $params[] = $f['object_type'];
     }
     if (!empty($f['date_from'])) {

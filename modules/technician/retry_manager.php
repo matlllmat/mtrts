@@ -14,13 +14,6 @@ try {
     $action = $_GET['action'] ?? '';
     $wo_id = (int)($_GET['wo_id'] ?? 0);
     
-    $pdo = new PDO(
-        'mysql:host=' . getenv('DB_HOST') . ';dbname=' . getenv('DB_NAME'),
-        getenv('DB_USER'),
-        getenv('DB_PASS')
-    );
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    
     switch ($action) {
         case 'status':
             // Get retry queue status for a work order
@@ -33,10 +26,10 @@ try {
             $stmt = $pdo->prepare("
                 SELECT 
                     COUNT(*) AS total,
-                    SUM(status = 'pending') AS pending,
-                    SUM(status = 'pending' AND retry_count < 10) AS ready_to_retry,
-                    SUM(status = 'failed') AS failed,
-                    SUM(status = 'synced') AS synced
+                    SUM(sync_status = 'pending') AS pending,
+                    SUM(sync_status = 'pending' AND retry_count < 10) AS ready_to_retry,
+                    SUM(sync_status = 'failed') AS failed,
+                    SUM(sync_status = 'completed') AS synced
                 FROM offline_sync_queue
                 WHERE wo_id = ?
             ");
@@ -165,13 +158,13 @@ try {
             
             $stmt = $pdo->prepare("
                 SELECT 
-                    id,
-                    action,
-                    status,
+                    sync_id AS id,
+                    action_type AS action,
+                    sync_status AS status,
                     retry_count,
                     created_at,
                     last_retry_at,
-                    error_reason
+                    error_message AS error_reason
                 FROM offline_sync_queue
                 WHERE wo_id = ?
                 ORDER BY created_at DESC

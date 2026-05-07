@@ -346,7 +346,7 @@
         Equipment Identification
       </div>
       <div class="p-5 space-y-3 text-sm">
-        <?php if ($ticket['asset_tag']): ?>
+        <?php if (!empty($ticket['asset_tag'])): ?>
           <div>
             <dt class="text-gray-500 mb-0.5">Reported Asset ID</dt>
             <dd class="font-medium text-gray-900"><?= htmlspecialchars($ticket['asset_tag']) ?></dd>
