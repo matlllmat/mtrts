@@ -1,6 +1,7 @@
 <?php
 // modules/tickets/functions.php
 // Database queries and helpers for Request Submission & Intake
+date_default_timezone_set('Asia/Manila');
 
 // ── Stats ─────────────────────────────────────────────────────
 
@@ -160,7 +161,27 @@ function get_ticket_dynamic_fields(PDO $pdo, int $id): array {
 }
 
 function get_all_categories(PDO $pdo): array {
-    return $pdo->query("SELECT * FROM asset_categories ORDER BY category_name")->fetchAll();
+    $cats = $pdo->query("SELECT * FROM asset_categories ORDER BY category_name")->fetchAll();
+    
+    // Check if "Others" already exists in DB
+    $has_others = false;
+    foreach ($cats as $c) {
+        if (strtolower($c['category_name']) === 'others') {
+            $has_others = true;
+            break;
+        }
+    }
+    
+    // If not in DB, add it as a virtual option for the UI
+    if (!$has_others) {
+        $cats[] = [
+            'category_id' => 999, // A high ID for "Others"
+            'category_name' => 'Others',
+            'has_bulb_hours' => 0
+        ];
+    }
+    
+    return $cats;
 }
 
 function get_all_locations(PDO $pdo): array {

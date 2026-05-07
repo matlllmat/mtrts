@@ -202,7 +202,7 @@
         <div class="space-y-3" id="kb-suggestions-container">
           <?php if (!empty($kb_articles)): foreach ($kb_articles as $article): ?>
             <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:border-olfu-green transition-all cursor-pointer group kb-article-card relative"
-                 onclick="openKbModal(<?= htmlspecialchars(json_encode($article['title'])) ?>, <?= htmlspecialchars(json_encode($article['content'])) ?>)">
+                 onclick='openKbModal(<?= htmlspecialchars(json_encode($article["title"]), ENT_QUOTES) ?>, <?= htmlspecialchars(json_encode($article["content"]), ENT_QUOTES) ?>)'>
               <div class="flex items-center justify-between mb-1">
                 <span class="text-[10px] font-bold text-olfu-green uppercase tracking-wider bg-green-50 px-2 py-0.5 rounded">Article</span>
                 <span class="text-[10px] text-olfu-green font-bold opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
@@ -210,7 +210,7 @@
                 </span>
               </div>
               <h4 class="text-sm font-bold text-gray-900 group-hover:text-olfu-green transition-colors"><?= htmlspecialchars($article['title']) ?></h4>
-              <p class="text-xs text-gray-500 mt-1 line-clamp-3 leading-relaxed"><?= strip_tags($article['content']) ?></p>
+              <p class="text-xs text-gray-500 mt-1 line-clamp-3 leading-relaxed"><?= htmlspecialchars(strip_tags($article['content'])) ?></p>
             </div>
           <?php endforeach; else: ?>
             <p class="text-xs text-gray-400 italic">Select a category to see specific recommendations.</p>
