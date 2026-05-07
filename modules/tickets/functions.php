@@ -99,9 +99,11 @@ function _ticket_where(array $f): array {
 function get_ticket_by_id(PDO $pdo, int $id): array|false {
     $stmt = $pdo->prepare("
         SELECT t.*,
-               r.full_name AS requester_name, r.email AS requester_email, r.contact_number,
-               d.department_name AS requester_dept,
-               a.asset_tag, a.manufacturer, a.model,
+               r.full_name AS requester_name, r.full_name AS full_name, 
+               r.email AS requester_email, r.email AS email, 
+               r.contact_number,
+               d.department_name AS requester_dept, d.department_name AS department,
+               a.asset_tag AS asset_tag_linked, a.manufacturer, a.model AS asset_model,
                c.category_name,
                l.building, l.floor, l.room,
                u_assign.full_name AS assigned_to_name,
@@ -200,16 +202,19 @@ function create_ticket(PDO $pdo, array $d): int {
 
     $pdo->prepare("
         INSERT INTO tickets
-            (ticket_number, requester_id, asset_id, category_id, location_id,
+            (ticket_number, requester_id, asset_tag, asset_id, category_id, location_id, model, warranty_status,
              title, description, impact, urgency, priority, channel,
              is_event_support, preferred_window, status)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ")->execute([
         $ticket_number,
         $d['requester_id'],
+        $d['asset_tag'] ?: null,
         $d['asset_id'] ?: null,
         $d['category_id'] ?: null,
         $d['location_id'] ?: null,
+        $d['model'] ?: null,
+        $d['warranty_status'] ?: null,
         $d['title'],
         $d['description'] ?: null,
         $d['impact'] ?? 'medium',
@@ -223,26 +228,6 @@ function create_ticket(PDO $pdo, array $d): int {
 
     $ticket_id = (int) $pdo->lastInsertId();
     
-    // Auto-route: assign team based on category name
-    if ($d['category_id']) {
-        $cat_name = $pdo->prepare("SELECT category_name FROM asset_categories WHERE category_id = ?");
-        $cat_name->execute([$d['category_id']]);
-        $cat = strtolower($cat_name->fetchColumn() ?: '');
-        
-        $team = 'General IT';
-        if (str_contains($cat, 'projector') || str_contains($cat, 'display') || str_contains($cat, 'screen')) {
-            $team = 'AV Team';
-        } elseif (str_contains($cat, 'sound') || str_contains($cat, 'audio') || str_contains($cat, 'microphone')) {
-            $team = 'Audio Team';
-        } elseif (str_contains($cat, 'network') || str_contains($cat, 'switch') || str_contains($cat, 'router')) {
-            $team = 'Network Team';
-        } elseif (str_contains($cat, 'computer') || str_contains($cat, 'laptop') || str_contains($cat, 'desktop')) {
-            $team = 'Desktop Support';
-        }
-        
-        $pdo->prepare("UPDATE tickets SET assigned_team = ? WHERE ticket_id = ?")->execute([$team, $ticket_id]);
-    }
-
     // Save dynamic fields if any
     if (!empty($d['dynamic_fields']) && is_array($d['dynamic_fields'])) {
         $stmt = $pdo->prepare("INSERT INTO ticket_dynamic_fields (ticket_id, field_name, field_value) VALUES (?, ?, ?)");
@@ -263,7 +248,8 @@ function update_ticket(PDO $pdo, int $id, array $d): void {
             UPDATE tickets SET
                 title=?, description=?, status=?, on_hold_reason=?,
                 impact=?, urgency=?, priority=?, is_event_support=?,
-                assigned_to=?, category_id=?, location_id=?
+                assigned_to=?, category_id=?, location_id=?,
+                model=?, warranty_status=?, asset_tag=?
             WHERE ticket_id=?
         ")->execute([
             $d['title'],
@@ -277,6 +263,9 @@ function update_ticket(PDO $pdo, int $id, array $d): void {
             $d['assigned_to'] ?: null,
             $d['category_id'] ?: null,
             $d['location_id'] ?: null,
+            $d['model'] ?: null,
+            $d['warranty_status'] ?: null,
+            $d['asset_tag'] ?: null,
             $id
         ]);
         
@@ -290,7 +279,8 @@ function update_ticket(PDO $pdo, int $id, array $d): void {
         $pdo->prepare("
             UPDATE tickets SET
                 title=?, description=?, impact=?, urgency=?, priority=?,
-                is_event_support=?, category_id=?, location_id=?, preferred_window=?
+                is_event_support=?, category_id=?, location_id=?, preferred_window=?,
+                model=?, warranty_status=?, asset_tag=?
             WHERE ticket_id=?
         ")->execute([
             $d['title'],
@@ -302,6 +292,9 @@ function update_ticket(PDO $pdo, int $id, array $d): void {
             $d['category_id'] ?: null,
             $d['location_id'] ?: null,
             $d['preferred_window'] ?: null,
+            $d['model'] ?: null,
+            $d['warranty_status'] ?: null,
+            $d['asset_tag'] ?: null,
             $id
         ]);
     }
@@ -335,10 +328,6 @@ function check_duplicate_ticket(PDO $pdo, int $asset_id, string $description, in
 }
 
 function handle_ticket_uploads(PDO $pdo, int $ticket_id, int $user_id): void {
-    // Allowed file extensions and max size (10MB)
-    $allowed_extensions = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'mp4', 'mov', 'pdf'];
-    $max_file_size = 10 * 1024 * 1024; // 10MB in bytes
-
     if (!empty($_FILES['attachments']['name'][0])) {
         $upload_dir = __DIR__ . '/../../public/uploads/tickets/';
         if (!is_dir($upload_dir)) mkdir($upload_dir, 0777, true);
@@ -353,12 +342,6 @@ function handle_ticket_uploads(PDO $pdo, int $ticket_id, int $user_id): void {
 
             if ($error === UPLOAD_ERR_OK && $size > 0) {
                 $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
-
-                // Server-side validation: reject invalid file types
-                if (!in_array($ext, $allowed_extensions, true)) continue;
-                // Server-side validation: reject files exceeding 10MB
-                if ($size > $max_file_size) continue;
-
                 $safe_name = $ticket_id . '_' . time() . '_' . rand(100,999) . '.' . $ext;
                 $dest = $upload_dir . $safe_name;
                 
@@ -375,6 +358,23 @@ function handle_ticket_uploads(PDO $pdo, int $ticket_id, int $user_id): void {
             }
         }
     }
+}
+
+function get_recommended_kb_articles(PDO $pdo, ?int $category_id = null, int $limit = 3): array {
+    $sql = "SELECT article_id, title, content FROM kb_articles WHERE is_published = 1 ";
+    $params = [];
+    
+    if ($category_id) {
+        $sql .= "AND (category_id = ? OR category_id IS NULL) ";
+        $params[] = $category_id;
+    }
+    
+    $sql .= "ORDER BY (category_id IS NOT NULL) DESC, views DESC LIMIT ?";
+    $params[] = $limit;
+    
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    return $stmt->fetchAll();
 }
 
 // ── Render Helpers ────────────────────────────────────────────
