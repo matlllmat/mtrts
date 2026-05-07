@@ -13,7 +13,8 @@ function get_ticket_stats(PDO $pdo): array {
                SUM(status = 'in_progress')    AS in_progress,
                SUM(status = 'on_hold')        AS on_hold,
                SUM(status = 'resolved')       AS resolved,
-               SUM(status = 'closed')         AS closed
+               SUM(status = 'closed')         AS closed,
+               SUM(status = 'cancelled')      AS cancelled
         FROM tickets
     ")->fetch();
 
@@ -329,20 +330,37 @@ function update_ticket(PDO $pdo, int $id, array $d): void {
     }
 }
 
-function check_duplicate_ticket(PDO $pdo, int $asset_id, string $description, int $days = 7): ?int {
-    if (!$asset_id) return null;
+function check_duplicate_ticket(PDO $pdo, array $d, int $days = 7): ?int {
+    // 1. Check by Asset ID (most reliable)
+    if (!empty($d['asset_id'])) {
+        $stmt = $pdo->prepare("
+            SELECT ticket_id 
+            FROM tickets 
+            WHERE asset_id = ? 
+              AND status NOT IN ('resolved', 'closed', 'cancelled')
+              AND created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+            LIMIT 1
+        ");
+        $stmt->execute([(int)$d['asset_id'], $days]);
+        $id = $stmt->fetchColumn();
+        if ($id) return (int)$id;
+    }
+
+    // 2. Check by Requester + Title (catches rapid double-clicks or same-day re-submissions)
     $stmt = $pdo->prepare("
         SELECT ticket_id 
         FROM tickets 
-        WHERE asset_id = ? 
-          AND created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
-          AND status NOT IN ('closed', 'cancelled')
-          AND ticket_id != ? -- if updating
-          AND description LIKE ?
+        WHERE requester_id = ? 
+          AND title = ?
+          AND status NOT IN ('resolved', 'closed', 'cancelled')
+          AND created_at >= DATE_SUB(NOW(), INTERVAL 1 DAY)
         LIMIT 1
     ");
-    $stmt->execute([$asset_id, $days, 0, substr($description, 0, 50) . '%']);
-    return $stmt->fetchColumn() ?: null;
+    $stmt->execute([(int)$d['requester_id'], $d['title']]);
+    $id = $stmt->fetchColumn();
+    if ($id) return (int)$id;
+
+    return null;
 }
 
 function handle_ticket_uploads(PDO $pdo, int $ticket_id, int $user_id): void {

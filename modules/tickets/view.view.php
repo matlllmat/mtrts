@@ -30,6 +30,48 @@
       <?php endif; ?>
     </div>
   </div>
+
+  <?php if (isset($_GET['msg']) && $_GET['msg'] === 'duplicate_voided'): ?>
+    <div class="mt-4 p-4 bg-amber-50 border-l-4 border-amber-500 rounded-lg flex items-center gap-3">
+      <svg class="w-6 h-6 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+      <div>
+        <h4 class="text-sm font-bold text-amber-800">Duplicate Submission Voided</h4>
+        <p class="text-xs text-amber-700">A new request was submitted but detected as a duplicate. It has been voided and linked to this ticket for tracking.</p>
+      </div>
+    </div>
+  <?php endif; ?>
+
+  <?php if ($original_ticket): ?>
+    <div class="mt-4 p-4 bg-red-50 border-l-4 border-red-500 rounded-lg flex items-center gap-3">
+      <svg class="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      <div>
+        <h4 class="text-sm font-bold text-red-800">Voided: Duplicate Ticket</h4>
+        <p class="text-xs text-red-700">This ticket has been marked as a duplicate of 
+          <a href="view.php?id=<?= $original_ticket['ticket_id'] ?>" class="font-bold underline">#<?= htmlspecialchars($original_ticket['ticket_number']) ?></a>.
+          Please refer to the original ticket for updates.
+        </p>
+      </div>
+    </div>
+  <?php endif; ?>
+
+  <?php if (!empty($duplicates)): ?>
+    <div class="mt-4 p-4 bg-blue-50 border-l-4 border-blue-500 rounded-lg flex flex-col gap-1">
+      <div class="flex items-center gap-3">
+        <svg class="w-6 h-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"/></svg>
+        <h4 class="text-sm font-bold text-blue-800">Duplicate Requests (<?= count($duplicates) ?>)</h4>
+      </div>
+      <div class="pl-9 text-xs text-blue-700">
+        The following submissions were identified as duplicates of this ticket:
+        <div class="flex flex-wrap gap-2 mt-1">
+          <?php foreach ($duplicates as $dup): ?>
+            <a href="view.php?id=<?= $dup['ticket_id'] ?>" class="bg-blue-100 px-2 py-0.5 rounded border border-blue-200 hover:bg-blue-200 transition">
+              #<?= htmlspecialchars($dup['ticket_number']) ?>
+            </a>
+          <?php endforeach; ?>
+        </div>
+      </div>
+    </div>
+  <?php endif; ?>
 </div>
 
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">

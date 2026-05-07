@@ -70,6 +70,9 @@
              <datalist id="asset-list">
                <?php foreach ($assets as $a): ?>
                  <option value="<?= htmlspecialchars($a['asset_tag']) ?>" data-id="<?= $a['asset_id'] ?>" data-model="<?= htmlspecialchars($a['model']) ?>">
+                 <?php if ($a['serial_number']): ?>
+                    <option value="<?= htmlspecialchars($a['serial_number']) ?>" data-id="<?= $a['asset_id'] ?>" data-model="<?= htmlspecialchars($a['model']) ?>">
+                 <?php endif; ?>
                <?php endforeach; ?>
              </datalist>
              <button type="button" onclick="openScanner()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-lg border border-gray-300 flex items-center gap-2 transition-colors">
@@ -80,11 +83,17 @@
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Model</label>
-          <input type="text" name="model" id="input-model" value="<?= htmlspecialchars($t['asset_model'] ?? $t['model'] ?? '') ?>" placeholder="Enter model" class="fin w-full">
+          <input type="text" name="model" id="input-model" 
+                 value="<?= htmlspecialchars($t['asset_model'] ?? $t['model'] ?? '') ?>" 
+                 readonly placeholder="Auto-filled from Asset ID" 
+                 class="fin w-full bg-gray-50 border-gray-200 text-gray-600 cursor-not-allowed">
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Warranty Status</label>
-          <input type="text" name="warranty_status" id="input-warranty" value="<?= htmlspecialchars($t['warranty_status'] ?? '') ?>" placeholder="Enter warranty status" class="fin w-full">
+          <input type="text" name="warranty_status" id="input-warranty" 
+                 value="<?= htmlspecialchars($t['warranty_status'] ?? '') ?>" 
+                 readonly placeholder="Auto-filled from Asset ID" 
+                 class="fin w-full bg-gray-50 border-gray-200 text-gray-600 cursor-not-allowed">
         </div>
       </div>
     </div>
@@ -328,8 +337,15 @@
     <div class="p-6">
       <div id="qr-reader" class="rounded-xl overflow-hidden bg-gray-100 aspect-square"></div>
       <div id="qr-reader-results" class="mt-4 text-center text-sm text-gray-500 italic">Scanning...</div>
+      
+      <div class="mt-6 pt-6 border-t border-gray-100">
+        <label class="block text-sm font-bold text-gray-700 mb-2">Or Upload QR Image</label>
+        <div class="flex items-center gap-3">
+          <input type="file" id="qr-file-input" accept="image/*" class="text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-olfu-green hover:file:bg-green-100">
+        </div>
+      </div>
     </div>
-    <div class="px-6 py-4 bg-gray-50 flex justify-end">
+    <div class="px-6 py-4 bg-gray-50 flex justify-end gap-3">
       <button type="button" onclick="closeScanner()" class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-50">Cancel</button>
     </div>
   </div>
@@ -343,6 +359,7 @@ const hiddenAssetId  = document.getElementById('hidden-asset-id');
 const modelInput     = document.getElementById('input-model');
 const warrantyInput  = document.getElementById('input-warranty');
 const assetList      = document.getElementById('asset-list');
+const qrFileInput    = document.getElementById('qr-file-input');
 
 function checkCategoryOthers(sel) {
   const container = document.getElementById('others-specify-container');
@@ -410,20 +427,73 @@ function closeKbModal() {
   document.body.style.overflow = '';
 }
 
+assetTagInput.addEventListener('change', function() {
+  const val = this.value.trim();
+  if (!val) {
+    modelInput.value = '';
+    warrantyInput.value = '';
+    hiddenAssetId.value = '';
+    return;
+  }
+  
+  // Try to find in datalist first for immediate feedback
+  const opts = assetList.options;
+  let foundLocal = false;
+  for (let i = 0; i < opts.length; i++) {
+    if (opts[i].value === val) {
+      hiddenAssetId.value = opts[i].dataset.id;
+      modelInput.value = opts[i].dataset.model || '';
+      foundLocal = true;
+      break;
+    }
+  }
+
+  // Always fetch from server to get full details (like warranty)
+  fetch(`asset_lookup_ajax.php?q=${encodeURIComponent(val)}`)
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        hiddenAssetId.value = data.asset_id;
+        modelInput.value = data.model;
+        warrantyInput.value = data.warranty_status;
+        
+        // Auto-select category and location if available
+        if (data.category_id) {
+            const catSel = document.getElementById('category-select');
+            catSel.value = data.category_id;
+            catSel.dispatchEvent(new Event('change'));
+        }
+        if (data.location_id) {
+            const locSel = document.querySelector('select[name="location_id"]');
+            if (locSel) locSel.value = data.location_id;
+        }
+      } else if (!foundLocal) {
+        modelInput.value = '';
+        warrantyInput.value = '';
+        hiddenAssetId.value = '';
+      }
+    })
+    .catch(err => console.error('Error fetching asset details:', err));
+});
+
 assetTagInput.addEventListener('input', function() {
-  const val = this.value;
+  const val = this.value.trim();
   const opts = assetList.options;
   let found = false;
   for (let i = 0; i < opts.length; i++) {
     if (opts[i].value === val) {
       hiddenAssetId.value = opts[i].dataset.id;
-      // Removed auto-filling of model to comply with "dont make it automatic"
+      modelInput.value = opts[i].dataset.model || '';
       found = true;
       break;
     }
   }
   if (!found) {
     hiddenAssetId.value = '';
+    if (val === '') {
+        modelInput.value = '';
+        warrantyInput.value = '';
+    }
   }
 });
 
@@ -435,6 +505,35 @@ if (categorySelect) {
 }
 updateFormBehavior();
 
+function onScanSuccess(decodedText) {
+    let tag = decodedText;
+    // Handle URL format: http://.../view.php?id=123 or ...?asset_tag=TAG
+    if (decodedText.includes('?')) {
+        const urlParams = new URLSearchParams(decodedText.split('?')[1]);
+        tag = urlParams.get('asset_tag') || urlParams.get('id') || decodedText;
+    }
+    
+    assetTagInput.value = tag;
+    assetTagInput.dispatchEvent(new Event('change'));
+    closeScanner();
+}
+
+if (qrFileInput) {
+    qrFileInput.addEventListener('change', e => {
+        if (e.target.files.length === 0) return;
+        const file = e.target.files[0];
+        const html5QrCodeFile = new Html5Qrcode("qr-reader");
+        html5QrCodeFile.scanFile(file, true)
+            .then(decodedText => {
+                onScanSuccess(decodedText);
+            })
+            .catch(err => {
+                console.error("Error scanning file", err);
+                alert("Could not find a valid QR code in this image.");
+            });
+    });
+}
+
 // --- QR SCANNER ---
 let html5QrCode;
 function openScanner() {
@@ -443,25 +542,13 @@ function openScanner() {
   const config = { fps: 10, qrbox: { width: 250, height: 250 } };
   
   html5QrCode.start({ facingMode: "environment" }, config, (decodedText) => {
-    // Check if it's a URL or just a tag
-    let tag = decodedText;
-    if (decodedText.includes('id=')) {
-        const urlParams = new URLSearchParams(decodedText.split('?')[1]);
-        const id = urlParams.get('id');
-        // If we only have ID, we need to find the tag. But usually QR encodes the URL.
-        // For simplicity, if it's a URL from our system, we try to match.
-        // Or if the QR just contains the tag.
-    }
-    
-    assetTagInput.value = tag;
-    assetTagInput.dispatchEvent(new Event('input'));
-    closeScanner();
+    onScanSuccess(decodedText);
   }, (errorMessage) => {
     // parse error, ignore
   }).catch((err) => {
     console.error("Scanner error", err);
-    alert("Could not start camera. Make sure you have given permission.");
-    closeScanner();
+    // alert("Could not start camera. Make sure you have given permission.");
+    // closeScanner();
   });
 }
 

@@ -26,6 +26,7 @@
     'on_hold'     => ['On Hold',      (int)$stats['on_hold']],
     'resolved'    => ['Resolved',     (int)$stats['resolved']],
     'closed'      => ['Closed',       (int)$stats['closed']],
+    'cancelled'   => ['Cancelled',    (int)$stats['cancelled'] ?? 0],
   ];
   foreach ($chip_defs as $val => $info):
     [$label, $count] = $info;
@@ -54,7 +55,7 @@
   <?php if (!$is_staff): ?>
   <select id="status-select" class="fsel text-sm" style="width:auto;min-width:130px">
     <option value="">All Statuses</option>
-    <?php foreach (['new'=>'New','assigned'=>'Assigned','in_progress'=>'In Progress','resolved'=>'Resolved','closed'=>'Closed'] as $k=>$v): ?>
+    <?php foreach (['new'=>'New','assigned'=>'Assigned','in_progress'=>'In Progress','resolved'=>'Resolved','closed'=>'Closed','cancelled'=>'Cancelled'] as $k=>$v): ?>
       <option value="<?= $k ?>" <?= $filters['status'] === $k ? 'selected' : '' ?>><?= $v ?></option>
     <?php endforeach; ?>
   </select>

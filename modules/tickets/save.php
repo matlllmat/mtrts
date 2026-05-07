@@ -35,10 +35,28 @@ if ($action === 'create') {
     ];
 
     // Check duplicate
-    $dup_id = check_duplicate_ticket($pdo, $d['asset_id'] ?: 0, $d['description']);
-    // Wait, if it's a duplicate we should maybe still create but mark it duplicate or warn. 
-    // The requirements say "Duplicate detection (same asset, same issue within N days)".
-    // For now, if duplicate is found, we might just set the duplicate_of_id. But since it wasn't required as a hard block, let's just create it.
+    $dup_id = check_duplicate_ticket($pdo, $d);
+    
+    if ($dup_id) {
+        // Create the ticket anyway but mark as 'cancelled' (voided)
+        $ticket_id = create_ticket($pdo, $d);
+        $pdo->prepare("UPDATE tickets SET status = 'cancelled', duplicate_of_id = ? WHERE ticket_id = ?")->execute([$dup_id, $ticket_id]);
+        
+        // Add a comment to the original ticket
+        $stmt_num = $pdo->prepare("SELECT ticket_number FROM tickets WHERE ticket_id = ?");
+        $stmt_num->execute([$ticket_id]);
+        $new_ticket_num = $stmt_num->fetchColumn();
+        
+        $comment = "Duplicate request detected: Ticket $new_ticket_num was submitted but has been automatically voided and linked to this ticket.";
+        $pdo->prepare("INSERT INTO ticket_comments (ticket_id, user_id, comment_text, is_internal) VALUES (?, ?, ?, 1)")
+            ->execute([$dup_id, $user_id, $comment]);
+
+        // Notify user about the voiding
+        notify_user($pdo, $user_id, 'Duplicate Request Detected', "Your request was detected as a duplicate of #$dup_id and has been voided. You can follow the original ticket here.", BASE_URL . "modules/tickets/view.php?id=$dup_id");
+
+        header('Location: ' . BASE_URL . 'modules/tickets/view.php?id=' . $dup_id . '&msg=duplicate_voided&new_id=' . $ticket_id);
+        exit;
+    }
 
     $ticket_id = create_ticket($pdo, $d);
 
