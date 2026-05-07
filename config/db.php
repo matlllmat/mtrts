@@ -9,7 +9,7 @@ define('DB_CHARSET', 'utf8mb4');
 define('BASE_URL', '/mtrts/');
 
 $dsn = "mysql:host=" . DB_HOST .
-  ";port=3307" .
+  ";port=3306" .
   ";dbname=" . DB_NAME .
   ";charset=" . DB_CHARSET;
 
