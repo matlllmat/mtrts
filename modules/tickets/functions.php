@@ -1,6 +1,7 @@
 <?php
 // modules/tickets/functions.php
 // Database queries and helpers for Request Submission & Intake
+date_default_timezone_set('Asia/Manila');
 
 // ── Stats ─────────────────────────────────────────────────────
 
@@ -160,7 +161,27 @@ function get_ticket_dynamic_fields(PDO $pdo, int $id): array {
 }
 
 function get_all_categories(PDO $pdo): array {
-    return $pdo->query("SELECT * FROM asset_categories ORDER BY category_name")->fetchAll();
+    $cats = $pdo->query("SELECT * FROM asset_categories ORDER BY category_name")->fetchAll();
+    
+    // Check if "Others" already exists in DB
+    $has_others = false;
+    foreach ($cats as $c) {
+        if (strtolower($c['category_name']) === 'others') {
+            $has_others = true;
+            break;
+        }
+    }
+    
+    // If not in DB, add it as a virtual option for the UI
+    if (!$has_others) {
+        $cats[] = [
+            'category_id' => 999, // A high ID for "Others"
+            'category_name' => 'Others',
+            'has_bulb_hours' => 0
+        ];
+    }
+    
+    return $cats;
 }
 
 function get_all_locations(PDO $pdo): array {
@@ -203,15 +224,18 @@ function create_ticket(PDO $pdo, array $d): int {
     $pdo->prepare("
         INSERT INTO tickets
             (ticket_number, requester_id, asset_id, category_id, location_id,
+             model, warranty_status,
              title, description, impact, urgency, priority, channel,
              is_event_support, preferred_window, status)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ")->execute([
         $ticket_number,
         $d['requester_id'],
         $d['asset_id'] ?: null,
         $d['category_id'] ?: null,
         $d['location_id'] ?: null,
+        $d['model'] ?: null,
+        $d['warranty_status'] ?: null,
         $d['title'],
         $d['description'] ?: null,
         $d['impact'] ?? 'medium',
@@ -245,7 +269,8 @@ function update_ticket(PDO $pdo, int $id, array $d): void {
             UPDATE tickets SET
                 title=?, description=?, status=?, on_hold_reason=?,
                 impact=?, urgency=?, priority=?, is_event_support=?,
-                assigned_to=?, category_id=?, location_id=?
+                assigned_to=?, category_id=?, location_id=?,
+                model=?, warranty_status=?
             WHERE ticket_id=?
         ")->execute([
             $d['title'],
@@ -259,6 +284,8 @@ function update_ticket(PDO $pdo, int $id, array $d): void {
             $d['assigned_to'] ?: null,
             $d['category_id'] ?: null,
             $d['location_id'] ?: null,
+            $d['model'] ?: null,
+            $d['warranty_status'] ?: null,
             $id,
         ]);
 
@@ -271,7 +298,8 @@ function update_ticket(PDO $pdo, int $id, array $d): void {
         $pdo->prepare("
             UPDATE tickets SET
                 title=?, description=?, impact=?, urgency=?, priority=?,
-                is_event_support=?, category_id=?, location_id=?, preferred_window=?
+                is_event_support=?, category_id=?, location_id=?, preferred_window=?,
+                model=?, warranty_status=?
             WHERE ticket_id=?
         ")->execute([
             $d['title'],
@@ -283,6 +311,8 @@ function update_ticket(PDO $pdo, int $id, array $d): void {
             $d['category_id'] ?: null,
             $d['location_id'] ?: null,
             $d['preferred_window'] ?: null,
+            $d['model'] ?: null,
+            $d['warranty_status'] ?: null,
             $id,
         ]);
     }

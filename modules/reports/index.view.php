@@ -20,7 +20,7 @@
     </div>
 </div>
 
-<div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
+<div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4 mb-6">
     <div onclick="openDrilldown('total')" class="bg-white rounded-xl p-4 shadow-sm border border-gray-100 flex flex-col justify-between h-full cursor-pointer hover:shadow-md hover:border-[#1a5c2a] transition-all">
         <div class="flex items-center gap-1 mb-2 group/tooltip relative">
             <p class="text-xs font-bold text-gray-500 uppercase tracking-wider">Total Tickets</p>
@@ -76,19 +76,7 @@
         </div>
         <span id="stat-backlog" class="text-2xl font-extrabold text-red-600 leading-none">-</span>
     </div>
-    <div class="bg-white rounded-xl p-4 shadow-sm border-t-4 border-t-yellow-400 border-x-gray-100 border-b-gray-100 flex flex-col justify-between h-full">
-        <div class="flex items-center gap-1 mb-2 group/tooltip relative">
-            <p class="text-xs font-bold text-gray-500 uppercase tracking-wider">Audit Status</p>
-            <svg class="w-3.5 h-3.5 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-            <div class="absolute bottom-full right-0 mb-1 hidden group-hover/tooltip:block w-48 p-2 bg-gray-800 text-white text-[10px] normal-case tracking-normal font-normal rounded shadow-lg z-50 pointer-events-none">
-                Indicates if the system's background audit logger is securely active.
-            </div>
-        </div>
-        <span class="text-lg font-extrabold text-[#1a5c2a] leading-none flex items-center gap-1">
-            <svg class="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-            Secure
-        </span>
-    </div>
+
 </div>
 
 <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
@@ -110,10 +98,10 @@
     
     <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100 min-h-[320px] flex flex-col">
         <div class="flex items-center gap-1 mb-4 group/tooltip relative">
-            <h3 class="font-bold text-gray-800 text-base">Failure Hotspots</h3>
+            <h3 class="font-bold text-gray-800 text-base">Frequent Failures</h3>
             <svg class="w-4 h-4 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
             <div class="absolute bottom-full right-0 mb-1 hidden group-hover/tooltip:block w-56 p-2 bg-gray-800 text-white text-[10px] normal-case tracking-normal font-normal rounded shadow-lg z-50 pointer-events-none">
-                Identifies equipment models or categories with the highest volume of reported issues.
+                Identifies equipment with the highest volume of reported issues and their latest failure date.
             </div>
         </div>
         <div class="flex-1 overflow-y-auto pr-2" id="hotspots-container">
@@ -251,7 +239,10 @@ const fetchStats = () => {
                     <div class="flex items-center justify-between p-3 rounded-lg ${i === 0 ? 'bg-red-50 border border-red-100' : 'bg-gray-50 border border-gray-100'} hover:bg-gray-100 transition-colors">
                         <div class="flex-1 min-w-0">
                             <p class="text-sm font-semibold ${i === 0 ? 'text-red-700' : 'text-gray-800'} truncate">${h.asset_tag} - ${h.model}</p>
-                            <p class="text-xs ${i === 0 ? 'text-red-500' : 'text-gray-500'}">${h.category_name}</p>
+                            <div class="flex items-center gap-2">
+                                <p class="text-[10px] ${i === 0 ? 'text-red-500' : 'text-gray-500'} font-medium uppercase">${h.category_name}</p>
+                                <span class="text-[9px] text-gray-400 italic">Last: ${new Date(h.last_reported).toLocaleDateString()}</span>
+                            </div>
                         </div>
                         <div class="flex items-center gap-2 pl-3">
                             <span class="text-xs font-bold text-gray-400">TICKETS</span>
@@ -341,7 +332,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     y: { 
                         beginAtZero: true,
                         grid: { color: '#f3f4f6', drawBorder: false },
-                        ticks: { font: { family: "'Inter', sans-serif", size: 11 }, color: '#9ca3af' }
+                        ticks: { 
+                            font: { family: "'Inter', sans-serif", size: 11 }, 
+                            color: '#9ca3af',
+                            stepSize: 1,
+                            precision: 0
+                        }
                     }, 
                     x: { 
                         grid: { display: false, drawBorder: false },

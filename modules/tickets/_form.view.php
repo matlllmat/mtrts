@@ -80,11 +80,11 @@
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Model</label>
-          <input type="text" id="input-model" value="<?= htmlspecialchars($t['asset_model'] ?? $t['model'] ?? '') ?>" placeholder="Auto-filled from asset" class="fin w-full bg-gray-50 text-gray-500 cursor-default" readonly>
+          <input type="text" name="model" id="input-model" value="<?= htmlspecialchars($t['asset_model'] ?? $t['model'] ?? '') ?>" placeholder="Enter model" class="fin w-full">
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Warranty Status</label>
-          <input type="text" id="input-warranty" value="<?= htmlspecialchars($t['warranty_status'] ?? '') ?>" placeholder="Auto-filled from asset" class="fin w-full bg-gray-50 text-gray-500 cursor-default" readonly>
+          <input type="text" name="warranty_status" id="input-warranty" value="<?= htmlspecialchars($t['warranty_status'] ?? '') ?>" placeholder="Enter warranty status" class="fin w-full">
         </div>
       </div>
     </div>
@@ -103,14 +103,18 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Category <span class="text-red-500">*</span></label>
-            <select name="category_id" id="category-select" class="fsel w-full" required>
+            <select name="category_id" id="category-select" class="fsel w-full" required onchange="checkCategoryOthers(this)">
               <option value="">-- Select Category --</option>
               <?php foreach ($categories as $c): ?>
-                <option value="<?= $c['category_id'] ?>" data-bulb="<?= $c['has_bulb_hours'] ?>" <?= ($t['category_id'] ?? 0) == $c['category_id'] ? 'selected' : '' ?>>
+                <option value="<?= $c['category_id'] ?>" data-name="<?= htmlspecialchars($c['category_name']) ?>" data-bulb="<?= $c['has_bulb_hours'] ?>" <?= ($t['category_id'] ?? 0) == $c['category_id'] ? 'selected' : '' ?>>
                   <?= htmlspecialchars($c['category_name']) ?>
                 </option>
               <?php endforeach; ?>
             </select>
+          </div>
+          <div id="others-specify-container" class="hidden">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Others, please specify <span class="text-red-500">*</span></label>
+            <input type="text" name="category_others" id="category-others" class="fin w-full" placeholder="Specify category/issue">
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Location / Room <span class="text-red-500">*</span></label>
@@ -197,14 +201,16 @@
         
         <div class="space-y-3" id="kb-suggestions-container">
           <?php if (!empty($kb_articles)): foreach ($kb_articles as $article): ?>
-            <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:border-olfu-green transition-all cursor-pointer group kb-article-card"
-                 onclick="openKbModal(<?= json_encode($article['title']) ?>, <?= json_encode($article['content']) ?>)">
-              <div class="flex items-center justify-between">
+            <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:border-olfu-green transition-all cursor-pointer group kb-article-card relative"
+                 onclick='openKbModal(<?= htmlspecialchars(json_encode($article["title"]), ENT_QUOTES) ?>, <?= htmlspecialchars(json_encode($article["content"]), ENT_QUOTES) ?>)'>
+              <div class="flex items-center justify-between mb-1">
                 <span class="text-[10px] font-bold text-olfu-green uppercase tracking-wider bg-green-50 px-2 py-0.5 rounded">Article</span>
-                <svg class="w-4 h-4 text-gray-300 group-hover:text-olfu-green transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                <span class="text-[10px] text-olfu-green font-bold opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                  Read Full Article <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                </span>
               </div>
-              <h4 class="text-sm font-bold text-gray-900 mt-2"><?= htmlspecialchars($article['title']) ?></h4>
-              <p class="text-xs text-gray-500 mt-1 line-clamp-2"><?= strip_tags($article['content']) ?></p>
+              <h4 class="text-sm font-bold text-gray-900 group-hover:text-olfu-green transition-colors"><?= htmlspecialchars($article['title']) ?></h4>
+              <p class="text-xs text-gray-500 mt-1 line-clamp-3 leading-relaxed"><?= htmlspecialchars(strip_tags($article['content'])) ?></p>
             </div>
           <?php endforeach; else: ?>
             <p class="text-xs text-gray-400 italic">Select a category to see specific recommendations.</p>
@@ -335,7 +341,20 @@ const categorySelect = document.getElementById('category-select');
 const assetTagInput   = document.getElementById('asset-tag-input');
 const hiddenAssetId  = document.getElementById('hidden-asset-id');
 const modelInput     = document.getElementById('input-model');
+const warrantyInput  = document.getElementById('input-warranty');
 const assetList      = document.getElementById('asset-list');
+
+function checkCategoryOthers(sel) {
+  const container = document.getElementById('others-specify-container');
+  const opt = sel.options[sel.selectedIndex];
+  if (opt && opt.getAttribute('data-name') === 'Others') {
+    container.classList.remove('hidden');
+    document.getElementById('category-others').setAttribute('required', 'required');
+  } else {
+    container.classList.add('hidden');
+    document.getElementById('category-others').removeAttribute('required');
+  }
+}
 
 function updateFormBehavior() {
   if (!categorySelect) return;
@@ -398,7 +417,7 @@ assetTagInput.addEventListener('input', function() {
   for (let i = 0; i < opts.length; i++) {
     if (opts[i].value === val) {
       hiddenAssetId.value = opts[i].dataset.id;
-      modelInput.value = opts[i].dataset.model;
+      // Removed auto-filling of model to comply with "dont make it automatic"
       found = true;
       break;
     }
@@ -408,7 +427,12 @@ assetTagInput.addEventListener('input', function() {
   }
 });
 
-if (categorySelect) categorySelect.addEventListener('change', updateFormBehavior);
+if (categorySelect) {
+  categorySelect.addEventListener('change', updateFormBehavior);
+  categorySelect.addEventListener('change', function() { checkCategoryOthers(this); });
+  // Initialize on load
+  checkCategoryOthers(categorySelect);
+}
 updateFormBehavior();
 
 // --- QR SCANNER ---

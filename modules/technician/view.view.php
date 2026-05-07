@@ -112,7 +112,7 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
           </span>
         <?php endif; ?>
 
-        <?php if ($status === 'assigned' && !empty($can_edit)): ?>
+        <?php if (in_array($status, ['assigned', 'scheduled']) && !empty($can_edit)): ?>
           <button type="button"
                   id="startWorkBtn"
                   onclick="startWork(<?php echo (int)($wo['wo_id'] ?? 0); ?>, this)"
@@ -1280,8 +1280,17 @@ function updateCompletionBadges() {
   if (!window.__WO_DATA__) return;
 
   // ── Safety ──────────────────────────────────────────────
-  const safetyDone  = (window.__WO_DATA__.safety || []).filter(s => s.is_done).length;
-  const safetyTotal = (window.__WO_DATA__.safety || []).length;
+  // Safety progress from draft
+  let safetyDone = 0;
+  const safetyItems = (window.__WO_DATA__.safety || []);
+  if (window.draft && window.draft.safety) {
+    safetyItems.forEach(s => {
+      if (window.draft.safety[s.id]) safetyDone++;
+    });
+  } else {
+    safetyDone = safetyItems.filter(s => s.is_done).length;
+  }
+  const safetyTotal = safetyItems.length;
 
   const safetyBadge = document.querySelector('[data-badge="safety"]');
   if (safetyBadge) {
@@ -1303,7 +1312,16 @@ function updateCompletionBadges() {
     !photoTypes.includes(c.verification_type) &&
     !photoTexts.includes((c.text || '').toLowerCase().trim())
   );
-  const manualDone = manualItems.filter(c => c.is_done).length;
+  // Manual items progress from draft (to stay in sync with UI checks)
+  let manualDone = 0;
+  if (window.draft && window.draft.checklist) {
+    manualItems.forEach(item => {
+      const id = item.id || item.item_id;
+      if (id && window.draft.checklist[id]) manualDone++;
+    });
+  } else {
+    manualDone = manualItems.filter(c => c.is_done).length;
+  }
 
   // Read auto-verified row state from DOM (set by workorder.js renderChecklistTimeLogs)
   // A row is "done" when its checkbox span contains an SVG checkmark (innerHTML !== '')

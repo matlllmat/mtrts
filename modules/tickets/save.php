@@ -12,16 +12,23 @@ $is_staff = in_array($_SESSION['role_id'], [1, 2, 3, 4, 8]);
 
 if ($action === 'create') {
     // Basic sanitization
+    $description = trim($_POST['description'] ?? '');
+    if (!empty($_POST['category_others'])) {
+        $description = "[Category: " . trim($_POST['category_others']) . "]\n" . $description;
+    }
+
     $d = [
         'requester_id'     => $user_id,
         'title'            => trim($_POST['title'] ?? ''),
-        'description'      => trim($_POST['description'] ?? ''),
+        'description'      => $description,
         'impact'           => $_POST['impact'] ?? 'medium',
         'urgency'          => $_POST['urgency'] ?? 'medium',
         'is_event_support' => isset($_POST['is_event_support']) ? 1 : 0,
         'category_id'      => ((int)($_POST['category_id'] ?? 0)) ?: null,
         'location_id'      => ((int)($_POST['location_id'] ?? 0)) ?: null,
         'asset_id'         => ((int)($_POST['asset_id'] ?? 0)) ?: null,
+        'model'            => trim($_POST['model'] ?? ''),
+        'warranty_status'  => trim($_POST['warranty_status'] ?? ''),
         'preferred_window' => $_POST['preferred_window'] ?: null,
         'dynamic_fields'   => $_POST['dynamic_fields'] ?? [],
         'channel'          => 'web',
@@ -72,6 +79,8 @@ if ($action === 'create') {
         'is_event_support' => isset($_POST['is_event_support']) ? 1 : 0,
         'category_id'      => ((int)($_POST['category_id'] ?? 0)) ?: null,
         'location_id'      => ((int)($_POST['location_id'] ?? 0)) ?: null,
+        'model'            => trim($_POST['model'] ?? ''),
+        'warranty_status'  => trim($_POST['warranty_status'] ?? ''),
         'preferred_window' => $_POST['preferred_window'] ?: null,
         'dynamic_fields'   => $_POST['dynamic_fields'] ?? [],
     ];

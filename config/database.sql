@@ -544,7 +544,7 @@ CREATE TABLE wo_time_logs (
   wo_id         INT           NOT NULL,
   technician_id INT           NOT NULL,
   action        ENUM('start','pause','resume','stop','draft','segment') NOT NULL,
-  labor_type    ENUM('travel','diagnosis','repair','cleanup','other') NULL,
+  labor_type    ENUM('travel','diagnosis','repair','cleanup','maintenance','follow_up','other') NULL,
   notes         VARCHAR(255)  NULL,
   elapsed_ms    INT           NOT NULL DEFAULT 0,
   logged_at     DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,

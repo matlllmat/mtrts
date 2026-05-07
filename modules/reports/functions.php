@@ -314,7 +314,10 @@ function get_resolution_trends(PDO $pdo, string $start_date, string $end_date): 
  */
 function get_asset_hotspots(PDO $pdo, int $limit = 10): array {
     return $pdo->query("
-        SELECT a.asset_tag, a.model, c.category_name, COUNT(t.ticket_id) as ticket_count
+        SELECT 
+            a.asset_tag, a.model, c.category_name, 
+            COUNT(t.ticket_id) as ticket_count,
+            MAX(t.created_at) as last_reported
         FROM tickets t
         JOIN assets a ON t.asset_id = a.asset_id
         JOIN asset_categories c ON a.category_id = c.category_id
