@@ -56,7 +56,20 @@
                 $next_m = $month + 1; $next_y = $year; if ($next_m == 13) { $next_m = 1; $next_y++; }
                 $month_name = date('F', mktime(0, 0, 0, $month, 10));
                 ?>
-                <h2 class="text-base font-bold text-gray-800"><?= $month_name ?> <?= $year ?></h2>
+                <div class="flex items-center gap-3">
+                    <form action="" method="GET" class="flex items-center gap-1" id="cal-nav-form">
+                        <select name="m" onchange="document.getElementById('cal-nav-form').submit()" class="bg-transparent border-none text-base font-bold text-gray-800 cursor-pointer focus:ring-0 p-0">
+                            <?php for($i=1; $i<=12; $i++): ?>
+                                <option value="<?= $i ?>" <?= $month == $i ? 'selected' : '' ?>><?= date('F', mktime(0,0,0,$i,10)) ?></option>
+                            <?php endfor; ?>
+                        </select>
+                        <select name="y" onchange="document.getElementById('cal-nav-form').submit()" class="bg-transparent border-none text-base font-bold text-gray-800 cursor-pointer focus:ring-0 p-0">
+                            <?php for($i=$year-5; $i<=$year+5; $i++): ?>
+                                <option value="<?= $i ?>" <?= $year == $i ? 'selected' : '' ?>><?= $i ?></option>
+                            <?php endfor; ?>
+                        </select>
+                    </form>
+                </div>
                 <div class="flex gap-1">
                     <a href="?m=<?= $prev_m ?>&y=<?= $prev_y ?>" class="p-1.5 hover:bg-gray-200 rounded-lg transition text-gray-500">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
