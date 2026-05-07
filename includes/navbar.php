@@ -107,7 +107,7 @@ $icons = [
 </aside>
 
 <!-- ── MAIN CONTENT AREA ─────────────────────────────────────── -->
-<div class="flex-1 flex flex-col overflow-hidden">
+<div class="flex-1 flex flex-col min-h-0 overflow-hidden">
 
   <!-- Top bar -->
   <header class="bg-white border-b border-gray-100 px-4 lg:px-6 h-14 flex items-center justify-between flex-shrink-0">
@@ -306,5 +306,5 @@ $icons = [
   </script>
 
   <!-- Module content is rendered here by index.php -->
-  <main class="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6">
+  <main class="flex-1 overflow-y-auto min-h-0 p-3 sm:p-4 lg:p-6">
 

@@ -208,26 +208,54 @@
       </div>
     </div>
 
-    <!-- Asset Card -->
-    <?php if ($ticket['asset_id']): ?>
+    <!-- Asset / Equipment Card -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100">
       <div class="px-5 py-3 border-b border-gray-100 font-bold text-gray-900 bg-gray-50 text-sm">
-        Asset Details
+        Equipment Identification
       </div>
       <div class="p-5 space-y-3 text-sm">
-        <div>
-          <span class="text-xs font-mono font-bold text-olfu-green bg-green-50 px-2 py-0.5 rounded border border-green-200"><?= htmlspecialchars($ticket['asset_tag']) ?></span>
-        </div>
-        <div>
-          <dt class="text-gray-500 mb-0.5">Model</dt>
-          <dd class="font-medium text-gray-900"><?= htmlspecialchars($ticket['manufacturer'] . ' ' . $ticket['model']) ?></dd>
-        </div>
-        <div>
-          <a href="<?= BASE_URL ?>modules/assets/view.php?id=<?= $ticket['asset_id'] ?>" class="text-olfu-green hover:underline font-semibold block mt-1">View Full Asset →</a>
-        </div>
+        <?php if ($ticket['asset_tag']): ?>
+          <div>
+            <dt class="text-gray-500 mb-0.5">Reported Asset ID</dt>
+            <dd class="font-medium text-gray-900"><?= htmlspecialchars($ticket['asset_tag']) ?></dd>
+          </div>
+        <?php endif; ?>
+
+        <?php if ($ticket['asset_id']): ?>
+          <div>
+            <span class="text-xs font-mono font-bold text-olfu-green bg-green-50 px-2 py-0.5 rounded border border-green-200"><?= htmlspecialchars($ticket['asset_tag_linked'] ?? $ticket['asset_tag']) ?></span>
+          </div>
+          <div>
+            <dt class="text-gray-500 mb-0.5">Linked Asset</dt>
+            <dd class="font-medium text-gray-900"><?= htmlspecialchars($ticket['manufacturer'] . ' ' . $ticket['asset_model']) ?></dd>
+          </div>
+        <?php endif; ?>
+
+        <?php if ($ticket['model']): ?>
+          <div>
+            <dt class="text-gray-500 mb-0.5">Reported Model</dt>
+            <dd class="font-medium text-gray-900"><?= htmlspecialchars($ticket['model']) ?></dd>
+          </div>
+        <?php endif; ?>
+
+        <?php if ($ticket['warranty_status']): ?>
+          <div>
+            <dt class="text-gray-500 mb-0.5">Warranty Status</dt>
+            <dd class="font-medium text-gray-900"><?= htmlspecialchars($ticket['warranty_status']) ?></dd>
+          </div>
+        <?php endif; ?>
+
+        <?php if ($ticket['asset_id']): ?>
+          <div>
+            <a href="<?= BASE_URL ?>modules/assets/view.php?id=<?= $ticket['asset_id'] ?>" class="text-olfu-green hover:underline font-semibold block mt-1">View Full Asset →</a>
+          </div>
+        <?php endif; ?>
+
+        <?php if (!$ticket['asset_id'] && !$ticket['model'] && !$ticket['warranty_status']): ?>
+          <div class="text-gray-400 italic">No specific asset or model identified.</div>
+        <?php endif; ?>
       </div>
     </div>
-    <?php endif; ?>
 
     <!-- Dynamic Fields -->
     <?php if (!empty($dynamic_fields)): ?>

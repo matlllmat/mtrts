@@ -46,5 +46,5 @@ $page_title = !empty($page) ? ($module_labels[$page] ?? 'MTRTS') : 'Dashboard';
     }
   </script>
 </head>
-<body class="bg-gray-50 text-gray-800 antialiased">
-<div class="flex h-screen overflow-hidden">
+<body class="bg-gray-50 text-gray-800 antialiased h-screen overflow-hidden">
+<div class="flex h-full overflow-hidden">
