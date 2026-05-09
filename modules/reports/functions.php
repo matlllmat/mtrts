@@ -320,10 +320,11 @@ function get_drilldown_tickets(PDO $pdo, string $type, string $start_date, strin
  */
 function get_location_heatmap(PDO $pdo): array {
     return $pdo->query("
-        SELECT l.building, l.room, COUNT(t.ticket_id) as ticket_count
+        SELECT l.building, COUNT(t.ticket_id) as ticket_count,
+               GROUP_CONCAT(DISTINCT l.room SEPARATOR ', ') as rooms
         FROM tickets t
         JOIN locations l ON t.location_id = l.location_id
-        GROUP BY l.location_id
+        GROUP BY l.building
         ORDER BY ticket_count DESC
         LIMIT 10
     ")->fetchAll(PDO::FETCH_ASSOC);

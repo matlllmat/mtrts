@@ -481,7 +481,7 @@ const fetchStats = () => {
                     <div class="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg border border-gray-100">
                         <div>
                             <p class="text-sm font-bold text-gray-800">${l.building}</p>
-                            <p class="text-[10px] text-gray-500 uppercase font-medium">Room ${l.room}</p>
+                            <p class="text-[10px] text-gray-500 uppercase font-medium truncate w-32">${l.rooms}</p>
                         </div>
                         <span class="text-xs font-extrabold text-[#1a5c2a] bg-green-50 px-2 py-1 rounded border border-green-100">${l.ticket_count} Tickets</span>
                     </div>
