@@ -4,6 +4,7 @@ define('TECH_DEBUG', true);
 date_default_timezone_set('Asia/Manila');
 // All database queries and helpers for the Technician Operations module.
 // $pdo is provided by the hub; never create a new connection here.
+require_once __DIR__ . '/../workorders/functions.php';
 
 // ── Work Order Listing ───────────────────────────────────────
 
@@ -592,6 +593,9 @@ function complete_work_order_transactional(PDO $pdo, array $payload, int $techni
         $params = $resolution_notes !== '' ? [$resolution_notes, $wo_id] : [$wo_id];
         $pdo->prepare($sql)->execute($params);
 
+        // SYNC: Update the parent ticket so it shows up in Resolution Trends / MTTR
+        sync_ticket_with_wo($pdo, $wo_id);
+
         $pdo->commit();
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) {
@@ -750,6 +754,9 @@ function update_work_order_status(PDO $pdo, int $wo_id, string $status): void {
 
     $sql = "UPDATE work_orders SET status = ?" . (count($update) ? ', ' . implode(', ', $update) : '') . " WHERE wo_id = ?";
     $pdo->prepare($sql)->execute($params);
+
+    // SYNC: Update linked ticket
+    sync_ticket_with_wo($pdo, $wo_id);
 }
 
 function can_complete_work_order(PDO $pdo, int $wo_id): array {

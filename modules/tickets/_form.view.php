@@ -454,31 +454,12 @@ assetTagInput.addEventListener('change', function() {
     }
   }
 
-  // Always fetch from server to get full details (like warranty)
+  // Always fetch from server to get full details (like warranty, category, location)
   fetch(`asset_lookup.php?asset_tag=${encodeURIComponent(val)}`)
     .then(res => res.json())
     .then(data => {
-      if (data.success) {
-        hiddenAssetId.value = data.asset_id;
-        modelInput.value = data.model;
-        warrantyInput.value = data.warranty_status;
-        
-        // Auto-select category and location if available
-        if (data.category_id) {
-            const catSel = document.getElementById('category-select');
-            catSel.value = data.category_id;
-            catSel.dispatchEvent(new Event('change'));
-        }
-        if (data.location_id) {
-            const locSel = document.querySelector('select[name="location_id"]');
-            if (locSel) locSel.value = data.location_id;
-        }
-        
-        const titleInput = document.querySelector('input[name="title"]');
-        if (titleInput) {
-            titleInput.focus();
-            titleInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
+      if (data && !data.error) {
+        fillAssetFromLookup(data);
       } else if (!foundLocal) {
         modelInput.value = '';
         warrantyInput.value = '';

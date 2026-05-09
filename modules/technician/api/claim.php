@@ -6,6 +6,7 @@
 $module = 'technician';
 require_once __DIR__ . '/../../../config/auth_only.php';
 require_once __DIR__ . '/../functions.php';
+require_once __DIR__ . '/../../workorders/functions.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -73,6 +74,9 @@ try {
         VALUES (?,?,?,?,?)
     ");
     $stmt->execute([$wo_id, null, $user_id, $user_id, 'Claimed from queue']);
+
+    // SYNC: Update linked ticket
+    sync_ticket_with_wo($pdo, $wo_id);
 
     $pdo->commit();
     echo json_encode(['success' => true]);

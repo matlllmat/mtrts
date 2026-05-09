@@ -502,6 +502,9 @@ function reassign_wo(PDO $pdo, int $wo_id, int $to, int $by, string $reason): vo
         INSERT INTO wo_assignment_log (wo_id, assigned_from, assigned_to, assigned_by, reason)
         VALUES (?,?,?,?,?)
     ")->execute([$wo_id, $from ?: null, $to, $by, $reason]);
+
+    // SYNC: Update linked ticket
+    sync_ticket_with_wo($pdo, $wo_id);
 }
 
 function log_wo_audit(PDO $pdo, int $wo_id, string $field, mixed $old, mixed $new, int $by): void {
@@ -592,4 +595,49 @@ function sanitize_wo_post(array $post, int $user_id): array {
         'resolution_notes' => $str('resolution_notes'),
         'created_by'       => $user_id,
     ];
+}
+
+/**
+ * Synchronizes the linked Ticket's status and assignee with the Work Order.
+ * Ensures that if a WO is Assigned/In Progress/Resolved, the Ticket reflects this.
+ */
+function sync_ticket_with_wo(PDO $pdo, int $wo_id): void {
+    $stmt = $pdo->prepare("
+        SELECT wo.ticket_id, wo.status AS wo_status, wo.assigned_to AS wo_assignee
+        FROM work_orders wo
+        WHERE wo.wo_id = ?
+    ");
+    $stmt->execute([$wo_id]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if (!$row || !$row['ticket_id']) return;
+
+    $ticket_id   = (int)$row['ticket_id'];
+    $wo_status   = $row['wo_status'];
+    $wo_assignee = $row['wo_assignee'];
+
+    // Map WO status to Ticket status
+    $new_ticket_status = $wo_status;
+    
+    // 'scheduled' is a WO-specific state; for Ticket it just means 'assigned'
+    if ($wo_status === 'scheduled') {
+        $new_ticket_status = 'assigned';
+    }
+
+    // Update Ticket status and assignee
+    $stmt_upd = $pdo->prepare("
+        UPDATE tickets 
+        SET status = ?, 
+            assigned_to = ?, 
+            updated_at = NOW() 
+        WHERE ticket_id = ?
+    ");
+    $stmt_upd->execute([$new_ticket_status, $wo_assignee, $ticket_id]);
+
+    // Handle timestamps for completion
+    if ($new_ticket_status === 'resolved') {
+        $pdo->prepare("UPDATE tickets SET resolved_at = COALESCE(resolved_at, NOW()) WHERE ticket_id = ?")->execute([$ticket_id]);
+    } elseif ($new_ticket_status === 'closed') {
+        $pdo->prepare("UPDATE tickets SET closed_at = COALESCE(closed_at, NOW()) WHERE ticket_id = ?")->execute([$ticket_id]);
+    }
 }

@@ -276,6 +276,13 @@
                 <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
             </button>
         </div>
+        <!-- SLA Tabs (Hidden by default) -->
+        <div id="sla-tabs" class="hidden px-6 bg-white border-b border-gray-100 flex gap-6">
+            <button onclick="switchDrilldownTab('all')" class="sla-tab py-3 text-sm font-bold text-[#1a5c2a] border-b-2 border-[#1a5c2a] transition-all" data-subtype="all">All Non-Compliant</button>
+            <button onclick="switchDrilldownTab('breached')" class="sla-tab py-3 text-sm font-medium text-gray-500 hover:text-gray-700 transition-all" data-subtype="breached">Breached</button>
+            <button onclick="switchDrilldownTab('not_breached')" class="sla-tab py-3 text-sm font-medium text-gray-500 hover:text-gray-700 transition-all" data-subtype="not_breached">Not Breached</button>
+            <button onclick="switchDrilldownTab('no_deadline')" class="sla-tab py-3 text-sm font-medium text-gray-500 hover:text-gray-700 transition-all" data-subtype="no_deadline">No Deadline</button>
+        </div>
         <div class="flex-1 overflow-auto p-0">
             <table class="w-full text-left border-collapse">
                 <thead class="bg-white sticky top-0 shadow-sm">
@@ -643,17 +650,46 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
+    let currentDrilldownType = '';
     window.openDrilldown = (type) => {
+        currentDrilldownType = type;
         const modal = document.getElementById('drilldown-modal');
+        const tabs = document.getElementById('sla-tabs');
+        
+        modal.classList.remove('hidden');
+        
+        if (type === 'breaches') {
+            tabs.classList.remove('hidden');
+            switchDrilldownTab('all');
+        } else {
+            tabs.classList.add('hidden');
+            loadDrilldownData(type);
+        }
+    };
+
+    window.switchDrilldownTab = (subtype) => {
+        // UI Update
+        document.querySelectorAll('.sla-tab').forEach(btn => {
+            if (btn.dataset.subtype === subtype) {
+                btn.classList.add('text-[#1a5c2a]', 'font-bold', 'border-[#1a5c2a]', 'border-b-2');
+                btn.classList.remove('text-gray-500', 'font-medium');
+            } else {
+                btn.classList.remove('text-[#1a5c2a]', 'font-bold', 'border-[#1a5c2a]', 'border-b-2');
+                btn.classList.add('text-gray-500', 'font-medium');
+            }
+        });
+        loadDrilldownData(currentDrilldownType, subtype);
+    };
+
+    const loadDrilldownData = (type, subtype = '') => {
         const tbody = document.getElementById('drilldown-tbody');
         const title = document.getElementById('drilldown-title');
         
-        modal.classList.remove('hidden');
         tbody.innerHTML = '<tr><td colspan="5" class="py-8 text-center text-gray-400 italic">Loading records...</td></tr>';
         
         const titles = {
             'total': 'Total Tickets Created',
-            'breaches': 'SLA Breached Tickets',
+            'breaches': 'SLA Performance Audit',
             'ftfr': 'First-Time Fix Tickets',
             'mttr': 'Resolved Tickets (MTTR Calculation)',
             'resolved': 'Resolution Trends (All Resolved Tickets)',
@@ -669,7 +705,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const end = toYMD(dEnd);
         const start = toYMD(dStart);
 
-        fetch(`<?= BASE_URL ?>modules/reports/api_stats.php?drilldown=${type}&start=${start}&end=${end}`)
+        let url = `<?= BASE_URL ?>modules/reports/api_stats.php?drilldown=${type}&start=${start}&end=${end}`;
+        if (subtype) url += `&subtype=${subtype}`;
+
+        fetch(url)
             .then(r => r.json())
             .then(data => {
                 if (!data || data.length === 0) {

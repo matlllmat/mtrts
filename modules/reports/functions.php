@@ -272,9 +272,20 @@ function get_drilldown_tickets(PDO $pdo, string $type, string $start_date, strin
             break;
             
         case 'breaches':
-            $base_query .= " AND t.created_at >= ? AND t.created_at <= ?
-                             AND t.status != 'cancelled'
-                             AND (ts.is_response_breached = 1 OR ts.is_resolution_breached = 1 OR ts.sla_id IS NULL)";
+            $subtype = $_GET['subtype'] ?? 'all';
+            $base_query .= " AND t.created_at >= ? AND t.created_at <= ? AND t.status != 'cancelled'";
+            
+            if ($subtype === 'breached') {
+                $base_query .= " AND (ts.is_response_breached = 1 OR ts.is_resolution_breached = 1)";
+            } elseif ($subtype === 'not_breached') {
+                $base_query .= " AND ts.is_response_breached = 0 AND ts.is_resolution_breached = 0 AND ts.sla_id IS NOT NULL";
+            } elseif ($subtype === 'no_deadline') {
+                $base_query .= " AND ts.sla_id IS NULL";
+            } else {
+                // all "non-compliant" (breaches + no deadline)
+                $base_query .= " AND (ts.is_response_breached = 1 OR ts.is_resolution_breached = 1 OR ts.sla_id IS NULL)";
+            }
+            
             $params = [$start_date . ' 00:00:00', $end_date . ' 23:59:59'];
             break;
             
