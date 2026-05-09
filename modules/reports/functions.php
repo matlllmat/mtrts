@@ -15,11 +15,13 @@ function get_sla_compliance_stats(PDO $pdo, string $start_date, string $end_date
     $stmt = $pdo->prepare("
         SELECT 
             COUNT(t.ticket_id) as total_tickets,
-            SUM(CASE WHEN ts.is_response_breached = 0 THEN 1 ELSE 0 END) as met_response,
-            SUM(CASE WHEN ts.is_resolution_breached = 0 AND ts.sla_id IS NOT NULL THEN 1 ELSE 0 END) as met_resolution,
+            -- Met: Resolved on time
+            SUM(CASE WHEN t.status IN ('resolved', 'closed') AND ts.is_resolution_breached = 0 THEN 1 ELSE 0 END) as met_resolution,
+            -- Denominator: All resolved with SLA + Open breaches
+            SUM(CASE WHEN (t.status IN ('resolved', 'closed') AND ts.sla_id IS NOT NULL) OR (t.status NOT IN ('resolved', 'closed', 'cancelled') AND ts.is_resolution_breached = 1) THEN 1 ELSE 0 END) as relevant_tickets,
             ROUND(
-                (SUM(CASE WHEN ts.is_resolution_breached = 0 AND ts.sla_id IS NOT NULL THEN 1 ELSE 0 END) / 
-                NULLIF(COUNT(t.ticket_id), 0)) * 100, 
+                (SUM(CASE WHEN t.status IN ('resolved', 'closed') AND ts.is_resolution_breached = 0 AND ts.sla_id IS NOT NULL THEN 1 ELSE 0 END) / 
+                NULLIF(SUM(CASE WHEN (t.status IN ('resolved', 'closed') AND ts.sla_id IS NOT NULL) OR (t.status NOT IN ('resolved', 'closed', 'cancelled') AND ts.is_resolution_breached = 1) THEN 1 ELSE 0 END), 0)) * 100, 
             2) as compliance_rate
         FROM tickets t
         LEFT JOIN ticket_sla ts ON t.ticket_id = ts.ticket_id
@@ -59,7 +61,7 @@ function get_operational_stats(PDO $pdo, string $start_date, string $end_date): 
             SUM(CASE WHEN (SELECT COUNT(*) FROM work_orders w WHERE w.ticket_id = t.ticket_id) <= 1 THEN 1 ELSE 0 END) as ftfr_count
         FROM tickets t
         WHERE t.status IN ('resolved', 'closed')
-          AND t.created_at >= ? AND t.created_at <= ?
+          AND t.resolved_at >= ? AND t.resolved_at <= ?
     ");
     $stmt->execute([$start_date . ' 00:00:00', $end_date . ' 23:59:59']);
     $ftfr_data = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -125,7 +127,7 @@ function get_technician_scorecards(PDO $pdo): array {
         SELECT 
             u.full_name,
             COUNT(w.wo_id) as total_jobs,
-            SUM(w.status = 'closed') as completed_jobs,
+            SUM(w.status IN ('resolved', 'closed')) as completed_jobs,
             AVG(TIMESTAMPDIFF(MINUTE, w.actual_start, w.actual_end)) as avg_labor_time,
             AVG(s.satisfaction) as avg_rating
         FROM users u
@@ -235,7 +237,8 @@ function get_drilldown_tickets(PDO $pdo, string $type, string $start_date, strin
     $base_query = "
         SELECT 
             t.ticket_id, t.ticket_number, t.priority, c.category_name, 
-            t.status, t.created_at, ts.resolution_due, u.full_name as requester
+            t.status, t.created_at, ts.resolution_due, u.full_name as requester,
+            (SELECT wo_number FROM work_orders WHERE ticket_id = t.ticket_id ORDER BY wo_id DESC LIMIT 1) as wo_number
         FROM tickets t
         LEFT JOIN asset_categories c ON t.category_id = c.category_id
         LEFT JOIN users u ON t.requester_id = u.user_id
@@ -252,7 +255,7 @@ function get_drilldown_tickets(PDO $pdo, string $type, string $start_date, strin
             
         case 'ftfr':
             $base_query .= " AND t.status IN ('resolved', 'closed') 
-                             AND t.created_at >= ? AND t.created_at <= ?
+                             AND t.resolved_at >= ? AND t.resolved_at <= ?
                              AND (SELECT COUNT(*) FROM work_orders w WHERE w.ticket_id = t.ticket_id) <= 1";
             $params = [$start_date . ' 00:00:00', $end_date . ' 23:59:59'];
             break;
@@ -276,14 +279,19 @@ function get_drilldown_tickets(PDO $pdo, string $type, string $start_date, strin
             $base_query .= " AND t.created_at >= ? AND t.created_at <= ? AND t.status != 'cancelled'";
             
             if ($subtype === 'breached') {
-                $base_query .= " AND (ts.is_response_breached = 1 OR ts.is_resolution_breached = 1)";
-            } elseif ($subtype === 'not_breached') {
-                $base_query .= " AND ts.is_response_breached = 0 AND ts.is_resolution_breached = 0 AND ts.sla_id IS NOT NULL";
+                // Resolved but Breached
+                $base_query .= " AND t.status IN ('resolved', 'closed') AND ts.is_resolution_breached = 1";
+            } elseif ($subtype === 'open_breached') {
+                // Breached but not yet done
+                $base_query .= " AND t.status NOT IN ('resolved', 'closed') AND ts.is_resolution_breached = 1";
+            } elseif ($subtype === 'not_done') {
+                // Not done workorders (Open and NOT Breached)
+                $base_query .= " AND t.status NOT IN ('resolved', 'closed') AND ts.is_resolution_breached = 0 AND ts.sla_id IS NOT NULL";
             } elseif ($subtype === 'no_deadline') {
                 $base_query .= " AND ts.sla_id IS NULL";
             } else {
-                // all "non-compliant" (breaches + no deadline)
-                $base_query .= " AND (ts.is_response_breached = 1 OR ts.is_resolution_breached = 1 OR ts.sla_id IS NULL)";
+                // All Non-Compliant (Strictly Breaches only)
+                $base_query .= " AND ts.is_resolution_breached = 1";
             }
             
             $params = [$start_date . ' 00:00:00', $end_date . ' 23:59:59'];

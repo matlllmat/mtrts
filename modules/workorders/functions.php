@@ -447,6 +447,9 @@ function create_work_order(PDO $pdo, array $d): int {
         $pdo->prepare("UPDATE work_orders SET status = 'assigned' WHERE wo_id = ?")->execute([$wo_id]);
     }
 
+    // AUTO-SYNC: Ensure the ticket status matches the initial WO state
+    sync_ticket_with_wo($pdo, $wo_id);
+
     return $wo_id;
 }
 
@@ -471,6 +474,9 @@ function update_work_order(PDO $pdo, int $id, array $d): void {
         $d['resolution_notes'] ?: null,
         $id,
     ]);
+
+    // AUTO-SYNC: Update linked ticket
+    sync_ticket_with_wo($pdo, $id);
 }
 
 function set_wo_parts(PDO $pdo, int $wo_id, array $parts, int $user_id): void {
@@ -609,22 +615,20 @@ function sync_ticket_with_wo(PDO $pdo, int $wo_id): void {
     ");
     $stmt->execute([$wo_id]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
-    
+
     if (!$row || !$row['ticket_id']) return;
 
     $ticket_id   = (int)$row['ticket_id'];
     $wo_status   = $row['wo_status'];
-    $wo_assignee = $row['wo_assignee'];
+    $wo_assignee = $row['wo_assignee'] ?: null; // Ensure 0 is treated as NULL
 
     // Map WO status to Ticket status
     $new_ticket_status = $wo_status;
-    
-    // 'scheduled' is a WO-specific state; for Ticket it just means 'assigned'
     if ($wo_status === 'scheduled') {
         $new_ticket_status = 'assigned';
     }
 
-    // Update Ticket status and assignee
+    // 1. Update Ticket Status and Assignee
     $stmt_upd = $pdo->prepare("
         UPDATE tickets 
         SET status = ?, 
@@ -634,10 +638,21 @@ function sync_ticket_with_wo(PDO $pdo, int $wo_id): void {
     ");
     $stmt_upd->execute([$new_ticket_status, $wo_assignee, $ticket_id]);
 
-    // Handle timestamps for completion
+    // 2. Handle Ticket Completion Timestamps
     if ($new_ticket_status === 'resolved') {
         $pdo->prepare("UPDATE tickets SET resolved_at = COALESCE(resolved_at, NOW()) WHERE ticket_id = ?")->execute([$ticket_id]);
     } elseif ($new_ticket_status === 'closed') {
         $pdo->prepare("UPDATE tickets SET closed_at = COALESCE(closed_at, NOW()) WHERE ticket_id = ?")->execute([$ticket_id]);
     }
+
+    // 3. Integrate SLA Updates
+    // Using absolute path for safety in different contexts
+    $sla_file = dirname(__DIR__, 2) . '/config/sla.php';
+    if (file_exists($sla_file)) {
+        require_once $sla_file;
+        if (function_exists('update_ticket_sla')) {
+            update_ticket_sla($pdo, $ticket_id, $new_ticket_status);
+        }
+    }
 }
+

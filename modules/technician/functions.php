@@ -740,6 +740,9 @@ function save_work_order_signoff(PDO $pdo, int $wo_id, string $signer_name, stri
     // Mark WO as resolved
     $pdo->prepare("UPDATE work_orders SET status = 'resolved', actual_end = NOW() WHERE wo_id = ?")
         ->execute([$wo_id]);
+
+    // SYNC: Update linked ticket
+    sync_ticket_with_wo($pdo, $wo_id);
 }
 
 function update_work_order_status(PDO $pdo, int $wo_id, string $status): void {

@@ -279,8 +279,9 @@
         <!-- SLA Tabs (Hidden by default) -->
         <div id="sla-tabs" class="hidden px-6 bg-white border-b border-gray-100 flex gap-6">
             <button onclick="switchDrilldownTab('all')" class="sla-tab py-3 text-sm font-bold text-[#1a5c2a] border-b-2 border-[#1a5c2a] transition-all" data-subtype="all">All Non-Compliant</button>
-            <button onclick="switchDrilldownTab('breached')" class="sla-tab py-3 text-sm font-medium text-gray-500 hover:text-gray-700 transition-all" data-subtype="breached">Breached</button>
-            <button onclick="switchDrilldownTab('not_breached')" class="sla-tab py-3 text-sm font-medium text-gray-500 hover:text-gray-700 transition-all" data-subtype="not_breached">Not Breached</button>
+            <button onclick="switchDrilldownTab('breached')" class="sla-tab py-3 text-sm font-medium text-gray-500 hover:text-gray-700 transition-all" data-subtype="breached">Resolved Breaches</button>
+            <button onclick="switchDrilldownTab('open_breached')" class="sla-tab py-3 text-sm font-medium text-gray-500 hover:text-gray-700 transition-all" data-subtype="open_breached">Breached but not yet done</button>
+            <button onclick="switchDrilldownTab('not_done')" class="sla-tab py-3 text-sm font-medium text-gray-500 hover:text-gray-700 transition-all" data-subtype="not_done">Not done workorders</button>
             <button onclick="switchDrilldownTab('no_deadline')" class="sla-tab py-3 text-sm font-medium text-gray-500 hover:text-gray-700 transition-all" data-subtype="no_deadline">No Deadline</button>
         </div>
         <div class="flex-1 overflow-auto p-0">
@@ -288,9 +289,10 @@
                 <thead class="bg-white sticky top-0 shadow-sm">
                     <tr>
                         <th class="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-200">Ticket</th>
+                        <th class="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-200">WO#</th>
                         <th class="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-200">Requester</th>
+                        <th class="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-200">Status</th>
                         <th class="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-200">Priority</th>
-                        <th class="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-200">Created At</th>
                         <th class="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-200 text-right">Deadline</th>
                     </tr>
                 </thead>
@@ -718,8 +720,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 tbody.innerHTML = data.map(t => `
                     <tr class="hover:bg-gray-50 transition-colors cursor-pointer border-b border-gray-50" onclick="window.open('<?= BASE_URL ?>modules/tickets/view.php?id=${t.ticket_id}', '_blank')">
-                        <td class="py-3 px-6 font-medium text-[#1a5c2a]">#${t.ticket_number}</td>
-                        <td class="py-3 px-6 text-gray-600">${t.requester || 'System'}</td>
+                        <td class="py-3 px-6">
+                            <div class="font-bold text-[#1a5c2a]">#${t.ticket_number}</div>
+                            <div class="text-[10px] text-gray-400 font-mono">${new Date(t.created_at).toLocaleDateString()}</div>
+                        </td>
+                        <td class="py-3 px-6 text-gray-500 font-mono text-xs">${t.wo_number || '—'}</td>
+                        <td class="py-3 px-6 text-gray-600 font-medium">${t.requester || 'System'}</td>
+                        <td class="py-3 px-6">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider 
+                                ${t.status === 'resolved' ? 'bg-green-100 text-green-800' : 
+                                  t.status === 'in_progress' ? 'bg-blue-100 text-blue-800' : 
+                                  'bg-gray-100 text-gray-800'}">
+                                ${t.status}
+                            </span>
+                        </td>
                         <td class="py-3 px-6">
                             <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider 
                                 ${t.priority === 'critical' ? 'bg-red-100 text-red-800 border border-red-200' : 
@@ -728,7 +742,6 @@ document.addEventListener('DOMContentLoaded', () => {
                                 ${t.priority}
                             </span>
                         </td>
-                        <td class="py-3 px-6 text-gray-400 font-mono text-[11px]">${new Date(t.created_at).toLocaleDateString()}</td>
                         <td class="py-3 px-6 text-right">
                             <span class="text-[11px] font-bold ${t.resolution_due ? 'text-red-600' : 'text-gray-400 italic'}">
                                 ${t.resolution_due ? new Date(t.resolution_due).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}) : 'No Deadline'}

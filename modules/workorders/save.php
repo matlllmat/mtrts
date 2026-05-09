@@ -161,16 +161,6 @@ if ($is_edit) {
     }
 }
 
-// Sync Ticket Status, Assignee, and update SLA Clock
-if ($wo_id > 0) {
-    sync_ticket_with_wo($pdo, $wo_id);
-    
-    // Also update SLA timestamps (responded_at, etc.)
-    $status = $data['status'] ?? 'new';
-    if (!empty($data['ticket_id'])) {
-        update_ticket_sla($pdo, $data['ticket_id'], $status);
-    }
-}
 
 header('Location: ' . BASE_URL . 'modules/workorders/view.php?id=' . $wo_id);
 exit;
