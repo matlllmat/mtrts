@@ -297,7 +297,7 @@ function check_wo_conflict(PDO $pdo, int $assigned_to, string $start, string $en
         FROM work_orders
         WHERE assigned_to = ?
           AND wo_id != ?
-          AND status NOT IN ('closed', 'cancelled')
+          AND status NOT IN ('closed', 'cancelled', 'resolved')
           AND DATE(scheduled_start) = DATE(?)
     ");
     $existing->execute([$assigned_to, $exclude_wo_id, $start]);
