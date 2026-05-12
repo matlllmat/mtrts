@@ -2,8 +2,8 @@
 
 <?php if ($out_stock_count > 0): ?>
 <!-- ── Out of stock banner ──────────────────────────────────────── -->
-<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 18px;margin-bottom:12px;background:#fef2f2;border-left:4px solid #ef4444;border-radius:8px;box-shadow:0 1px 2px rgba(0,0,0,0.03);">
-  <div style="display:flex;align-items:center;gap:10px;">
+<div style="display:flex;align-items:center;gap:12px;padding:12px 18px;margin-bottom:12px;background:#fef2f2;border-left:4px solid #ef4444;border-radius:8px;box-shadow:0 1px 2px rgba(0,0,0,0.03);">
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
     <svg style="width:18px;height:18px;color:#ef4444;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
       <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
     </svg>
@@ -12,28 +12,28 @@
       <?php if ($low_stock_count > $out_stock_count): ?>
         <?= $low_stock_count - $out_stock_count ?> more <?= ($low_stock_count - $out_stock_count) !== 1 ? 'are' : 'is' ?> running low.
       <?php endif; ?>
-      <span style="font-weight:400;opacity:0.8;"> — Review stock levels before using parts.</span>
+      <span style="font-weight:400;opacity:0.8;"> — Review stock levels.</span>
     </span>
+    <a href="<?= BASE_URL ?>modules/inventory/index.php" style="display:inline-flex; align-items:center; gap:4px; background:#ef4444; color:#fff; font-size:11px; font-weight:800; padding:4px 10px; border-radius:6px; text-decoration:none; transition:all .15s; margin-left:4px;" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">
+      View Inventory →
+    </a>
   </div>
-  <a href="<?= BASE_URL ?>modules/inventory/index.php" style="flex-shrink:0; background:#ef4444; color:#fff; font-size:11.5px; font-weight:700; padding:6px 12px; border-radius:6px; text-decoration:none; transition:all .15s; box-shadow:0 1px 2px rgba(239,68,68,0.2);" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">
-    View Inventory
-  </a>
 </div>
 <?php elseif ($low_stock_count > 0): ?>
 <!-- ── Low stock banner ─────────────────────────────────────────── -->
-<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 18px;margin-bottom:12px;background:#fffbeb;border-left:4px solid #f59e0b;border-radius:8px;box-shadow:0 1px 2px rgba(0,0,0,0.03);">
-  <div style="display:flex;align-items:center;gap:10px;">
+<div style="display:flex;align-items:center;gap:12px;padding:12px 18px;margin-bottom:12px;background:#fffbeb;border-left:4px solid #f59e0b;border-radius:8px;box-shadow:0 1px 2px rgba(0,0,0,0.03);">
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
     <svg style="width:18px;height:18px;color:#d97706;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
       <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
     </svg>
     <span style="font-size:13px;color:#92400e;line-height:1.4;">
       <strong><?= $low_stock_count ?> part<?= $low_stock_count !== 1 ? 's' : '' ?></strong> <?= $low_stock_count !== 1 ? 'are' : 'is' ?> running low on stock.
-      <span style="font-weight:400;opacity:0.8;"> — Check availability in the inventory.</span>
+      <span style="font-weight:400;opacity:0.8;"> — Check availability.</span>
     </span>
+    <a href="<?= BASE_URL ?>modules/inventory/index.php" style="display:inline-flex; align-items:center; gap:4px; background:#f59e0b; color:#fff; font-size:11px; font-weight:800; padding:4px 10px; border-radius:6px; text-decoration:none; transition:all .15s; margin-left:4px;" onmouseover="this.style.background='#d97706'" onmouseout="this.style.background='#f59e0b'">
+      Check Stock →
+    </a>
   </div>
-  <a href="<?= BASE_URL ?>modules/inventory/index.php" style="flex-shrink:0; background:#f59e0b; color:#fff; font-size:11.5px; font-weight:700; padding:6px 12px; border-radius:6px; text-decoration:none; transition:all .15s; box-shadow:0 1px 2px rgba(245,158,11,0.2);" onmouseover="this.style.background='#d97706'" onmouseout="this.style.background='#f59e0b'">
-    Check Stock
-  </a>
 </div>
 <?php endif; ?>
 
