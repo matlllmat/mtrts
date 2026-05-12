@@ -183,15 +183,43 @@ function get_checklist_name(PDO $pdo, ?int $category_id): string {
 function get_wo_parts(PDO $pdo, int $wo_id): array {
     $stmt = $pdo->prepare("
         SELECT pu.*, p.part_name, p.part_number, p.unit_cost,
-               u.full_name AS used_by_name
+               u.full_name AS used_by_name,
+               CASE
+                 WHEN aw.coverage_type IN ('parts','parts_and_labor')
+                  AND CURDATE() BETWEEN aw.warranty_start AND aw.warranty_end
+                 THEN 1 ELSE 0
+               END AS warranty_active,
+               aw.coverage_type AS warranty_coverage
         FROM wo_parts_used pu
         JOIN parts_inventory p ON pu.part_id = p.part_id
         LEFT JOIN users u ON pu.used_by = u.user_id
+        JOIN work_orders wo ON pu.wo_id = wo.wo_id
+        JOIN tickets t ON wo.ticket_id = t.ticket_id
+        LEFT JOIN asset_warranty aw ON t.asset_id = aw.asset_id
         WHERE pu.wo_id = ?
         ORDER BY pu.used_at DESC
     ");
     $stmt->execute([$wo_id]);
     return $stmt->fetchAll();
+}
+
+function get_wo_warranty_status(PDO $pdo, int $wo_id): array {
+    $stmt = $pdo->prepare("
+        SELECT aw.coverage_type, aw.warranty_end,
+               CASE
+                 WHEN aw.coverage_type IN ('parts','parts_and_labor')
+                  AND CURDATE() BETWEEN aw.warranty_start AND aw.warranty_end
+                 THEN 1 ELSE 0
+               END AS parts_covered
+        FROM work_orders wo
+        JOIN tickets t ON wo.ticket_id = t.ticket_id
+        LEFT JOIN asset_warranty aw ON t.asset_id = aw.asset_id
+        WHERE wo.wo_id = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$wo_id]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $row ?: ['parts_covered' => 0, 'coverage_type' => null, 'warranty_end' => null];
 }
 
 // ── Time Logs ─────────────────────────────────────────────────

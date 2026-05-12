@@ -8,7 +8,14 @@
       "Bash(ls c:/xampp/htdocs/mtrts/modules/assets/*.php)",
       "Bash(mysql -u root mtrts_sql)",
       "Bash(\"c:/xampp/mysql/bin/mysql.exe\" -u root mtrts_sql)",
-      "Bash(\"c:/xampp/mysql/bin/mysql.exe\" -u root mtrts_sql -e \"SHOW COLUMNS FROM users LIKE 'profile_picture'; SELECT COUNT\\(*\\) as profile_rows FROM role_modules WHERE module_slug='profile';\")"
+      "Bash(\"c:/xampp/mysql/bin/mysql.exe\" -u root mtrts_sql -e \"SHOW COLUMNS FROM users LIKE 'profile_picture'; SELECT COUNT\\(*\\) as profile_rows FROM role_modules WHERE module_slug='profile';\")",
+      "Bash(git fetch *)",
+      "Bash(git pull *)",
+      "Bash(php -l c:/xampp/htdocs/mtrts/modules/inventory/index.php)",
+      "Bash(php -l c:/xampp/htdocs/mtrts/modules/inventory/functions.php)",
+      "Bash(php -l c:/xampp/htdocs/mtrts/modules/inventory/index.view.php)",
+      "Bash(php -l c:/xampp/htdocs/mtrts/modules/inventory/_form.view.php)",
+      "Bash(php -l c:/xampp/htdocs/mtrts/modules/inventory/_styles.php)"
     ]
   }
 }

@@ -587,6 +587,7 @@ CREATE TABLE wo_parts_used (
   serial_number   VARCHAR(100)  NULL,
   is_warranty     TINYINT(1)    NOT NULL DEFAULT 0,
   is_preallocated TINYINT(1)    NOT NULL DEFAULT 0,
+  is_consumed     TINYINT(1)    NOT NULL DEFAULT 0,
   used_by         INT           NULL,
   used_at         DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
 

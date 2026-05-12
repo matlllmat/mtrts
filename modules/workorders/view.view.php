@@ -283,11 +283,24 @@
             <tbody>
               <?php foreach ($parts as $p): ?>
               <tr class="border-b border-gray-50">
-                <td class="py-2 px-3 font-medium text-gray-700"><?= htmlspecialchars($p['part_name']) ?></td>
+                <td class="py-2 px-3 font-medium text-gray-700">
+                  <?= htmlspecialchars($p['part_name']) ?>
+                  <?php if (!empty($p['warranty_active'])): ?>
+                    <span class="rma-chip" title="Asset under warranty (<?= htmlspecialchars($p['warranty_coverage'] ?? 'parts') ?>) — claim via vendor">RMA</span>
+                  <?php endif; ?>
+                </td>
                 <td class="py-2 px-3 wo-tag"><?= htmlspecialchars($p['part_number']) ?></td>
                 <td class="py-2 px-3 text-gray-600"><?= $p['quantity_used'] ?></td>
                 <td class="py-2 px-3 text-gray-500 text-xs font-mono"><?= $p['serial_number'] ? htmlspecialchars($p['serial_number']) : '—' ?></td>
-                <td class="py-2 px-3"><?= $p['is_warranty'] ? '<span class="wo-badge badge-type-diagnosis">RMA</span>' : '<span class="text-gray-300">—</span>' ?></td>
+                <td class="py-2 px-3">
+                  <?php if (!empty($p['warranty_active'])): ?>
+                    <span class="wo-badge badge-type-diagnosis">Warranty</span>
+                  <?php elseif ($p['is_warranty']): ?>
+                    <span class="wo-badge badge-type-diagnosis">RMA</span>
+                  <?php else: ?>
+                    <span class="text-gray-300">—</span>
+                  <?php endif; ?>
+                </td>
                 <td class="py-2 px-3 text-gray-600"><?= htmlspecialchars($p['used_by_name'] ?? '—') ?></td>
                 <td class="py-2 px-3 text-gray-400 text-xs"><?= (new DateTime($p['used_at']))->format('M j, Y') ?></td>
               </tr>

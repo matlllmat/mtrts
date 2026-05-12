@@ -155,10 +155,28 @@ $e = fn($k) => isset($errors[$k]) ? 'fin-err' : '';
           </button>
         </div>
 
+        <?php
+          $_warranty_banner = null;
+          if ($is_edit && !empty($wo['wo_id']) && function_exists('get_wo_warranty_status')) {
+              $_warranty_banner = get_wo_warranty_status($pdo, (int)$wo['wo_id']);
+          }
+        ?>
+        <?php if (!empty($_warranty_banner['parts_covered'])): ?>
+          <div class="wo-banner banner-warn mb-3" style="margin-bottom:12px">
+            <svg class="flex-shrink-0 w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <span>
+              <strong>Asset under warranty</strong> (coverage: <?= htmlspecialchars($_warranty_banner['coverage_type']) ?>, expires <?= htmlspecialchars($_warranty_banner['warranty_end']) ?>) —
+              parts used on this WO will display an <span class="rma-chip">RMA</span> flag; replacement should be claimed via vendor.
+            </span>
+          </div>
+        <?php endif; ?>
+
         <div id="parts-container" class="space-y-3">
           <!-- Rows will be added here -->
         </div>
-        
+
         <p class="text-xs text-gray-400 mt-4 italic">Note: Selected parts will be reserved for this work order.</p>
       </div>
     </div>

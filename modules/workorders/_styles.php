@@ -162,4 +162,9 @@ tbody tr.row-link:hover td{background:#f0fdf4;color:#111827;}
 
 /* On-hold reason tag */
 .hold-reason{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:600;background:#fef2f2;color:#b91c1c;}
+
+/* RMA chip — shown next to a part when its asset is under parts warranty */
+.rma-chip{display:inline-flex;align-items:center;padding:2px 7px;border-radius:10px;
+  font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;
+  background:#fee2e2;color:#991b1b;margin-left:6px;}
 </style>

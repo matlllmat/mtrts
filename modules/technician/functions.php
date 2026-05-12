@@ -593,6 +593,8 @@ function complete_work_order_transactional(PDO $pdo, array $payload, int $techni
         $params = $resolution_notes !== '' ? [$resolution_notes, $wo_id] : [$wo_id];
         $pdo->prepare($sql)->execute($params);
 
+        decrement_stock_for_wo($pdo, $wo_id, $technician_id);
+
         $pdo->commit();
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) {
@@ -624,6 +626,52 @@ function complete_work_order_transactional(PDO $pdo, array $payload, int $techni
         'has_signature' => $signature_path !== 'data:inline',
         'satisfaction' => null,
     ];
+}
+
+function decrement_stock_for_wo(PDO $pdo, int $wo_id, int $tech_id): void {
+    $stmt = $pdo->prepare("
+        SELECT usage_id, part_id, quantity_used
+        FROM wo_parts_used
+        WHERE wo_id = ? AND is_consumed = 0
+    ");
+    $stmt->execute([$wo_id]);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    if (!$rows) return;
+
+    $upd_qty   = $pdo->prepare("UPDATE parts_inventory SET quantity_on_hand = GREATEST(0, quantity_on_hand - ?) WHERE part_id = ?");
+    $get_state = $pdo->prepare("SELECT quantity_on_hand, reorder_level FROM parts_inventory WHERE part_id = ?");
+    $ins_audit = $pdo->prepare("
+        INSERT INTO parts_inventory_audit
+            (part_id, wo_id, change_type, action, quantity_change, new_quantity, reason, technician_id, changed_by, reference_id)
+        VALUES (?, ?, 'usage', 'usage', ?, ?, 'Work order completion', ?, ?, ?)
+    ");
+    $ins_alert = $pdo->prepare("
+        INSERT INTO parts_low_stock_alerts (part_id, alert_type, threshold, current_stock)
+        VALUES (?, ?, ?, ?)
+    ");
+    $mark_done = $pdo->prepare("UPDATE wo_parts_used SET is_consumed = 1 WHERE usage_id = ?");
+
+    foreach ($rows as $r) {
+        $qty   = (int)$r['quantity_used'];
+        $pid   = (int)$r['part_id'];
+        $uid   = (int)$r['usage_id'];
+        if ($qty <= 0) { $mark_done->execute([$uid]); continue; }
+
+        $upd_qty->execute([$qty, $pid]);
+        $get_state->execute([$pid]);
+        $state = $get_state->fetch(PDO::FETCH_ASSOC) ?: ['quantity_on_hand' => 0, 'reorder_level' => 0];
+        $new_qty = (int)$state['quantity_on_hand'];
+        $reorder = (int)$state['reorder_level'];
+
+        $ins_audit->execute([$pid, $wo_id, -$qty, $new_qty, $tech_id, $tech_id, $uid]);
+
+        if ($new_qty <= $reorder) {
+            $alert_type = $new_qty <= 0 ? 'out_of_stock' : 'low_stock';
+            $ins_alert->execute([$pid, $alert_type, $reorder, $new_qty]);
+        }
+
+        $mark_done->execute([$uid]);
+    }
 }
 
 function update_checklist_completion(PDO $pdo, int $wo_id, int $item_id, bool $is_done, ?string $notes = null): bool {

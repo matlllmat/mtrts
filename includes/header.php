@@ -10,6 +10,7 @@ $module_labels = [
     'tickets'       => 'Request Submission',
     'assets'        => 'Asset Management',
     'workorders'    => 'Work Orders',
+    'inventory'     => 'Work Orders',
     'technician'    => 'Technician Ops',
     'reports'       => 'Reports & Audit',
     'users'         => 'User Access Control',
