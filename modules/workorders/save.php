@@ -41,8 +41,8 @@ if ($is_edit && $data['status'] === 'on_hold' && empty($data['on_hold_reason']))
     $errors['on_hold_reason'] = 'Please select a reason for putting this on hold.';
 }
 
-// Double booking prevention
-if ($data['assigned_to'] && $data['scheduled_start'] && $data['scheduled_end']) {
+// Double booking prevention — only runs when prior validation passed and ticket_id is resolved
+if (empty($errors) && $data['assigned_to'] && $data['scheduled_start'] && $data['scheduled_end'] && $data['ticket_id']) {
     $conflict = check_wo_conflict($pdo, $data['assigned_to'], $data['scheduled_start'], $data['scheduled_end'], $wo_id, $data['ticket_id']);
     if ($conflict) {
         $type = $conflict['type'];

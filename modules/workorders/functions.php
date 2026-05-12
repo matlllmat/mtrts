@@ -286,7 +286,7 @@ function get_wo_signoff(PDO $pdo, int $wo_id): array|false {
 }
 
 
-function check_wo_conflict(PDO $pdo, int $assigned_to, string $start, string $end, int $exclude_wo_id = 0, int $ticket_id = 0): array|false {
+function check_wo_conflict(PDO $pdo, int $assigned_to, string $start, string $end, int $exclude_wo_id = 0, ?int $ticket_id = null): array|false {
     $BUFFER_MINS = 15;
     $startTime = new DateTime($start);
     $endTime   = new DateTime($end);
@@ -316,7 +316,7 @@ function check_wo_conflict(PDO $pdo, int $assigned_to, string $start, string $en
     }
 
     // 2. Check Room Conflict
-    if ($ticket_id > 0) {
+    if ($ticket_id !== null && $ticket_id > 0) {
         $locStmt = $pdo->prepare("SELECT location_id FROM tickets WHERE ticket_id = ?");
         $locStmt->execute([$ticket_id]);
         $locId = $locStmt->fetchColumn();
