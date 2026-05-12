@@ -23,10 +23,10 @@ function switchTab(key, btn) {
   switchSecondaryTab(key, btn);
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   const woId = (new URLSearchParams(window.location.search)).get('id') || '';
   if (!woId) {
-    alert('Missing work order id');
+    await MRTS.modal.alert('Missing work order id', { type: 'error' });
     window.location.href = window.MRTS.APP_BASE + '/modules/technician/index.php';
     return;
   }
@@ -62,13 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
     partQty: document.getElementById('partQty'),
     partSerial: document.getElementById('partSerial'),
     partsList: document.getElementById('partsList'),
-    signerName: document.getElementById('signerName'),
-    signerId: document.getElementById('signerId'),
-    signerEmail: document.getElementById('signerEmail'),
-    signerPosition: document.getElementById('signerPosition'),
-    signerSatisfaction: document.getElementById('signerSatisfaction'),
-    satisfactionRating: document.getElementById('satisfactionRating'),
-    satisfactionFeedback: document.getElementById('satisfactionFeedback'),
+    signatorySelect: document.getElementById('signatorySelect'),
     sigCanvas: document.getElementById('sigCanvas'),
     sigStatus: document.getElementById('sigStatus'),
     btnClearSig: document.getElementById('btnClearSig'),
@@ -76,7 +70,6 @@ document.addEventListener('DOMContentLoaded', () => {
     btnSaveDraft: document.getElementById('btnSaveDraft'),
     btnComplete: document.getElementById('btnComplete'),
     blocker: document.getElementById('completeBlocker'),
-    btnVoice: document.getElementById('btnVoice'),
     btnAddNote: document.getElementById('btnAddNote'),
     btnAddPart: document.getElementById('btnAddPart'),
     timerValue: document.getElementById('timerValue'),
@@ -110,15 +103,16 @@ document.addEventListener('DOMContentLoaded', () => {
     parts: [], // {id, partNumber, qty, serial}
     timer: { running: false, startedAt: null, elapsedMs: 0, pausedMs: null, laborType: null },
     time_logs: [], // {id, labor_type, elapsed_ms, segment_ms, created_at, status}
-    signoff: { signerName: '', signerId: '', signerEmail: '', signerPosition: '', signerSatisfaction: '', signatureDataUrl: null },
+    signoff: { signerName: '', signatoryUserId: null, signatureDataUrl: null },
   };
 
   // SESSION FLAG: track whether sync has been done this page load
   const sessionSyncedKey = `mrtsp.synced_session.${woId}`;
 
   function loadDraft() {
-    // Always return a blank draft on page load — the form starts empty by design.
-    // Saved data is only restored when the user explicitly clicks Sync.
+    // Always return a blank draft on page load.
+    // Resolved/closed work orders are seeded from server data inside load().
+    // In-progress work is restored only when the technician clicks Sync.
     return structuredClone(defaultDraft);
   }
 
@@ -212,11 +206,10 @@ document.addEventListener('DOMContentLoaded', () => {
   let draft = loadDraft();
   let migrationDone = false;
   let sig = null;
-  let voiceRec = null;
   let isEditableNow = false;
 
   function showLockedMessage() {
-    alert('Start Work first to enable Technician Ops actions.');
+    MRTS.modal.toast('Start Work first to enable Technician Ops actions.', { type: 'warning', duration: 3500 });
   }
 
   function canMutateOrWarn() {
@@ -245,19 +238,59 @@ document.addEventListener('DOMContentLoaded', () => {
       els.partSerial,
       els.noteTitle,
       els.noteText,
-      els.signerName,
-      els.signerId,
-      els.signerEmail,
-      els.signerPosition,
-      els.signerSatisfaction,
-      els.satisfactionRating,
-      els.satisfactionFeedback
+      els.signatorySelect,
     ];
 
     controls.forEach((el) => {
       if (!el) return;
       el.disabled = disable;
     });
+
+    // Also disable/enable ALL inputs, selects, textareas and buttons
+    // inside the tab panes that are not covered by the named els above.
+    // This catches dynamically-rendered safety/checklist checkboxes and
+    // any other interactive controls added by renderSafety/renderChecklist.
+    document.querySelectorAll(
+      '#tab-safety input, #tab-safety button, ' +
+      '#tab-checklist input, #tab-checklist button, ' +
+      '#tab-timetracking input, #tab-timetracking button, #tab-timetracking select, ' +
+      '#tab-parts input, #tab-parts button, #tab-parts select, ' +
+      '#tab-communication input, #tab-communication button, #tab-communication textarea, ' +
+      '#tab-evidence input, #tab-evidence button, ' +
+      '#tab-signoff input, #tab-signoff button, #tab-signoff select, #tab-signoff textarea'
+    ).forEach((el) => {
+      // Skip elements that are intentionally always-on (e.g. tab nav, read-only displays)
+      if (el.dataset.alwaysEnabled) return;
+      el.disabled = disable;
+    });
+
+    // Show/hide gate banners in each tab pane.
+    // Gate banners only make sense for assigned/scheduled/new — not for resolved/closed.
+    const woStatus = (wo && wo.status) ? wo.status.toLowerCase() : '';
+    const isCompletedWO = (woStatus === 'resolved' || woStatus === 'closed');
+    document.querySelectorAll('.gateNotice').forEach((banner) => {
+      // Hide gate notice entirely for completed work orders — they are read-only
+      // but the technician should see their work history, not a "Start Work" prompt.
+      banner.style.display = (disable && !isCompletedWO) ? 'flex' : 'none';
+    });
+
+    // Enable/disable the signature canvas drawing
+    if (sig && typeof sig.setEnabled === 'function') {
+      sig.setEnabled(!disable);
+    }
+
+    // Show/hide the locked overlay on the signature canvas
+    const sigLockedOverlay = document.getElementById('sigLockedOverlay');
+    if (sigLockedOverlay) {
+      sigLockedOverlay.style.display = disable ? 'flex' : 'none';
+      // Update overlay message based on WO status
+      const overlayLabel = sigLockedOverlay.querySelector('span');
+      if (overlayLabel && wo) {
+        const st = (wo.status || '').toLowerCase();
+        const isDone = st === 'resolved' || st === 'closed';
+        overlayLabel.textContent = isDone ? 'Read-only — work order is completed' : 'Locked — Start Work first';
+      }
+    }
   }
 
   window.setTechnicianEditable = function(nextEditable) {
@@ -337,8 +370,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
   // Count auto-verified items (time tracking, signature, before/after photos)
-  const hasTimeLogs = (draft.time_logs || []).length > 0 || timerSeconds > 0;
-  const hasSig = !!draft.signoff.signatureDataUrl;
+  const woHasStopLog =
+    wo &&
+    Array.isArray(wo.time_logs) &&
+    wo.time_logs.some((r) => (r.action || '') === 'stop');
+  const hasTimeLogs =
+    (draft.time_logs || []).length > 0 || timerSeconds > 0 || woHasStopLog;
+  const woHasSignoff =
+    wo &&
+    wo.signoff &&
+    ((wo.signoff.signature_path && wo.signoff.signature_path !== 'data:inline') ||
+      String(wo.signoff.signer_name || '').trim());
+  const hasSig = !!draft.signoff.signatureDataUrl || woHasSignoff;
   
   // Filter out photo items from manual checklist count.
   // Match by verification_type (properly seeded DB rows) OR by item text
@@ -422,7 +465,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (item.id == id) item.is_done = draft.checklist[id];
           });
         }
-        window.MRTS.offline.queueAction('checklist_update', woId, { itemId: id, completed: draft.checklist[id] });
+        // Note: checklist state is held locally until completion — no immediate server write
         renderChecklist();
         updateCompletionBlocker();
         if (typeof updateCompletionBadges === 'function') updateCompletionBadges();
@@ -445,7 +488,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const timeLabel    = document.getElementById('clTimeLabel');
     const timeStatus   = document.getElementById('clTimeStatus');
     const timeRow      = document.getElementById('clRowTimeTracking');
-    const hasTimeLogs  = (draft.time_logs || []).length > 0 || timerSeconds > 0;
+    const woHasStopLog =
+      wo &&
+      Array.isArray(wo.time_logs) &&
+      wo.time_logs.some((r) => (r.action || '') === 'stop');
+    const hasTimeLogs =
+      (draft.time_logs || []).length > 0 || timerSeconds > 0 || woHasStopLog;
 
     if (timeCheckbox) {
       if (hasTimeLogs) {
@@ -477,6 +525,15 @@ document.addEventListener('DOMContentLoaded', () => {
         timeStatus.style.color = '#15803d';
         timeStatus.style.cursor = 'default';
         timeStatus.onclick = null;
+      } else if (woHasStopLog && wo.time_logs && wo.time_logs.length) {
+        const stops = wo.time_logs.filter((r) => (r.action || '') === 'stop');
+        const totalMs = stops.reduce((s, r) => s + (parseInt(r.elapsed_ms, 10) || 0), 0);
+        const suffix = totalMs > 0 ? ' (' + window.MRTS.fmtTime(totalMs) + ')' : '';
+        timeStatus.textContent =
+          stops.length + ' entr' + (stops.length === 1 ? 'y' : 'ies') + suffix;
+        timeStatus.style.color = '#15803d';
+        timeStatus.style.cursor = 'default';
+        timeStatus.onclick = null;
       } else if (timerSeconds > 0) {
         timeStatus.textContent = 'Paused (' + formatTime(timerSeconds) + ')';
         timeStatus.style.color = '#92400e';
@@ -498,7 +555,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const sigLabel    = document.getElementById('clSigLabel');
     const sigStatus   = document.getElementById('clSigStatus');
     const sigRow      = document.getElementById('clRowSignature');
-    const hasSig      = !!draft.signoff.signatureDataUrl;
+    const woHasSignoff =
+      wo &&
+      wo.signoff &&
+      ((wo.signoff.signature_path && wo.signoff.signature_path !== 'data:inline') ||
+        String(wo.signoff.signer_name || '').trim());
+    const hasSig = !!draft.signoff.signatureDataUrl || woHasSignoff;
 
     if (sigCheckbox) {
       if (hasSig) {
@@ -520,7 +582,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (sigStatus) {
       if (hasSig) {
-        const name = draft.signoff.signerName ? 'Signed by ' + draft.signoff.signerName : 'Signature captured';
+        const dispName =
+          draft.signoff.signerName ||
+          (wo && wo.signoff && wo.signoff.signer_name) ||
+          '';
+        const name = dispName ? 'Signed by ' + dispName : 'Signature captured';
         sigStatus.textContent = name;
         sigStatus.style.color = '#15803d';
         sigStatus.style.cursor = 'default';
@@ -542,8 +608,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const previewSigner = document.getElementById('savedSigSignerName');
     if (previewWrap && previewImg) {
       if (hasSig) {
-        previewImg.src = draft.signoff.signatureDataUrl;
-        if (previewSigner) previewSigner.textContent = draft.signoff.signerName || '';
+        previewImg.src =
+          draft.signoff.signatureDataUrl ||
+          (wo && wo.signoff && wo.signoff.signature_path) ||
+          '';
+        if (previewSigner) {
+          previewSigner.textContent =
+            draft.signoff.signerName || (wo && wo.signoff && wo.signoff.signer_name) || '';
+        }
         previewWrap.style.display = '';
       } else {
         previewWrap.style.display = 'none';
@@ -642,9 +714,10 @@ document.addEventListener('DOMContentLoaded', () => {
 function renderSafety() {
   const items = (wo && wo.safety) ? wo.safety : [];
   items.forEach((it) => {
-    it.is_done = !!draft.safety[it.id];
+    // Always use string key — draft.safety is keyed by string (from getAttribute)
+    it.is_done = !!draft.safety[String(it.id || it.safety_id || 0)];
   });
-  const done = items.filter((it) => !!draft.safety[it.id]).length;
+  const done = items.filter((it) => !!draft.safety[String(it.id || it.safety_id || 0)]).length;
   const total = items.length;
   const percentage = total > 0 ? Math.round(done / total * 100) : 0;
   
@@ -673,12 +746,13 @@ function renderSafety() {
     
     els.safetyList.innerHTML = items.map((it) => {
       const checked = !!draft.safety[it.id];
+      const safetyId = it.id || it.safety_id || 0;
       
       return `
         <label class="checklist-row" style="border-bottom:1px solid #f3f4f6;">
           <input type="checkbox" 
                  style="accent-color:#1a5c2a;width:14px;height:14px;flex-shrink:0;cursor:pointer;" 
-                 data-safety="${it.id}"
+                 data-safety="${safetyId}"
                  ${!isEditableNow ? 'disabled' : ''}
                  ${checked ? 'checked' : ''}>
           <span class="checklist-text" style="${checked ? 'color:#9ca3af;text-decoration:line-through;' : ''}">${escapeHtml(it.text)}</span>
@@ -694,15 +768,17 @@ function renderSafety() {
           return;
         }
         const id = input.getAttribute('data-safety');
+        if (!id || id === '0' || id === 'undefined') return; // guard against bad IDs
         draft.safety[id] = input.checked;
         saveDraft(draft);
         // Sync draft back to __WO_DATA__ for badge updates
         if (wo.safety && wo.safety.length > 0) {
           wo.safety.forEach((item) => {
-            if (item.id == id) item.is_done = draft.safety[id];
+            const itemId = String(item.id || item.safety_id || 0);
+            if (itemId === id) item.is_done = draft.safety[id];
           });
         }
-        window.MRTS.offline.queueAction('safety_update', woId, { safetyId: id, completed: draft.safety[id] });
+        // Note: safety state is held locally until completion — no immediate server write
         renderSafety();
         updateCompletionBlocker();
         if (typeof updateCompletionBadges === 'function') updateCompletionBadges();
@@ -977,7 +1053,7 @@ function renderSafety() {
     
     // Show errors if any
     if (errors.length > 0) {
-      alert('Some files failed to upload:\n' + errors.join('\n'));
+      await MRTS.modal.alert('Some files failed to upload:\n' + errors.join('\n'), { type: 'error', title: 'Upload Failed' });
     }
   }
 
@@ -1031,7 +1107,7 @@ function renderSafety() {
     
     // Show errors if any
     if (errors.length > 0) {
-      alert('Some files failed to upload:\n' + errors.join('\n'));
+      await MRTS.modal.alert('Some files failed to upload:\n' + errors.join('\n'), { type: 'error', title: 'Upload Failed' });
     }
   }
 
@@ -1178,7 +1254,7 @@ function renderSafety() {
       if (timerSeconds === 0) {
         const laborType = (els.laborType.value || '').trim();
         if (!laborType) {
-          alert('Please select a labor type before starting the timer');
+          MRTS.modal.toast('Please select a labor type before starting the timer', { type: 'warning' });
           return;
         }
         draft.timer.laborType = laborType;
@@ -1339,6 +1415,9 @@ function renderSafety() {
     // ── Hide empty state ─────────────────────────────────────────
     if (emptyState) emptyState.style.display = 'none';
 
+    // ── Sort ─────────────────────────────────────────────────────
+    const sortedLogs = [...logs];
+
     // ── Calculate total ──────────────────────────────────────────
     const totalMs = logs.reduce((sum, l) => sum + (l.elapsed_ms || 0), 0);
     const totalSec = Math.floor(totalMs / 1000);
@@ -1348,7 +1427,7 @@ function renderSafety() {
     const totalFormatted = `${th}:${tm}:${ts}`;
 
     // ── Render entries ───────────────────────────────────────────
-    container.innerHTML = logs.map((log) => {
+    container.innerHTML = sortedLogs.map((log) => {
       const elapsed = log.elapsed_display || window.MRTS.fmtTime(log.elapsed_ms);
       const when = log.created_at_display || new Date(log.created_at).toLocaleString('en-US', {
         month: '2-digit', day: '2-digit', year: 'numeric',
@@ -1390,12 +1469,77 @@ function renderSafety() {
     });
   }
 
+  // ── Sort button removed from Time Logs panel (moved to index filter bar) ──
+
+  // ── Ratings Tab renderer ─────────────────────────────────────
+  function renderRatingsTab() {
+    const pane = document.getElementById('tab-ratings');
+    if (!pane) return;
+
+    // Pull latest satisfaction + feedback from the live wo object (updated by sync)
+    const satisfaction = (wo && wo.signoff && wo.signoff.satisfaction != null)
+      ? parseInt(wo.signoff.satisfaction, 10)
+      : 0;
+    const feedback = (wo && wo.signoff && wo.signoff.feedback)
+      ? String(wo.signoff.feedback).trim()
+      : '';
+
+    const card = pane.querySelector('.tech-card');
+    if (!card) return;
+
+    const body = card.querySelector('.tech-card__body');
+    if (!body) return;
+
+    if (satisfaction >= 1 && satisfaction <= 5) {
+      const stars = [1,2,3,4,5].map(s =>
+        `<svg style="width:28px;height:28px;color:${s <= satisfaction ? '#f59e0b' : '#e5e7eb'};" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
+        </svg>`
+      ).join('');
+
+      const feedbackHtml = feedback
+        ? `<div style="padding:12px 14px;border-radius:8px;background:var(--tech-gray-50);border:1px solid var(--tech-gray-200);margin-top:12px;">
+             <div style="font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--tech-gray-400);margin-bottom:6px;">Feedback</div>
+             <p style="font-size:13px;color:var(--tech-gray-700);margin:0;line-height:1.6;">${escapeHtml(feedback)}</p>
+           </div>`
+        : '';
+
+      body.innerHTML = `
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+          ${stars}
+          <span style="font-size:13px;font-weight:600;color:var(--tech-gray-700);margin-left:4px;">${satisfaction} / 5</span>
+        </div>
+        ${feedbackHtml}`;
+    } else {
+      body.innerHTML = `
+        <div style="padding:40px 20px;text-align:center;">
+          <svg style="width:40px;height:40px;color:var(--tech-gray-200);margin:0 auto 12px;display:block;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
+          </svg>
+          <p style="font-size:13px;color:var(--tech-gray-400);font-style:italic;margin:0;">
+            Ratings are submitted by the requester after work order review.<br>No rating has been submitted yet.
+          </p>
+        </div>`;
+    }
+  }
+
   function renderSignoff() {
-    els.signerName.value        = draft.signoff.signerName        || '';
-    if (els.signerId)           els.signerId.value           = draft.signoff.signerId        || '';
-    if (els.signerEmail)        els.signerEmail.value        = draft.signoff.signerEmail      || '';
-    if (els.signerPosition)     els.signerPosition.value     = draft.signoff.signerPosition   || '';
-    if (els.signerSatisfaction) els.signerSatisfaction.value = draft.signoff.signerSatisfaction || '';
+    if (els.signatorySelect) {
+      if (draft.signoff.signatoryUserId) {
+        els.signatorySelect.value = String(draft.signoff.signatoryUserId);
+      }
+      // Update identity display
+      const identityWrap = document.getElementById('signatoryIdentityWrap');
+      const identityName = document.getElementById('signatoryIdentityName');
+      if (identityWrap && identityName) {
+        if (draft.signoff.signerName) {
+          identityName.textContent = draft.signoff.signerName;
+          identityWrap.style.display = '';
+        } else {
+          identityWrap.style.display = 'none';
+        }
+      }
+    }
     updateSigStatus();
   }
 
@@ -1478,25 +1622,6 @@ function validateCompletion() {
   }
 
   // Wire actions
-  els.btnVoice.addEventListener('click', () => {
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      alert('Voice recognition not supported in this browser');
-      return;
-    }
-    const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-    recognition.lang = 'en-US';
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-    recognition.start();
-    recognition.onresult = (event) => {
-      const transcript = event.results[0][0].transcript;
-      els.noteText.value += (els.noteText.value ? ' ' : '') + transcript;
-    };
-    recognition.onerror = (event) => {
-      alert('Voice recognition error: ' + event.error);
-    };
-  });
-
   els.beforeFiles.addEventListener('change', (e) => filesToEvidence(e.target.files, 'before'));
   els.afterFiles.addEventListener('change', (e) => filesToEvidence(e.target.files, 'after'));
   
@@ -1516,8 +1641,14 @@ function validateCompletion() {
     const qty = Math.max(1, Number(els.partQty.value || 1));
     const serial = (els.partSerial.value || '').trim();
     if (!partNumber) return;
-    const item = { id: `p_${Date.now()}_${Math.random().toString(16).slice(2)}`, partNumber, qty, serial, category: 'manual' };
-    draft.parts.push(item);
+    // Merge with existing entry if same part number
+    const existingIdx = draft.parts.findIndex(p => p.partNumber === partNumber && p.category === 'manual');
+    if (existingIdx >= 0) {
+      draft.parts[existingIdx].qty += qty;
+    } else {
+      const item = { id: `p_${Date.now()}_${Math.random().toString(16).slice(2)}`, partNumber, qty, serial, category: 'manual' };
+      draft.parts.push(item);
+    }
     els.partNumber.value = '';
     els.partQty.value = '1';
     els.partSerial.value = '';
@@ -1664,14 +1795,21 @@ function validateCompletion() {
           const local = rawParts.find(p => p.part_id === selectedPart.part_id);
           if (local) local.qty = data.current_stock;
 
-          // Push into draft.parts so the Parts Used list renders it
-          draft.parts.push({
-            id:         'db_' + data.usage_id,
-            partNumber: selectedPart.name,
-            qty:        qty,
-            serial:     serial || '',
-            category:   selectedPart.cat,
-          });
+          // Push into draft.parts — merge with existing entry if same part
+          const existingIdx = draft.parts.findIndex(p =>
+            p.partNumber === selectedPart.name && p.category === selectedPart.cat
+          );
+          if (existingIdx >= 0) {
+            draft.parts[existingIdx].qty += qty;
+          } else {
+            draft.parts.push({
+              id:         'db_' + data.usage_id,
+              partNumber: selectedPart.name,
+              qty:        qty,
+              serial:     serial || '',
+              category:   selectedPart.cat,
+            });
+          }
           saveDraft(draft);
 
           if (data.low_stock_alert) {
@@ -1729,45 +1867,13 @@ function validateCompletion() {
     });
   }
 
-  // Voice-to-text (best-effort)
-  els.btnVoice.addEventListener('click', () => {
-    const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!Speech) {
-      alert('Voice-to-text not supported in this browser');
-      return;
-    }
-    if (voiceRec) {
-      try { voiceRec.stop(); } catch {}
-      voiceRec = null;
-      els.btnVoice.textContent = 'Voice';
-      return;
-    }
-    const rec = new Speech();
-    rec.lang = 'en-US';
-    rec.interimResults = true;
-    rec.onresult = (evt) => {
-      let txt = '';
-      for (let i = evt.resultIndex; i < evt.results.length; i++) {
-        txt += evt.results[i][0].transcript;
-      }
-      els.noteText.value = (els.noteText.value ? els.noteText.value + ' ' : '') + txt.trim();
-    };
-    rec.onend = () => {
-      voiceRec = null;
-      els.btnVoice.textContent = 'Voice';
-    };
-    rec.start();
-    voiceRec = rec;
-    els.btnVoice.textContent = 'Stop voice';
-  });
-
   // Add Note
   els.btnAddNote.addEventListener('click', () => {
     if (!canMutateOrWarn()) return;
     const title = (els.noteTitle.value || '').trim();
     const text = (els.noteText.value || '').trim();
     if (!text) {
-      alert('Please enter a note');
+      MRTS.modal.toast('Please enter a note', { type: 'warning' });
       return;
     }
     const noteId = `n_${Date.now()}_${Math.random().toString(16).slice(2)}`;
@@ -1799,11 +1905,7 @@ function validateCompletion() {
       if (key === 'signerName') renderChecklistTimeLogs(); // update checklist panel live
     });
   }
-  wireSignoffField(els.signerName,        'signerName');
-  wireSignoffField(els.signerId,          'signerId');
-  wireSignoffField(els.signerEmail,       'signerEmail');
-  wireSignoffField(els.signerPosition,    'signerPosition');
-  wireSignoffField(els.signerSatisfaction,'signerSatisfaction');
+  wireSignoffField(els.signatorySelect, 'signatoryUserId');
 
   sig = window.MRTS.signature.setup(els.sigCanvas);
   els.btnClearSig.addEventListener('click', () => {
@@ -1820,13 +1922,36 @@ function validateCompletion() {
   els.btnSaveSig.addEventListener('click', () => {
     if (!canMutateOrWarn()) return;
     if (sig.isBlank()) {
-      alert('Please draw your signature first');
+      MRTS.modal.toast('Please draw your signature first', { type: 'warning' });
       return;
     }
+    // Derive signer name from the signatory dropdown
+    const selectedOption = els.signatorySelect && els.signatorySelect.selectedOptions[0];
+    const nameTrim = (selectedOption && selectedOption.dataset.name ? selectedOption.dataset.name : '').trim()
+      || (draft.signoff.signerName || '').trim();
+    const userIdVal = selectedOption && selectedOption.value ? parseInt(selectedOption.value, 10) : null;
+    if (!nameTrim || !userIdVal) {
+      MRTS.modal.toast('Select an authorized signatory before saving the signature', { type: 'warning', duration: 4500 });
+      return;
+    }
+    draft.signoff.signerName = nameTrim;
+    draft.signoff.signatoryUserId = userIdVal;
     draft.signoff.signatureDataUrl = sig.toDataUrl();
     saveDraft(draft);
     updateSigStatus();
-    window.MRTS.offline.queueAction('signature_save', woId, { hasSignature: true }, { hasBlob: true });
+    // Update identity display
+    const identityWrap = document.getElementById('signatoryIdentityWrap');
+    const identityName = document.getElementById('signatoryIdentityName');
+    if (identityWrap && identityName) {
+      identityName.textContent = nameTrim;
+      identityWrap.style.display = '';
+    }
+    const woIdNum = parseInt(String(woId), 10);
+    window.MRTS.offline.queueAction('signature_save', woIdNum > 0 ? woIdNum : woId, {
+      signature_data_url: draft.signoff.signatureDataUrl,
+      signer_name: nameTrim,
+      signed_by_user_id: userIdVal,
+    });
     updateCompletionBlocker();
     renderChecklistTimeLogs(); // refresh signature status in checklist panel
     if (typeof updateCompletionBadges === 'function') updateCompletionBadges();
@@ -1836,8 +1961,37 @@ function validateCompletion() {
     if (!canMutateOrWarn()) return;
     saveDraft(draft);
     window.MRTS.offline.queueAction('draft_save', woId, {});
-    alert('Draft saved (local + queued)');
+    MRTS.modal.toast('Draft saved (local + queued)', { type: 'success' });
   });
+
+  // Signatory dropdown change handler
+  if (els.signatorySelect) {
+    els.signatorySelect.addEventListener('change', () => {
+      if (!canMutateOrWarn()) {
+        // Revert to previously saved value
+        els.signatorySelect.value = draft.signoff.signatoryUserId ? String(draft.signoff.signatoryUserId) : '';
+        return;
+      }
+      const selectedOption = els.signatorySelect.selectedOptions[0];
+      const userId = selectedOption && selectedOption.value ? parseInt(selectedOption.value, 10) : null;
+      const name = (selectedOption && selectedOption.dataset.name) ? selectedOption.dataset.name.trim() : '';
+      draft.signoff.signatoryUserId = userId;
+      draft.signoff.signerName = name;
+      // Update identity display
+      const identityWrap = document.getElementById('signatoryIdentityWrap');
+      const identityName = document.getElementById('signatoryIdentityName');
+      if (identityWrap && identityName) {
+        if (name) {
+          identityName.textContent = name;
+          identityWrap.style.display = '';
+        } else {
+          identityWrap.style.display = 'none';
+        }
+      }
+      saveDraft(draft);
+      renderChecklistTimeLogs();
+    });
+  }
 
   els.btnComplete.addEventListener('click', async () => {
     if (!canMutateOrWarn()) return;
@@ -1850,27 +2004,60 @@ function validateCompletion() {
     els.btnComplete.innerHTML = '<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg> Completing...';
     
     try {
+      // Flush queued offline actions (notes, evidence uploads, live time
+      // events) BEFORE the completion call so they actually persist server-
+      // side. Without this, notes and photos sit in localStorage forever.
+      if (window.MRTS.offline && window.MRTS.offline.queueCount() > 0) {
+        els.btnComplete.innerHTML = '<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg> Syncing pending...';
+        try {
+          const syncRes = await window.MRTS.offline.syncNow();
+          const syncErrs = (syncRes && syncRes.errors) || [];
+          if (syncErrs.length) {
+            const detail = syncErrs.slice(0, 3).map(e => '- ' + (e.action || '?') + ': ' + (e.error || 'failed')).join('\n');
+            const proceed = await MRTS.modal.confirm(
+              'Some pending changes failed to sync (' + syncErrs.length + '):\n\n' + detail +
+              '\n\nComplete the work order anyway?',
+              { title: 'Sync Issues Detected', okLabel: 'Complete Anyway', danger: true }
+            );
+            if (!proceed) {
+              els.btnComplete.disabled = false;
+              els.btnComplete.innerHTML = originalText;
+              return;
+            }
+          }
+        } catch (syncErr) {
+          els.btnComplete.disabled = false;
+          els.btnComplete.innerHTML = originalText;
+          await MRTS.modal.alert('Could not sync pending changes — check your connection and try again.\n\n' + (syncErr.message || syncErr), { type: 'error', title: 'Sync Failed' });
+          return;
+        }
+        els.btnComplete.innerHTML = '<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg> Completing...';
+      }
+
       // Gather time logs and calculate total
       const totalTimeMs = draft.timer.elapsedMs + (draft.timer.running ? (Date.now() - draft.timer.startedAt) : 0);
       const parsedWoId = parseInt(woId, 10);
-      const satisfactionFromStars = parseInt((els.satisfactionRating && els.satisfactionRating.value) || 0, 10) || 0;
-      const satisfactionFromSignoff = parseInt(draft.signoff.signerSatisfaction || 0, 10) || 0;
-      const finalSatisfaction = satisfactionFromStars || satisfactionFromSignoff;
-      const finalFeedback = (els.satisfactionFeedback && els.satisfactionFeedback.value
-        ? els.satisfactionFeedback.value
-        : (draft.signoff.signerFeedback || '')).trim();
+
+      // Merge localStorage draft into the in-memory draft for the completion payload.
+      // This ensures safety/checklist ticks saved in a previous session (before a refresh)
+      // are included even if the technician refreshed the page before completing.
+      const storedDraft = loadSyncedDraft();
+      const mergedChecklist = Object.assign({}, storedDraft.checklist || {}, draft.checklist || {});
+      const mergedSafety    = Object.assign({}, storedDraft.safety    || {}, draft.safety    || {});
+      const mergedTimeLogs  = draft.time_logs && draft.time_logs.length > 0
+        ? draft.time_logs
+        : (storedDraft.time_logs || []);
 
       const completionPayload = {
         wo_id:               parsedWoId,
-        checklist:           draft.checklist || {},
-        safety:              draft.safety || {},
-        time_logs:           draft.time_logs || [],
+        checklist:           mergedChecklist,
+        safety:              mergedSafety,
+        time_logs:           mergedTimeLogs,
         total_time_ms:       totalTimeMs,
-        signer_name:         draft.signoff.signerName         || '',
-        signer_satisfaction: finalSatisfaction,
-        feedback:            finalFeedback,
-        signature_data_url:  draft.signoff.signatureDataUrl   || '',
-        resolution_notes:    draft.signoff.resolutionNotes    || '',
+        signer_name:         draft.signoff.signerName         || storedDraft.signoff?.signerName         || '',
+        signed_by_user_id:   draft.signoff.signatoryUserId    || storedDraft.signoff?.signatoryUserId    || null,
+        signature_data_url:  draft.signoff.signatureDataUrl   || storedDraft.signoff?.signatureDataUrl   || '',
+        resolution_notes:    draft.signoff.resolutionNotes    || storedDraft.signoff?.resolutionNotes    || '',
       };
 
       // Final completion must persist immediately on server; no prototype queue-only completion.
@@ -1879,12 +2066,12 @@ function validateCompletion() {
         body: JSON.stringify(completionPayload),
       });
 
-      alert('Work order completed and saved successfully.');
+      await MRTS.modal.alert('Work order completed and saved successfully.', { type: 'success', title: 'Completed!' });
       window.location.href = window.MRTS.APP_BASE + '/modules/technician/index.php';
     } catch (e) {
       els.btnComplete.disabled = false;
       els.btnComplete.innerHTML = originalText;
-      alert('Error: ' + (e.message || 'Failed to complete work order. Please try again.'));
+      await MRTS.modal.alert('Error: ' + (e.message || 'Failed to complete work order. Please try again.'), { type: 'error', title: 'Completion Failed' });
     }
   });
 
@@ -1895,7 +2082,7 @@ function validateCompletion() {
     // #endregion
     wo = window.__WO_DATA__;
     if (!wo) {
-      alert('Work order data not available.');
+      await MRTS.modal.alert('Work order data not available.', { type: 'error' });
       window.location.href = window.MRTS.APP_BASE + '/modules/technician/index.php';
       return;
     }
@@ -1909,24 +2096,128 @@ function validateCompletion() {
     });
     isEditableNow = !!wo.can_execute_now;
 
-    // Initialize draft.safety and draft.checklist from server data if not already set
-    // This ensures the draft reflects the actual completion state from the database
-    if (wo.safety && wo.safety.length > 0) {
-      wo.safety.forEach((item) => {
-        // Only set if not already in draft (preserve local changes)
-        if (draft.safety[item.id] === undefined) {
-          draft.safety[item.id] = item.is_done === true || item.is_done === 1;
-        }
-      });
-    }
-    if (wo.checklist && wo.checklist.length > 0) {
-      wo.checklist.forEach((item) => {
-        // Only set if not already in draft (preserve local changes)
-        if (draft.checklist[item.id] === undefined) {
+    // For resolved/closed work orders, seed the draft from server data immediately
+    // so the technician sees their full work history on page load without clicking Sync.
+    // For in-progress work, the draft stays blank — Sync restores it.
+    const isResolved = (wo.status === 'resolved' || wo.status === 'closed');
+    if (isResolved) {
+      // Safety
+      if (wo.safety && wo.safety.length > 0) {
+        wo.safety.forEach((item) => {
+          const key = String(item.id || item.safety_id || 0);
+          draft.safety[key] = item.is_done === true || item.is_done === 1;
+        });
+      }
+      // Checklist
+      if (wo.checklist && wo.checklist.length > 0) {
+        wo.checklist.forEach((item) => {
           draft.checklist[item.id] = item.is_done === true || item.is_done === 1;
+        });
+      }
+      // Time logs
+      if (wo.time_logs && wo.time_logs.length > 0) {
+        const serverStops = wo.time_logs.filter((r) => (r.action || '') === 'stop');
+        draft.time_logs = serverStops.map((row) => {
+          const elapsed = parseInt(row.elapsed_ms, 10) || 0;
+          const logId = row.log_id != null ? row.log_id : row.id;
+          return {
+            id: logId != null ? `srv_${logId}` : `srv_ms_${elapsed}`,
+            labor_type: row.labor_type || 'other',
+            elapsed_ms: elapsed,
+            elapsed_display: window.MRTS.fmtTime(elapsed),
+            created_at: row.logged_at
+              ? new Date(String(row.logged_at).replace(' ', 'T')).toISOString()
+              : new Date().toISOString(),
+            created_at_display: row.logged_at || '',
+            status: 'synced',
+            source: 'server',
+          };
+        });
+      }
+      // Signoff
+      if (wo.signoff && (wo.signoff.signer_name || wo.signoff.signature_path)) {
+        if (wo.signoff.signer_name) draft.signoff.signerName = wo.signoff.signer_name;
+        if (wo.signoff.signed_by_user_id) draft.signoff.signatoryUserId = wo.signoff.signed_by_user_id;
+        const p = wo.signoff.signature_path || '';
+        if (p && p !== 'data:inline') draft.signoff.signatureDataUrl = p;
+      }
+    }
+
+    // Hydrate notes and before/after photos from the server so any user
+    // viewing the WO sees them — not just the one whose localStorage holds the
+    // original draft. Tag with source:'server' so we can drop and re-hydrate
+    // on subsequent loads. Dedupe by text (notes) / serverUrl (photos).
+    draft.notes = (draft.notes || []).filter((n) => n.source !== 'server');
+    if (wo.notes && wo.notes.length > 0) {
+      const localTexts = new Set(draft.notes.map((n) => (n.text || '').trim()));
+      wo.notes.forEach((n) => {
+        const raw = (n.note_text || '').trim();
+        if (!raw || localTexts.has(raw)) return;
+        // Parse [title] prefix stored by the sync handler: "[title] text"
+        let noteTitle = '';
+        let noteText  = raw;
+        const titleMatch = raw.match(/^\[(.+?)\]\s*([\s\S]*)$/);
+        if (titleMatch) {
+          noteTitle = titleMatch[1];
+          noteText  = titleMatch[2];
         }
+        draft.notes.push({
+          id: 'srv_' + n.note_id,
+          title: noteTitle,
+          text: noteText,
+          ts: n.created_at ? new Date(n.created_at).getTime() : Date.now(),
+          source: 'server',
+        });
       });
     }
+    if (!draft.evidence) draft.evidence = { before: [], after: [] };
+    ['before', 'after'].forEach((side) => {
+      if (!Array.isArray(draft.evidence[side])) draft.evidence[side] = [];
+      draft.evidence[side] = draft.evidence[side].filter((m) => m.source !== 'server');
+    });
+    if (wo.media && wo.media.length > 0) {
+      const localUrls = {
+        before: new Set(draft.evidence.before.map((m) => m.serverUrl).filter(Boolean)),
+        after:  new Set(draft.evidence.after .map((m) => m.serverUrl).filter(Boolean)),
+      };
+      wo.media.forEach((m) => {
+        const side = m.media_type === 'photo_before' ? 'before'
+                   : m.media_type === 'photo_after'  ? 'after'
+                   : null;
+        if (!side || !m.file_path) return;
+        if (localUrls[side].has(m.file_path)) return;
+        draft.evidence[side].push({
+          id: 'srv_' + m.media_id,
+          kind: 'image',
+          name: m.caption || ('image_' + m.media_id),
+          serverUrl: m.file_path,
+          state: 'synced',
+          source: 'server',
+        });
+      });
+    }
+
+    // Hydrate server time logs + sign-off into draft so checklist auto-rows match DB after resolve/reload.
+    mergeServerStateIntoDraft({
+      success: true,
+      time_logs: wo.time_logs || [],
+      signoff:
+        wo.signoff &&
+        ((wo.signoff.signature_path && wo.signoff.signature_path !== 'data:inline') ||
+          String(wo.signoff.signer_name || '').trim())
+          ? {
+              signer_name: wo.signoff.signer_name || '',
+              signature_path: wo.signoff.signature_path || '',
+              satisfaction:
+                wo.signoff.satisfaction != null && wo.signoff.satisfaction !== ''
+                  ? parseInt(String(wo.signoff.satisfaction), 10)
+                  : null,
+              feedback: wo.signoff.feedback || '',
+            }
+          : null,
+      checklist: wo.checklist || [],
+    });
+
     // NOTE: Do NOT call saveDraft(draft) here on page load.
     // The draft starts empty by design. Saving here would overwrite the
     // localStorage draft with blank data, destroying everything Sync relies on.
@@ -1953,15 +2244,149 @@ function validateCompletion() {
     renderConfig();
     renderParts();
     renderSignoff();
+    renderRatingsTab();
     // Note: timerSeconds, timerRunning, timerInterval are declared at module scope (line 549-551)
     renderTimeLogs();
     updateTimerDisplay();
     applyReadOnlyState();
     updateCompletionBlocker();
     if (typeof updateCompletionBadges === 'function') updateCompletionBadges();
+
+    // For resolved/closed work orders, auto-fetch the latest server state so the
+    // technician sees their full work history without needing to click Sync.
+    if (isResolved && window.MRTS && window.MRTS.api) {
+      try {
+        const parsedWoId = parseInt(String(woId), 10);
+        if (parsedWoId > 0) {
+          const state = await window.MRTS.api(
+            'modules/technician/api/sync.php?action=get_state&wo_id=' + parsedWoId,
+            { method: 'GET' }
+          );
+          if (state && state.success) {
+            // Seed safety from server
+            if (Array.isArray(state.safety) && state.safety.length > 0) {
+              state.safety.forEach((s) => {
+                const key = String(s.id || s.safety_id || 0);
+                draft.safety[key] = !!(s.is_done === true || s.is_done === 1 || s.is_done === '1');
+              });
+            }
+            // Seed checklist from server
+            if (Array.isArray(state.checklist) && state.checklist.length > 0) {
+              state.checklist.forEach((item) => {
+                draft.checklist[item.id] = !!(item.is_done === true || item.is_done === 1 || item.is_done === '1');
+              });
+            }
+            // Merge signoff + time logs
+            mergeServerStateIntoDraft(state);
+            // Re-render with fresh data
+            renderSafety();
+            renderChecklist();
+            renderTimeLogs();
+            renderSignoff();
+            renderRatingsTab();
+            if (typeof updateCompletionBadges === 'function') updateCompletionBadges();
+          }
+        }
+      } catch (e) {
+        console.warn('[v0] Auto-sync for resolved WO failed:', e);
+      }
+    }
   }
 
+  /** Repair legacy/half-filled signature_save rows before POST (DOM + draft win over stale queue data). */
+  window.enrichOfflineQueueBeforeSync = function (queueItems) {
+    if (!Array.isArray(queueItems)) return queueItems;
+    const wid = parseInt(String(woId), 10);
+    const selectedOption = els.signatorySelect && els.signatorySelect.selectedOptions[0];
+    const name = (selectedOption && selectedOption.dataset.name ? selectedOption.dataset.name : '').trim()
+      || String(draft.signoff.signerName || '').trim();
+    const userIdVal = (selectedOption && selectedOption.value) ? parseInt(selectedOption.value, 10) : (draft.signoff.signatoryUserId || null);
+    const sigUrl = draft.signoff.signatureDataUrl || '';
+    return queueItems.map((it) => {
+      const actionType = it.type || it.action || '';
+      if (actionType !== 'signature_save') return it;
+      const data = { ...(it.data || {}) };
+      if (name) data.signer_name = name;
+      if (userIdVal) data.signed_by_user_id = userIdVal;
+      if (sigUrl && !String(data.signature_data_url || '').trim()) data.signature_data_url = sigUrl;
+      let workOrderId = it.workOrderId ?? it.wo_id;
+      const n = parseInt(String(workOrderId), 10);
+      if (n > 0) workOrderId = n;
+      else if (wid > 0) workOrderId = wid;
+      const meta = { ...(it.meta || {}) };
+      if (meta.hasBlob && !meta.blobId) delete meta.hasBlob;
+      return { ...it, workOrderId, data, meta };
+    });
+  };
+
   load();
+
+  /** Merge GET get_state payload into live draft + wo checklist flags (after sync push). */
+  function mergeServerStateIntoDraft(state) {
+    if (!state || !state.success) return;
+
+    if (Array.isArray(state.time_logs) && state.time_logs.length) {
+      const serverStops = state.time_logs.filter((r) => (r.action || '') === 'stop');
+      const keyOf = (l) =>
+        `${l.labor_type || 'other'}|${l.elapsed_ms}|${l.created_at_display || ''}|${String(l.id || '')}`;
+      const fromServer = serverStops.map((row) => {
+        const elapsed = parseInt(row.elapsed_ms, 10) || 0;
+        const logId = row.log_id != null ? row.log_id : row.id;
+        return {
+          id: logId != null ? `srv_${logId}` : `srv_ms_${elapsed}_${row.logged_at || ''}`,
+          labor_type: row.labor_type || 'other',
+          elapsed_ms: elapsed,
+          elapsed_display: window.MRTS.fmtTime(elapsed),
+          created_at: row.logged_at
+            ? new Date(String(row.logged_at).replace(' ', 'T')).toISOString()
+            : new Date().toISOString(),
+          created_at_display: row.logged_at || '',
+          status: 'synced',
+          source: 'server',
+        };
+      });
+      const serverKeys = new Set(fromServer.map(keyOf));
+      const locals = draft.time_logs || [];
+      const merged = fromServer.slice();
+      for (const loc of locals) {
+        if (String(loc.id || '').startsWith('srv_')) {
+          if (!merged.some((m) => m.id === loc.id)) merged.push(loc);
+          continue;
+        }
+        if (!serverKeys.has(keyOf(loc))) merged.push(loc);
+      }
+      draft.time_logs = merged;
+    }
+
+    // Merge signoff — handle both signature updates and rating-only updates
+    if (state.signoff) {
+      // Update signature fields if present
+      if (state.signoff.signer_name) draft.signoff.signerName = state.signoff.signer_name;
+      if (state.signoff.signed_by_user_id) draft.signoff.signatoryUserId = state.signoff.signed_by_user_id;
+      const p = state.signoff.signature_path || '';
+      if (p && p !== 'data:inline') draft.signoff.signatureDataUrl = p;
+
+      // Always update wo.signoff with latest satisfaction + feedback from server
+      // so renderRatingsTab() shows the requester's rating after Sync
+      if (wo) {
+        if (!wo.signoff) wo.signoff = {};
+        wo.signoff.satisfaction = state.signoff.satisfaction != null
+          ? (parseInt(String(state.signoff.satisfaction), 10) || null)
+          : wo.signoff.satisfaction;
+        wo.signoff.feedback = state.signoff.feedback != null
+          ? state.signoff.feedback
+          : wo.signoff.feedback;
+      }
+      renderRatingsTab();
+    }
+
+    if (wo && Array.isArray(state.checklist) && wo.checklist && wo.checklist.length) {      const byId = new Map(state.checklist.map((it) => [it.id, it]));
+      wo.checklist.forEach((item) => {
+        const st = byId.get(item.id);
+        if (st) item.is_done = !!(st.is_done === true || st.is_done === 1 || st.is_done === '1');
+      });
+    }
+  }
 
   // Called when the user clicks Sync. Restores the previously saved draft
   // from localStorage and re-renders all UI sections so the technician
@@ -1978,6 +2403,22 @@ function validateCompletion() {
     // Step 2: Assign to the live draft variable
     draft = stored;
 
+    const parsedWoId = parseInt(String(woId), 10);
+    if (parsedWoId > 0 && window.MRTS && window.MRTS.api && window.MRTS.offline && window.MRTS.offline.isReallyOnline) {
+      try {
+        if (await window.MRTS.offline.isReallyOnline()) {
+          const state = await window.MRTS.api(
+            'modules/technician/api/sync.php?action=get_state&wo_id=' + parsedWoId,
+            { method: 'GET' }
+          );
+          mergeServerStateIntoDraft(state);
+          saveDraft(draft);
+        }
+      } catch (e) {
+        console.warn('[v0] restoreSyncedDraft: get_state failed', e);
+      }
+    }
+
     // Step 3: Migrate any old Base64 dataURLs to IndexedDB blobs
     if (!migrationDone) {
       draft = await migrateDraftToIndexedDB(draft);
@@ -1989,9 +2430,9 @@ function validateCompletion() {
     // Items the user DID interact with are already in the draft and kept as-is.
     if (wo && wo.safety) {
       wo.safety.forEach((item) => {
-        // Prioritize server status if local draft is missing or false
-        if (!draft.safety[item.id]) {
-          draft.safety[item.id] = (item.is_done === true || item.is_done === 1 || item.is_done === "1");
+        const key = String(item.id || item.safety_id || 0);
+        if (!draft.safety[key]) {
+          draft.safety[key] = (item.is_done === true || item.is_done === 1 || item.is_done === "1");
         }
       });
     }
@@ -2001,6 +2442,56 @@ function validateCompletion() {
         if (!draft.checklist[item.id]) {
           draft.checklist[item.id] = (item.is_done === true || item.is_done === 1 || item.is_done === "1");
         }
+      });
+    }
+
+    // Hydrate notes and before/after photos from server (same as load())
+    draft.notes = (draft.notes || []).filter((n) => n.source !== 'server');
+    if (wo && wo.notes && wo.notes.length > 0) {
+      const localTexts = new Set(draft.notes.map((n) => (n.text || '').trim()));
+      wo.notes.forEach((n) => {
+        const raw = (n.note_text || '').trim();
+        if (!raw || localTexts.has(raw)) return;
+        let noteTitle = '';
+        let noteText  = raw;
+        const titleMatch = raw.match(/^\[(.+?)\]\s*([\s\S]*)$/);
+        if (titleMatch) {
+          noteTitle = titleMatch[1];
+          noteText  = titleMatch[2];
+        }
+        draft.notes.push({
+          id: 'srv_' + n.note_id,
+          title: noteTitle,
+          text: noteText,
+          ts: n.created_at ? new Date(n.created_at).getTime() : Date.now(),
+          source: 'server',
+        });
+      });
+    }
+    if (!draft.evidence) draft.evidence = { before: [], after: [] };
+    ['before', 'after'].forEach((side) => {
+      if (!Array.isArray(draft.evidence[side])) draft.evidence[side] = [];
+      draft.evidence[side] = draft.evidence[side].filter((m) => m.source !== 'server');
+    });
+    if (wo && wo.media && wo.media.length > 0) {
+      const localUrls = {
+        before: new Set(draft.evidence.before.map((m) => m.serverUrl).filter(Boolean)),
+        after:  new Set(draft.evidence.after .map((m) => m.serverUrl).filter(Boolean)),
+      };
+      wo.media.forEach((m) => {
+        const side = m.media_type === 'photo_before' ? 'before'
+                   : m.media_type === 'photo_after'  ? 'after'
+                   : null;
+        if (!side || !m.file_path) return;
+        if (localUrls[side].has(m.file_path)) return;
+        draft.evidence[side].push({
+          id: 'srv_' + m.media_id,
+          kind: 'image',
+          name: m.caption || ('image_' + m.media_id),
+          serverUrl: m.file_path,
+          state: 'synced',
+          source: 'server',
+        });
       });
     }
 
@@ -2041,6 +2532,7 @@ function validateCompletion() {
     renderConfig();
     renderParts();
     renderSignoff();
+    renderRatingsTab();
     renderTimeLogs();
     updateTimerDisplay();
     updateCompletionBlocker();
@@ -2068,4 +2560,45 @@ function validateCompletion() {
     getDraft: () => draft
   };
   console.log('[v0] Timer debug utilities available at window.timerDebug');
+
+  // ── Queue sanitizer ──────────────────────────────────────────
+  // Remove stale malformed queue items that can never succeed.
+  // Runs once on page load so they don't block the Complete flow.
+  (function sanitizeQueue() {
+    try {
+      const LS_KEY = 'mrtsp.queue.v1';
+      const raw = JSON.parse(localStorage.getItem(LS_KEY) || '[]');
+      if (!Array.isArray(raw) || !raw.length) return;
+
+      const clean = raw.filter((item) => {
+        const type = item.type || item.action || '';
+        const data = item.data || {};
+        const wid  = parseInt(String(item.workOrderId || item.wo_id || 0), 10);
+
+        // Drop items with no valid work order ID
+        if (!wid) return false;
+
+        // Drop safety_update with safetyId = 0 or undefined
+        if (type === 'safety_update') {
+          const sid = parseInt(String(data.safetyId || data.safety_id || data.id || 0), 10);
+          if (!sid) return false;
+        }
+
+        // Drop checklist_update with itemId = 0 or undefined
+        if (type === 'checklist_update') {
+          const iid = parseInt(String(data.itemId || data.item_id || data.id || 0), 10);
+          if (!iid) return false;
+        }
+
+        return true;
+      });
+
+      if (clean.length !== raw.length) {
+        localStorage.setItem(LS_KEY, JSON.stringify(clean));
+        console.log('[v0] Queue sanitizer: removed', raw.length - clean.length, 'malformed item(s)');
+      }
+    } catch (e) {
+      console.warn('[v0] Queue sanitizer failed:', e);
+    }
+  })();
 });

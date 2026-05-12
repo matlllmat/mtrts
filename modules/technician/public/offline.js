@@ -32,6 +32,11 @@
 
   function queueCount() { return loadQueue().length; }
 
+  function clearQueue() {
+    saveQueue([]);
+    console.log('[v0] Offline queue cleared.');
+  }
+
   async function isReallyOnline() {
     if (!navigator.onLine) return false;
     try {
@@ -69,114 +74,118 @@
   }
 
   async function syncNow() {
-    const items = loadQueue();
+    let items = loadQueue();
     if (!items.length) return { ok: true, results: [], conflicts: [] };
+    if (typeof window.enrichOfflineQueueBeforeSync === 'function') {
+      try {
+        items = window.enrichOfflineQueueBeforeSync(items) || items;
+      } catch (e) {
+        console.warn('[v0] enrichOfflineQueueBeforeSync failed:', e);
+      }
+    }
     await ensureAuditHashes(items);
 
-    // Collect all items that have blobs
-    const itemsWithBlobs = items.filter((it) => it.meta && it.meta.hasBlob);
-    
-    // Build FormData payload with blobs if needed
-    let fetchOptions = { method: 'POST' };
-    
-    if (itemsWithBlobs.length > 0 && window.MRTS.idbStorage) {
-      const formData = new FormData();
-      
-      // Process each item with its blob separately for evidence/config
-      for (const item of items) {
-        // Use correct property names - type instead of action, workOrderId instead of wo_id
-        const actionType = item.type || item.action || '';
-        const woId = item.workOrderId || item.wo_id || '';
-        
-        if (actionType === 'evidence_add' && item.meta && item.meta.blobId) {
-          try {
-            // Get blob from IndexedDB
-            const blobRecord = await window.MRTS.idbStorage.getBlob(item.meta.blobId);
-            if (blobRecord && blobRecord.blob) {
-              // Append item data
-              formData.append(`item_${item.id}_action`, actionType);
-              formData.append(`item_${item.id}_wo_id`, woId);
-              formData.append(`item_${item.id}_side`, item.data.side || '');
-              formData.append(`item_${item.id}_kind`, item.data.kind || 'image');
-              formData.append(`item_${item.id}_name`, item.data.name || blobRecord.fileName || '');
-              // Append the actual blob file
-              formData.append(`item_${item.id}_file`, blobRecord.blob, blobRecord.fileName);
-            } else {
-              console.warn('[v0] Blob record not found for evidence:', item.meta.blobId);
-            }
-          } catch (e) {
-            console.error('[v0] Failed to attach evidence blob for sync:', e);
+    const allResults = [];
+    const allErrors  = [];
+
+    // ── Step 1: Upload blob items one at a time ──────────────────
+    // Each blob (evidence/config) is sent as its own FormData POST so a
+    // single large file never causes the entire batch to exceed post_max_size.
+    const blobItems    = items.filter((it) => it.meta && it.meta.hasBlob && it.meta.blobId);
+    const nonBlobItems = items.filter((it) => !(it.meta && it.meta.hasBlob && it.meta.blobId));
+
+    for (const item of blobItems) {
+      const actionType = item.type || item.action || '';
+      const woId = item.workOrderId || item.wo_id || '';
+
+      try {
+        const blobRecord = await window.MRTS.idbStorage.getBlob(item.meta.blobId);
+        if (!blobRecord || !blobRecord.blob) {
+          console.warn('[v0] Blob record not found, skipping:', item.meta.blobId);
+          // Mark as synced so it doesn't block the queue forever
+          markSynced([item.id]);
+          allResults.push({ id: item.id, ok: true, action: actionType });
+          continue;
+        }
+
+        const formData = new FormData();
+        formData.append(`item_${item.id}_action`, actionType);
+        formData.append(`item_${item.id}_wo_id`, woId);
+
+        if (actionType === 'evidence_add') {
+          formData.append(`item_${item.id}_side`, item.data.side || '');
+          formData.append(`item_${item.id}_kind`, item.data.kind || 'image');
+          formData.append(`item_${item.id}_name`, item.data.name || blobRecord.fileName || '');
+          formData.append(`item_${item.id}_file`, blobRecord.blob, blobRecord.fileName);
+        } else if (actionType === 'config_add') {
+          formData.append(`item_${item.id}_name`, item.data.name || blobRecord.fileName || '');
+          formData.append(`item_${item.id}_file`, blobRecord.blob, blobRecord.fileName);
+        }
+
+        const data = await window.MRTS.api('/modules/technician/api/sync.php', {
+          method: 'POST',
+          body: formData,
+        });
+
+        const result = (data.results || [])[0] || { id: item.id, ok: true, action: actionType };
+        allResults.push(result);
+
+        if (result.ok) {
+          markSynced([item.id]);
+          if (result.serverUrl && typeof window.updateDraftItemAfterSync === 'function') {
+            window.updateDraftItemAfterSync(item.id, actionType, result.serverUrl);
           }
-        } else if (actionType === 'config_add' && item.meta && item.meta.blobId) {
-          try {
-            // Get blob from IndexedDB
-            const blobRecord = await window.MRTS.idbStorage.getBlob(item.meta.blobId);
-            if (blobRecord && blobRecord.blob) {
-              // Append item data
-              formData.append(`item_${item.id}_action`, actionType);
-              formData.append(`item_${item.id}_wo_id`, woId);
-              formData.append(`item_${item.id}_name`, item.data.name || blobRecord.fileName || '');
-              // Append the actual blob file
-              formData.append(`item_${item.id}_file`, blobRecord.blob, blobRecord.fileName);
-            } else {
-              console.warn('[v0] Blob record not found for config:', item.meta.blobId);
-            }
-          } catch (e) {
-            console.error('[v0] Failed to attach config blob for sync:', e);
-          }
+          try { await window.MRTS.idbStorage.deleteBlob(item.meta.blobId); } catch {}
         } else {
-          // Non-blob actions, append as form fields
-          formData.append(`item_${item.id}_action`, actionType);
-          formData.append(`item_${item.id}_wo_id`, woId);
-          Object.keys(item.data || {}).forEach((k) => {
-            formData.append(`item_${item.id}_${k}`, item.data[k]);
-          });
+          allErrors.push(result);
+          if (typeof window.updateDraftItemError === 'function') {
+            window.updateDraftItemError(item.id, actionType, result.error || 'Sync failed');
+          }
+        }
+      } catch (e) {
+        console.error('[v0] Blob upload failed for item', item.id, e);
+        allErrors.push({ id: item.id, ok: false, action: actionType, error: e.message });
+        if (typeof window.updateDraftItemError === 'function') {
+          window.updateDraftItemError(item.id, actionType, e.message || 'Upload failed');
         }
       }
-      
-      fetchOptions.body = formData;
-      // Don't set Content-Type header; fetch will set it with boundary
-    } else {
-      // No blobs, use JSON
-      const payload = { items };
-      fetchOptions.body = JSON.stringify(payload);
-      fetchOptions.headers = { 'Content-Type': 'application/json' };
     }
 
-    const data = await window.MRTS.api('/modules/technician/api/sync.php', fetchOptions);
-    const results = data.results || [];
-    
-    // Process results and update draft state
-    const okIds = [];
-    const errorResults = [];
-    
-    for (const result of results) {
-      if (result.ok) {
-        okIds.push(result.id);
-        // Update draft item with serverUrl if available
-        if (result.serverUrl && typeof window.updateDraftItemAfterSync === 'function') {
-          window.updateDraftItemAfterSync(result.id, result.action, result.serverUrl);
-        }
-        // Clean up blob from IndexedDB after successful sync
-        const item = items.find((i) => i.id === result.id);
-        if (item && item.meta && item.meta.blobId) {
-          try {
-            await window.MRTS.idbStorage.deleteBlob(item.meta.blobId);
-          } catch (e) {
-            console.warn('[v0] Failed to clean up blob after sync:', e);
+    // ── Step 2: Send all non-blob items as a single JSON batch ───
+    if (nonBlobItems.length > 0) {
+      try {
+        const payload = { items: nonBlobItems };
+        const data = await window.MRTS.api('/modules/technician/api/sync.php', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+          headers: { 'Content-Type': 'application/json' },
+        });
+
+        const results = data.results || [];
+        const okIds = [];
+
+        for (const result of results) {
+          allResults.push(result);
+          if (result.ok) {
+            okIds.push(result.id);
+            if (result.serverUrl && typeof window.updateDraftItemAfterSync === 'function') {
+              window.updateDraftItemAfterSync(result.id, result.action, result.serverUrl);
+            }
+          } else {
+            allErrors.push(result);
+            if (typeof window.updateDraftItemError === 'function') {
+              window.updateDraftItemError(result.id, result.action, result.error || 'Sync failed');
+            }
           }
         }
-      } else {
-        errorResults.push(result);
-        // Update draft item with error state if handler exists
-        if (typeof window.updateDraftItemError === 'function') {
-          window.updateDraftItemError(result.id, result.action, result.error || 'Sync failed');
-        }
+        markSynced(okIds);
+      } catch (e) {
+        console.error('[v0] Non-blob batch sync failed:', e);
+        allErrors.push({ ok: false, error: e.message });
       }
     }
-    
-    markSynced(okIds);
-    return { ok: true, results, conflicts: data.conflicts || [], errors: errorResults };
+
+    return { ok: true, results: allResults, conflicts: [], errors: allErrors };
   }
 
   function cacheSet(key, value) {
@@ -215,12 +224,18 @@
           if (!online) throw new Error('You are offline');
           const result = await syncNow();
           if (result.conflicts.length) {
-            alert(`Sync completed with ${result.conflicts.length} conflict(s) (prototype simulation).`);
+            (window.MRTS && window.MRTS.modal
+              ? window.MRTS.modal.toast(`Sync completed with ${result.conflicts.length} conflict(s).`, { type: 'warning' })
+              : alert(`Sync completed with ${result.conflicts.length} conflict(s) (prototype simulation).`));
           } else {
-            alert('Sync complete');
+            (window.MRTS && window.MRTS.modal
+              ? window.MRTS.modal.toast('Sync complete', { type: 'success' })
+              : alert('Sync complete'));
           }
         } catch (e) {
-          alert(e.message || 'Sync failed');
+          (window.MRTS && window.MRTS.modal
+            ? window.MRTS.modal.toast(e.message || 'Sync failed', { type: 'error' })
+            : alert(e.message || 'Sync failed'));
         } finally {
           btn.disabled = false;
           btn.textContent = 'Sync';
@@ -261,6 +276,7 @@
     cacheGet,
     queueAction,
     queueCount,
+    clearQueue,
     syncNow,
     isReallyOnline,
     wireGlobal,

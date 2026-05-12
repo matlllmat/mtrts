@@ -43,7 +43,7 @@ if (!empty($wo['assigned_to'])) {
 $queue_role_id = (int)($wo['assigned_role_id'] ?? 0);
 // Allow technicians to claim work orders if:
 // 1. They are admin, OR
-// 2. The work order is assigned to their specific role, OR  
+// 2. The work order is assigned to their specific role, OR
 // 3. The work order is not assigned to any role (unassigned queue)
 if (!$is_admin && $queue_role_id > 0 && $queue_role_id !== $role_id) {
     echo json_encode(['success' => false, 'message' => 'You cannot claim this queue']);
@@ -80,4 +80,3 @@ try {
     if ($pdo->inTransaction()) $pdo->rollBack();
     echo json_encode(['success' => false, 'message' => 'Server error']);
 }
-

@@ -122,9 +122,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // FormData or URL-encoded payload
         $payload = $_POST;
         $action = $_POST['action'] ?? '';
-        
-        if (empty($action) && isset($_POST['items']) && is_array($_POST['items'])) {
-            $action = 'batch_sync';
+
+        if (empty($action)) {
+            // Multipart batch sync uses individual fields like item_<id>_action,
+            // not a top-level items[] array. Detect that pattern explicitly.
+            foreach ($_POST as $key => $_) {
+                if (preg_match('/^item_.+?_action$/', $key)) {
+                    $action = 'batch_sync';
+                    break;
+                }
+            }
         }
     }
 }
@@ -143,6 +150,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $media        = get_work_order_media($pdo, $wo_id);
             $parts        = get_work_order_parts($pdo, $wo_id);
             $time_logs    = get_time_logs($pdo, $wo_id);
+            $signoff      = get_work_order_signoff($pdo, $wo_id);
 
             // Normalise checklist items to the same shape workorder.js expects
             $checklist_out = array_map(fn($item) => [
@@ -160,6 +168,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 'is_done'   => (bool)($s['is_done'] ?? false),
             ], $safety ?? []);
 
+            $signoff_out = null;
+            if ($signoff) {
+                $signoff_out = [
+                    'signer_name'        => $signoff['signer_name'] ?? '',
+                    'signature_path'     => $signoff['signature_path'] ?? '',
+                    'satisfaction'       => isset($signoff['satisfaction']) ? (int)$signoff['satisfaction'] : null,
+                    'feedback'           => $signoff['feedback'] ?? '',
+                    'signed_by_user_id'  => isset($signoff['signed_by_user_id']) ? (int)$signoff['signed_by_user_id'] : null,
+                ];
+            }
             echo json_encode([
                 'success'    => true,
                 'wo_id'      => $wo_id,
@@ -169,6 +187,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 'media'      => $media ?? [],
                 'parts'      => $parts ?? [],
                 'time_logs'  => $time_logs ?? [],
+                'signoff'    => $signoff_out,
             ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         } catch (Throwable $e) {
             http_response_code(500);
@@ -205,8 +224,8 @@ switch ($action) {
                     $results[] = ['id' => $itemId, 'ok' => false, 'action' => $itemAction, 'error' => 'Missing wo_id or itemId'];
                 }
             } elseif ($itemAction === 'safety_update') {
-                $safetyId = (int)($data['safetyId'] ?? 0);
-                $completed = (bool)($data['completed'] ?? false);
+                $safetyId = (int)($data['safetyId'] ?? $data['safety_id'] ?? $data['id'] ?? 0);
+                $completed = (bool)($data['completed'] ?? $data['is_done'] ?? false);
                 if ($woId && $safetyId) {
                     update_safety_completion($pdo, $woId, $safetyId, $completed);
                     $results[] = ['id' => $itemId, 'ok' => true, 'action' => $itemAction];
@@ -214,9 +233,11 @@ switch ($action) {
                     $results[] = ['id' => $itemId, 'ok' => false, 'action' => $itemAction, 'error' => 'Missing wo_id or safetyId'];
                 }
             } elseif ($itemAction === 'note_add') {
-                $noteText = trim($data['text'] ?? '');
-                if ($woId && $noteText) {
-                    add_work_order_note($pdo, $woId, $noteText, false);
+                $noteText  = trim($data['text'] ?? '');
+                $noteTitle = trim($data['title'] ?? '');
+                $fullText  = $noteTitle !== '' ? "[{$noteTitle}] {$noteText}" : $noteText;
+                if ($woId && $fullText) {
+                    add_work_order_note($pdo, $woId, $fullText, false);
                     $results[] = ['id' => $itemId, 'ok' => true, 'action' => $itemAction];
                 } else {
                     $results[] = ['id' => $itemId, 'ok' => false, 'action' => $itemAction, 'error' => 'Missing wo_id or text'];
@@ -236,39 +257,160 @@ switch ($action) {
                 }
             } elseif ($itemAction === 'time_start') {
                 if ($woId > 0) {
-                    save_time_log($pdo, $woId, (int)($_SESSION['user_id'] ?? 0), 'start');
-                    update_work_order_status($pdo, $woId, 'in_progress');
+                    $labor_type = trim((string)($data['labor_type'] ?? '')) ?: null;
+                    save_time_log($pdo, $woId, (int)($_SESSION['user_id'] ?? 0), 'start', $labor_type);
+                    // Only set in_progress if not already resolved/closed
+                    $cur = $pdo->prepare("SELECT status FROM work_orders WHERE wo_id = ?");
+                    $cur->execute([$woId]);
+                    $curStatus = $cur->fetchColumn();
+                    if (!in_array($curStatus, ['resolved', 'closed'])) {
+                        update_work_order_status($pdo, $woId, 'in_progress');
+                    }
                     $results[] = ['id' => $itemId, 'ok' => true, 'action' => $itemAction];
+                } else {
+                    $results[] = ['id' => $itemId, 'ok' => false, 'action' => $itemAction, 'error' => 'Missing wo_id'];
                 }
             } elseif ($itemAction === 'time_pause') {
                 if ($woId > 0) {
                     save_time_log($pdo, $woId, (int)($_SESSION['user_id'] ?? 0), 'pause');
                     $results[] = ['id' => $itemId, 'ok' => true, 'action' => $itemAction];
+                } else {
+                    $results[] = ['id' => $itemId, 'ok' => false, 'action' => $itemAction, 'error' => 'Missing wo_id'];
                 }
             } elseif ($itemAction === 'time_resume') {
                 if ($woId > 0) {
                     save_time_log($pdo, $woId, (int)($_SESSION['user_id'] ?? 0), 'resume');
                     $results[] = ['id' => $itemId, 'ok' => true, 'action' => $itemAction];
+                } else {
+                    $results[] = ['id' => $itemId, 'ok' => false, 'action' => $itemAction, 'error' => 'Missing wo_id'];
                 }
-            } else {
-                // Other actions - acknowledge without specific handling
+            } elseif ($itemAction === 'time_stop') {
+                $elapsed_ms = (int)($data['total_elapsed_ms'] ?? 0);
+                $labor_type = trim((string)($data['labor_type'] ?? ''));
+                $labor_type = $labor_type !== '' ? $labor_type : null;
+                if ($woId > 0 && $elapsed_ms > 0) {
+                    $stmt = $pdo->prepare("
+                        INSERT INTO wo_time_logs (wo_id, technician_id, action, labor_type, elapsed_ms, notes, logged_at)
+                        VALUES (?, ?, 'stop', ?, ?, 'Time segment saved', NOW())
+                    ");
+                    $stmt->execute([
+                        $woId,
+                        (int)($_SESSION['user_id'] ?? 0),
+                        $labor_type,
+                        $elapsed_ms,
+                    ]);
+                    $results[] = ['id' => $itemId, 'ok' => true, 'action' => $itemAction];
+                } else {
+                    $results[] = ['id' => $itemId, 'ok' => false, 'action' => $itemAction, 'error' => 'Missing wo_id or total_elapsed_ms'];
+                }
+            } elseif ($itemAction === 'signature_save') {
+                $signer_name = trim((string)($data['signer_name'] ?? ''));
+                $sig_url      = trim((string)($data['signature_data_url'] ?? ''));
+                $satisfaction = isset($data['signer_satisfaction']) ? (int)$data['signer_satisfaction'] : null;
+                if ($satisfaction !== null && $satisfaction <= 0) {
+                    $satisfaction = null;
+                }
+                $feedback = trim((string)($data['signer_feedback'] ?? $data['feedback'] ?? ''));
+                if ($woId <= 0 || $signer_name === '') {
+                    $results[] = ['id' => $itemId, 'ok' => false, 'action' => $itemAction, 'error' => 'Missing wo_id or signer_name'];
+                } elseif ($sig_url === '') {
+                    $results[] = ['id' => $itemId, 'ok' => false, 'action' => $itemAction, 'error' => 'Missing signature_data_url'];
+                } else {
+                    $signature_path = persist_technician_signature_from_data_url($woId, $sig_url);
+                    if ($signature_path === 'data:inline') {
+                        $results[] = ['id' => $itemId, 'ok' => false, 'action' => $itemAction, 'error' => 'Invalid or empty signature image'];
+                    } else {
+                        upsert_work_order_signoff($pdo, $woId, $signer_name, $signature_path, $satisfaction, $feedback !== '' ? $feedback : null);
+                        $results[] = ['id' => $itemId, 'ok' => true, 'action' => $itemAction, 'serverUrl' => $signature_path];
+                    }
+                }
+            } elseif ($itemAction === 'part_add') {
+                $partKey  = trim((string)($data['partNumber'] ?? ''));
+                $qty      = (int)($data['qty'] ?? 1);
+                $serial   = trim((string)($data['serial'] ?? ''));
+                $category = trim((string)($data['category'] ?? ''));
+
+                if ($woId <= 0 || $partKey === '' || $qty <= 0) {
+                    $results[] = ['id' => $itemId, 'ok' => false, 'action' => $itemAction, 'error' => 'Missing wo_id, partNumber or qty'];
+                } elseif ($category === 'manual') {
+                    // Manual free-text entry — try to match inventory, but always acknowledge.
+                    // These are informational entries typed by the technician.
+                    $look = $pdo->prepare("
+                        SELECT part_id FROM parts_inventory
+                        WHERE is_active = 1 AND (part_number = ? OR part_name = ?)
+                        LIMIT 1
+                    ");
+                    $look->execute([$partKey, $partKey]);
+                    $part = $look->fetch();
+                    if ($part) {
+                        try {
+                            $info = save_work_order_part($pdo, $woId, (int)$part['part_id'], $qty, $serial ?: null);
+                            $results[] = ['id' => $itemId, 'ok' => true, 'action' => $itemAction, 'usage_id' => $info['usage_id']];
+                        } catch (Throwable $e) {
+                            // Still acknowledge — manual entries are best-effort
+                            $results[] = ['id' => $itemId, 'ok' => true, 'action' => $itemAction];
+                        }
+                    } else {
+                        // Part not in inventory — acknowledge without DB insert
+                        $results[] = ['id' => $itemId, 'ok' => true, 'action' => $itemAction];
+                    }
+                } else {
+                    $look = $pdo->prepare("
+                        SELECT part_id FROM parts_inventory
+                        WHERE is_active = 1 AND (part_number = ? OR part_name = ?)
+                        LIMIT 1
+                    ");
+                    $look->execute([$partKey, $partKey]);
+                    $part = $look->fetch();
+
+                    // Fuzzy fallback: normalize µ→u and try again
+                    if (!$part) {
+                        $partKeyNorm = str_replace(['µ', 'μ', 'Ω', 'ω'], ['u', 'u', 'Ohm', 'Ohm'], $partKey);
+                        if ($partKeyNorm !== $partKey) {
+                            $look->execute([$partKeyNorm, $partKeyNorm]);
+                            $part = $look->fetch();
+                        }
+                    }
+
+                    if (!$part) {
+                        $results[] = ['id' => $itemId, 'ok' => false, 'action' => $itemAction, 'error' => "Part '$partKey' not found"];
+                    } else {
+                        try {
+                            $info = save_work_order_part($pdo, $woId, (int)$part['part_id'], $qty, $serial ?: null);
+                            $results[] = ['id' => $itemId, 'ok' => true, 'action' => $itemAction, 'usage_id' => $info['usage_id'], 'current_stock' => $info['current_stock']];
+                        } catch (Throwable $e) {
+                            $results[] = ['id' => $itemId, 'ok' => false, 'action' => $itemAction, 'error' => $e->getMessage()];
+                        }
+                    }
+                }
+            } elseif ($itemAction === 'note_remove' || $itemAction === 'evidence_remove' || $itemAction === 'config_remove'
+                || $itemAction === 'signature_clear' || $itemAction === 'draft_save'
+                || $itemAction === 'time_log_remove' || $itemAction === 'part_remove') {
+                // Client-side draft management — no server state to change, just acknowledge.
                 $results[] = ['id' => $itemId, 'ok' => true, 'action' => $itemAction];
+            } else {
+                // Truly unknown action — surface as error rather than silent OK so the
+                // queue item is retained for inspection instead of being marked synced.
+                $results[] = ['id' => $itemId, 'ok' => false, 'action' => $itemAction, 'error' => "Unknown action '$itemAction'"];
             }
         }
-        
+
         echo json_encode(['results' => $results, 'ok' => true]);
         exit;
 
     case 'batch_sync':
         // Handle multipart FormData batch sync for evidence/config files with blobs
         $results = [];
-        
-        // Find all item_* fields and group by item ID
+
+        // The JS uses uids like `q_<ms>_<rand>`, so the field key looks like
+        // `item_q_1778184154_abc123_action`. Anchor on the `_action` suffix to
+        // capture the full id; previously this used a non-greedy `.+?_` which
+        // collapsed every item into the first segment.
         $itemIds = [];
-        foreach ($_POST as $key => $value) {
-          if (preg_match('/^item_(.+?)_/', $key, $m)) {
-            $itemIds[$m[1]] = true;
-          }
+        foreach (array_keys($_POST) as $key) {
+            if (preg_match('/^item_(.+)_action$/', $key, $m)) {
+                $itemIds[$m[1]] = true;
+            }
         }
         
         foreach (array_keys($itemIds) as $itemId) {
@@ -374,9 +516,140 @@ switch ($action) {
             } else {
               $results[] = ['id' => $itemId, 'ok' => false, 'action' => $itemAction, 'error' => 'Missing wo_id or safetyId'];
             }
-          } else {
-            // Other actions - log and acknowledge
+          } elseif ($itemAction === 'note_add') {
+            $noteText = trim((string)($_POST["item_{$itemId}_text"] ?? ''));
+            if ($woId && $noteText !== '') {
+              add_work_order_note($pdo, $woId, $noteText, false);
+              $results[] = ['id' => $itemId, 'ok' => true, 'action' => $itemAction];
+            } else {
+              $results[] = ['id' => $itemId, 'ok' => false, 'action' => $itemAction, 'error' => 'Missing wo_id or text'];
+            }
+          } elseif ($itemAction === 'time_start') {
+            if ($woId > 0) {
+              save_time_log($pdo, $woId, (int)($_SESSION['user_id'] ?? 0), 'start');
+              update_work_order_status($pdo, $woId, 'in_progress');
+              $results[] = ['id' => $itemId, 'ok' => true, 'action' => $itemAction];
+            } else {
+              $results[] = ['id' => $itemId, 'ok' => false, 'action' => $itemAction, 'error' => 'Missing wo_id'];
+            }
+          } elseif ($itemAction === 'time_pause') {
+            if ($woId > 0) {
+              save_time_log($pdo, $woId, (int)($_SESSION['user_id'] ?? 0), 'pause');
+              $results[] = ['id' => $itemId, 'ok' => true, 'action' => $itemAction];
+            } else {
+              $results[] = ['id' => $itemId, 'ok' => false, 'action' => $itemAction, 'error' => 'Missing wo_id'];
+            }
+          } elseif ($itemAction === 'time_resume') {
+            if ($woId > 0) {
+              save_time_log($pdo, $woId, (int)($_SESSION['user_id'] ?? 0), 'resume');
+              $results[] = ['id' => $itemId, 'ok' => true, 'action' => $itemAction];
+            } else {
+              $results[] = ['id' => $itemId, 'ok' => false, 'action' => $itemAction, 'error' => 'Missing wo_id'];
+            }
+          } elseif ($itemAction === 'time_stop') {
+            $elapsed_ms = (int)($_POST["item_{$itemId}_total_elapsed_ms"] ?? 0);
+            $labor_type = trim((string)($_POST["item_{$itemId}_labor_type"] ?? ''));
+            $labor_type = $labor_type !== '' ? $labor_type : null;
+            if ($woId > 0 && $elapsed_ms > 0) {
+              $stmt = $pdo->prepare("
+                INSERT INTO wo_time_logs (wo_id, technician_id, action, labor_type, elapsed_ms, notes, logged_at)
+                VALUES (?, ?, 'stop', ?, ?, 'Time segment saved', NOW())
+              ");
+              $stmt->execute([
+                $woId,
+                (int)($_SESSION['user_id'] ?? 0),
+                $labor_type,
+                $elapsed_ms,
+              ]);
+              $results[] = ['id' => $itemId, 'ok' => true, 'action' => $itemAction];
+            } else {
+              $results[] = ['id' => $itemId, 'ok' => false, 'action' => $itemAction, 'error' => 'Missing wo_id or total_elapsed_ms'];
+            }
+          } elseif ($itemAction === 'signature_save') {
+            $signer_name = trim((string)($_POST["item_{$itemId}_signer_name"] ?? ''));
+            $sig_url      = trim((string)($_POST["item_{$itemId}_signature_data_url"] ?? ''));
+            $satisfaction = isset($_POST["item_{$itemId}_signer_satisfaction"]) ? (int)$_POST["item_{$itemId}_signer_satisfaction"] : null;
+            if ($satisfaction !== null && $satisfaction <= 0) {
+              $satisfaction = null;
+            }
+            $feedback = trim((string)($_POST["item_{$itemId}_signer_feedback"] ?? $_POST["item_{$itemId}_feedback"] ?? ''));
+            $signature_path = null;
+            $already_result = false;
+
+            if ($woId <= 0 || $signer_name === '') {
+              $results[] = ['id' => $itemId, 'ok' => false, 'action' => $itemAction, 'error' => 'Missing wo_id or signer_name'];
+              $already_result = true;
+            }
+
+            if (!$already_result && isset($_FILES["item_{$itemId}_file"]) && ($_FILES["item_{$itemId}_file"]['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK) {
+              $file = $_FILES["item_{$itemId}_file"];
+              $validation = validateUploadedFile($file, 'image');
+              if (!$validation['valid']) {
+                $results[] = ['id' => $itemId, 'ok' => false, 'action' => $itemAction, 'error' => $validation['error']];
+                $already_result = true;
+              } else {
+                $upload_dir = __DIR__ . '/../uploads/signatures/' . $woId . '/';
+                if (!is_dir($upload_dir)) {
+                  mkdir($upload_dir, 0755, true);
+                }
+                $ext = $validation['extension'];
+                $filename = 'signoff_' . time() . $ext;
+                $file_path = $upload_dir . $filename;
+                if (move_uploaded_file($file['tmp_name'], $file_path)) {
+                  $signature_path = rtrim(BASE_URL, '/') . '/modules/technician/uploads/signatures/' . $woId . '/' . $filename;
+                } else {
+                  $results[] = ['id' => $itemId, 'ok' => false, 'action' => $itemAction, 'error' => 'Signature upload failed'];
+                  $already_result = true;
+                }
+              }
+            } elseif (!$already_result && $sig_url !== '') {
+              $signature_path = persist_technician_signature_from_data_url($woId, $sig_url);
+              if ($signature_path === 'data:inline') {
+                $signature_path = null;
+              }
+            }
+
+            if (!$already_result) {
+              if ($signature_path === null || $signature_path === 'data:inline') {
+                $results[] = ['id' => $itemId, 'ok' => false, 'action' => $itemAction, 'error' => 'Missing signature image or invalid data'];
+              } else {
+                upsert_work_order_signoff($pdo, $woId, $signer_name, $signature_path, $satisfaction, $feedback !== '' ? $feedback : null);
+                $results[] = ['id' => $itemId, 'ok' => true, 'action' => $itemAction, 'serverUrl' => $signature_path];
+              }
+            }
+          } elseif ($itemAction === 'part_add') {
+            $partKey = trim((string)($_POST["item_{$itemId}_partNumber"] ?? ''));
+            $qty     = (int)($_POST["item_{$itemId}_qty"] ?? 1);
+            $serial  = trim((string)($_POST["item_{$itemId}_serial"] ?? ''));
+            if ($woId <= 0 || $partKey === '' || $qty <= 0) {
+              $results[] = ['id' => $itemId, 'ok' => false, 'action' => $itemAction, 'error' => 'Missing wo_id, partNumber or qty'];
+            } else {
+              $look = $pdo->prepare("
+                SELECT part_id FROM parts_inventory
+                WHERE is_active = 1 AND (part_number = ? OR part_name = ?)
+                LIMIT 1
+              ");
+              $look->execute([$partKey, $partKey]);
+              $part = $look->fetch();
+              if (!$part) {
+                $results[] = ['id' => $itemId, 'ok' => false, 'action' => $itemAction, 'error' => "Part '$partKey' not found"];
+              } else {
+                try {
+                  $info = save_work_order_part($pdo, $woId, (int)$part['part_id'], $qty, $serial ?: null);
+                  $results[] = ['id' => $itemId, 'ok' => true, 'action' => $itemAction, 'usage_id' => $info['usage_id']];
+                } catch (Throwable $e) {
+                  $results[] = ['id' => $itemId, 'ok' => false, 'action' => $itemAction, 'error' => $e->getMessage()];
+                }
+              }
+            }
+          } elseif ($itemAction === 'note_remove' || $itemAction === 'evidence_remove' || $itemAction === 'config_remove'
+            || $itemAction === 'signature_clear' || $itemAction === 'draft_save') {
+            // Draft-management actions: client-side only, server simply acknowledges.
             $results[] = ['id' => $itemId, 'ok' => true, 'action' => $itemAction];
+          } else {
+            // Truly unknown action — surface as error rather than silent OK so the
+            // queue item stays for retry/inspection instead of vanishing.
+            $results[] = ['id' => $itemId, 'ok' => false, 'action' => $itemAction, 'error' => "Unknown action '$itemAction'"];
           }
         }
         
@@ -464,20 +737,40 @@ switch ($action) {
         break;
 
     case 'part_add':
-        $wo_id = (int)($payload['wo_id'] ?? 0);
-        $part_number = trim($payload['partNumber'] ?? '');
+        $wo_id    = (int)($payload['wo_id'] ?? 0);
+        $partKey  = trim($payload['partNumber'] ?? '');
         $quantity = (int)($payload['qty'] ?? 1);
-        $serial = trim($payload['serial'] ?? '');
+        $serial   = trim($payload['serial'] ?? '');
 
-        // Find part by number
-        $stmt = $pdo->prepare("SELECT part_id FROM parts_inventory WHERE part_number = ?");
-        $stmt->execute([$part_number]);
+        if ($wo_id <= 0 || $partKey === '' || $quantity <= 0) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Missing wo_id, partNumber or qty']);
+            break;
+        }
+
+        $stmt = $pdo->prepare("
+            SELECT part_id FROM parts_inventory
+            WHERE is_active = 1 AND (part_number = ? OR part_name = ?)
+            LIMIT 1
+        ");
+        $stmt->execute([$partKey, $partKey]);
         $part = $stmt->fetch();
-        if ($part) {
-            save_work_order_part($pdo, $wo_id, $part['part_id'], $quantity, $serial ?: null);
-            echo json_encode(['success' => true]);
-        } else {
-            echo json_encode(['success' => false, 'message' => 'Part not found']);
+        if (!$part) {
+            echo json_encode(['success' => false, 'message' => "Part '$partKey' not found"]);
+            break;
+        }
+
+        try {
+            $info = save_work_order_part($pdo, $wo_id, (int)$part['part_id'], $quantity, $serial ?: null);
+            echo json_encode([
+                'success'         => true,
+                'usage_id'        => $info['usage_id'],
+                'current_stock'   => $info['current_stock'],
+                'reorder_level'   => $info['reorder_level'],
+                'low_stock_alert' => $info['low_stock_alert'],
+            ]);
+        } catch (Throwable $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }
         break;
 

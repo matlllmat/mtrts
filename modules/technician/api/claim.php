@@ -1,12 +1,11 @@
 <?php
-// modules/technician/claim.php — Claim/take a queued work order.
+// modules/technician/api/claim.php — Claim/take a queued work order.
 // POST: wo_id
 // JSON: {success:bool, message?:string}
 
 $module = 'technician';
 require_once __DIR__ . '/../../../config/auth_only.php';
 require_once __DIR__ . '/../functions.php';
-require_once __DIR__ . '/../../workorders/functions.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -44,7 +43,7 @@ if (!empty($wo['assigned_to'])) {
 $queue_role_id = (int)($wo['assigned_role_id'] ?? 0);
 // Allow technicians to claim work orders if:
 // 1. They are admin, OR
-// 2. The work order is assigned to their specific role, OR  
+// 2. The work order is assigned to their specific role, OR
 // 3. The work order is not assigned to any role (unassigned queue)
 if (!$is_admin && $queue_role_id > 0 && $queue_role_id !== $role_id) {
     echo json_encode(['success' => false, 'message' => 'You cannot claim this queue']);
@@ -74,9 +73,6 @@ try {
         VALUES (?,?,?,?,?)
     ");
     $stmt->execute([$wo_id, null, $user_id, $user_id, 'Claimed from queue']);
-
-    // SYNC: Update linked ticket
-    sync_ticket_with_wo($pdo, $wo_id);
 
     $pdo->commit();
     echo json_encode(['success' => true]);

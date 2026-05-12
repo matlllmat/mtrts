@@ -21,10 +21,11 @@
   function setup(canvas) {
     if (!canvas) return null;
 
-    let ctx       = null;   // initialised lazily on first pointer event
-    let drawing   = false;
-    let last      = null;
+    let ctx        = null;   // initialised lazily on first pointer event
+    let drawing    = false;
+    let last       = null;
     let hasStrokes = false;
+    let enabled    = false;  // disabled until setEnabled(true) is called
 
     // Hide the placeholder text once the user starts drawing
     const placeholder = document.getElementById('sigPlaceholder');
@@ -44,6 +45,7 @@
     }
 
     function start(e) {
+      if (!enabled) { e.preventDefault(); return; }
       ensureInit();
       drawing = true;
       last    = posFromEvent(e);
@@ -52,7 +54,7 @@
     }
 
     function move(e) {
-      if (!drawing) return;
+      if (!drawing || !enabled) return;
       ensureInit();
       const p = posFromEvent(e);
       ctx.beginPath();
@@ -87,7 +89,18 @@
     }) : null;
     if (ro) ro.observe(canvas);
 
+    function applyCanvasStyle() {
+      canvas.style.cursor = enabled ? 'crosshair' : 'not-allowed';
+      canvas.style.opacity = enabled ? '1' : '0.5';
+    }
+
     return {
+      setEnabled(val) {
+        enabled = !!val;
+        applyCanvasStyle();
+        // If disabling mid-draw, stop the stroke
+        if (!enabled) { drawing = false; last = null; }
+      },
       clear() {
         ensureInit();
         ctx.clearRect(0, 0, canvas.width, canvas.height);

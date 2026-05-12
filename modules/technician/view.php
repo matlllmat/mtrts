@@ -27,7 +27,7 @@ $assigned_to = (int)($wo['assigned_to'] ?? 0);
 // Fallback to role-based if no specific user is assigned yet.
 $can_edit = $is_admin || ($assigned_to > 0 && $assigned_to === $user_id) || ($assigned_to === 0 && $assigned_role_id > 0 && $assigned_role_id === $role_id);
 $status_key = strtolower(trim((string)($wo['status'] ?? '')));
-$can_execute_now = $can_edit && in_array($status_key, ['assigned', 'scheduled', 'in_progress']);
+$can_execute_now = $can_edit && $status_key === 'in_progress';
 
 // #region agent log
 tech_dbg('H_ACCESS', 'modules/technician/view.php:access', 'Computed access', [
@@ -137,6 +137,27 @@ $has_before_photo = !empty(array_filter($media ?? [], fn($m) => ($m['media_type'
 $has_after_photo  = !empty(array_filter($media ?? [], fn($m) => ($m['media_type'] ?? '') === 'photo_after'));
 $parts = get_work_order_parts($pdo, $wo_id);
 $signoff = get_work_order_signoff($pdo, $wo_id);
+
+// Fetch users eligible to be an Authorized Signatory (roles with technician module access)
+try {
+    $stmt_sig = $pdo->prepare("
+        SELECT DISTINCT u.user_id, u.full_name, r.role_name
+        FROM users u
+        JOIN roles r ON u.role_id = r.role_id
+        JOIN role_modules rm ON r.role_id = rm.role_id
+        WHERE rm.module_slug = 'technician'
+          AND u.is_active = 1
+        ORDER BY r.role_id, u.full_name
+    ");
+    $stmt_sig->execute();
+    $signatory_users = $stmt_sig->fetchAll(PDO::FETCH_ASSOC);
+} catch (Throwable $e) {
+    tech_dbg('H_SIGNATORY', 'modules/technician/view.php:signatory_query', 'Failed to fetch signatory users', [
+        'wo_id' => $wo_id,
+        'error' => $e->getMessage(),
+    ]);
+    $signatory_users = [];
+}
 
 // Fetch all active parts from inventory for the browse panel
 try {

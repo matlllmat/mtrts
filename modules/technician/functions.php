@@ -4,7 +4,6 @@ define('TECH_DEBUG', true);
 date_default_timezone_set('Asia/Manila');
 // All database queries and helpers for the Technician Operations module.
 // $pdo is provided by the hub; never create a new connection here.
-require_once __DIR__ . '/../workorders/functions.php';
 
 // ── Work Order Listing ───────────────────────────────────────
 
@@ -77,7 +76,8 @@ function get_all_queue_work_orders(PDO $pdo): array {
                        l.building, l.floor, l.room,
                        u.full_name AS requester_name, u.contact_number, u.email,
                        assigned_user.full_name AS assigned_to_name,
-                       wo.created_at, wo.scheduled_end
+                       wo.created_at, wo.scheduled_end,
+                       wo.claimed_at, wo.actual_end
                 FROM work_orders wo
                 LEFT JOIN tickets t ON wo.ticket_id = t.ticket_id
                 LEFT JOIN locations l ON t.location_id = l.location_id
@@ -100,7 +100,8 @@ function get_all_queue_work_orders(PDO $pdo): array {
                    l.building, l.floor, l.room,
                    u.full_name AS requester_name, u.contact_number, u.email,
                    assigned_user.full_name AS assigned_to_name,
-                   wo.created_at, wo.scheduled_end
+                   wo.created_at, wo.scheduled_end,
+                   wo.claimed_at, wo.actual_end
             FROM work_orders wo
             LEFT JOIN tickets t ON wo.ticket_id = t.ticket_id
             LEFT JOIN locations l ON t.location_id = l.location_id
@@ -464,8 +465,7 @@ function complete_work_order_transactional(PDO $pdo, array $payload, int $techni
     $safety_map          = is_array($payload['safety'] ?? null) ? $payload['safety'] : [];
     $time_logs           = is_array($payload['time_logs'] ?? null) ? $payload['time_logs'] : [];
     $signer_name         = trim((string)($payload['signer_name'] ?? ''));
-    $signer_satisfaction = (int)($payload['signer_satisfaction'] ?? 0);
-    $feedback            = trim((string)($payload['feedback'] ?? ''));
+    $signed_by_user_id   = ($payload['signed_by_user_id'] ?? null) ? (int)$payload['signed_by_user_id'] : $technician_id;
     $signature_data_url  = trim((string)($payload['signature_data_url'] ?? ''));
     $resolution_notes    = trim((string)($payload['resolution_notes'] ?? ''));
 
@@ -553,9 +553,9 @@ function complete_work_order_transactional(PDO $pdo, array $payload, int $techni
             $wo_id,
             $signer_name,
             $signature_path,
-            $signer_satisfaction ?: null,
-            $feedback ?: null,
-            $technician_id,
+            null,
+            null,
+            $signed_by_user_id,
         ]);
 
         if (!empty($time_logs)) {
@@ -592,9 +592,6 @@ function complete_work_order_transactional(PDO $pdo, array $payload, int $techni
                " WHERE wo_id = ?";
         $params = $resolution_notes !== '' ? [$resolution_notes, $wo_id] : [$wo_id];
         $pdo->prepare($sql)->execute($params);
-
-        // SYNC: Update the parent ticket so it shows up in Resolution Trends / MTTR
-        sync_ticket_with_wo($pdo, $wo_id);
 
         $pdo->commit();
     } catch (Throwable $e) {
@@ -716,33 +713,113 @@ function save_work_order_media(PDO $pdo, int $wo_id, string $media_type, string 
     }
 }
 
-function save_work_order_part(PDO $pdo, int $wo_id, int $part_id, int $quantity_used, ?string $serial_number = null): void {
-    $stmt = $pdo->prepare("
-        INSERT INTO wo_parts_used (wo_id, part_id, quantity_used, serial_number, used_by)
-        VALUES (?, ?, ?, ?, ?)
-    ");
-    $stmt->execute([$wo_id, $part_id, $quantity_used, $serial_number, $_SESSION['user_id']]);
+function save_work_order_part(PDO $pdo, int $wo_id, int $part_id, int $quantity_used, ?string $serial_number = null): array {
+    if ($quantity_used <= 0) {
+        throw new InvalidArgumentException('Quantity must be positive');
+    }
+    $tech_id = $_SESSION['user_id'] ?? null;
 
-    // Decrement inventory
-    $pdo->prepare("UPDATE parts_inventory SET quantity_on_hand = quantity_on_hand - ? WHERE part_id = ?")
-        ->execute([$quantity_used, $part_id]);
+    $owns_tx = !$pdo->inTransaction();
+    if ($owns_tx) $pdo->beginTransaction();
+    try {
+        // Atomic check-and-decrement: only succeeds if stock is sufficient.
+        $upd = $pdo->prepare("
+            UPDATE parts_inventory
+            SET quantity_on_hand = quantity_on_hand - ?, updated_at = NOW()
+            WHERE part_id = ? AND quantity_on_hand >= ?
+        ");
+        $upd->execute([$quantity_used, $part_id, $quantity_used]);
+
+        if ($upd->rowCount() === 0) {
+            // Either part doesn't exist or stock is insufficient.
+            $look = $pdo->prepare("SELECT part_name, quantity_on_hand FROM parts_inventory WHERE part_id = ?");
+            $look->execute([$part_id]);
+            $row = $look->fetch();
+            if (!$row) {
+                throw new RuntimeException("Part not found (id $part_id)");
+            }
+            throw new RuntimeException("Insufficient stock for {$row['part_name']}: have {$row['quantity_on_hand']}, need $quantity_used");
+        }
+
+        $pdo->prepare("
+            INSERT INTO wo_parts_used (wo_id, part_id, quantity_used, serial_number, used_by, used_at)
+            VALUES (?, ?, ?, ?, ?, NOW())
+        ")->execute([$wo_id, $part_id, $quantity_used, $serial_number, $tech_id]);
+        $usage_id = (int)$pdo->lastInsertId();
+
+        $stmt = $pdo->prepare("SELECT quantity_on_hand, reorder_level, part_name FROM parts_inventory WHERE part_id = ?");
+        $stmt->execute([$part_id]);
+        $part = $stmt->fetch();
+
+        try {
+            $pdo->prepare("
+                INSERT INTO parts_inventory_audit
+                    (part_id, wo_id, action, quantity_change, technician_id, notes)
+                VALUES (?, ?, 'usage', ?, ?, CONCAT('Part usage: ', ?, ' units consumed on WO ', ?))
+            ")->execute([$part_id, $wo_id, -$quantity_used, $tech_id, $quantity_used, $wo_id]);
+        } catch (Throwable $e) {
+            // audit failure must not block the actual usage record
+            tech_dbg('H_PARTS_AUDIT', 'save_work_order_part', 'audit insert failed', ['error' => $e->getMessage()]);
+        }
+
+        if ($owns_tx) $pdo->commit();
+
+        return [
+            'usage_id'        => $usage_id,
+            'current_stock'   => (int)$part['quantity_on_hand'],
+            'reorder_level'   => (int)$part['reorder_level'],
+            'low_stock_alert' => (int)$part['quantity_on_hand'] <= (int)$part['reorder_level'],
+        ];
+    } catch (Throwable $e) {
+        if ($owns_tx && $pdo->inTransaction()) $pdo->rollBack();
+        throw $e;
+    }
 }
 
-function save_work_order_signoff(PDO $pdo, int $wo_id, string $signer_name, string $signature_path, ?int $satisfaction = null, ?string $feedback = null): void {
+/**
+ * Persist sign-off row without changing work order status (used by offline sync / incremental saves).
+ */
+function upsert_work_order_signoff(PDO $pdo, int $wo_id, string $signer_name, string $signature_path, ?int $satisfaction = null, ?string $feedback = null): void {
+    $uid = (int)($_SESSION['user_id'] ?? 0);
     $stmt = $pdo->prepare("
         INSERT INTO wo_signoff (wo_id, signer_name, signature_path, satisfaction, feedback, signed_by_user_id)
         VALUES (?, ?, ?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE signer_name = VALUES(signer_name), signature_path = VALUES(signature_path),
-                               satisfaction = VALUES(satisfaction), feedback = VALUES(feedback)
+                               satisfaction = VALUES(satisfaction), feedback = VALUES(feedback),
+                               signed_by_user_id = VALUES(signed_by_user_id)
     ");
-    $stmt->execute([$wo_id, $signer_name, $signature_path, $satisfaction, $feedback, $_SESSION['user_id']]);
+    $stmt->execute([$wo_id, $signer_name, $signature_path, $satisfaction, $feedback, $uid ?: null]);
+}
+
+/**
+ * Decode a canvas data-URL signature and save under modules/technician/uploads/signatures/{wo_id}/.
+ * Returns public URL or 'data:inline' if invalid / save failed.
+ */
+function persist_technician_signature_from_data_url(int $wo_id, string $signature_data_url): string {
+    $signature_data_url = trim($signature_data_url);
+    $signature_path = 'data:inline';
+    if ($signature_data_url !== '' && preg_match('/^data:image\/[a-z]+;base64,/', $signature_data_url)) {
+        $upload_dir = __DIR__ . '/uploads/signatures/' . $wo_id . '/';
+        if (!is_dir($upload_dir)) {
+            @mkdir($upload_dir, 0755, true);
+        }
+        $img_data = base64_decode(preg_replace('/^data:image\/\w+;base64,/', '', $signature_data_url));
+        if ($img_data !== false && $img_data !== '') {
+            $filename = 'signoff_' . time() . '.png';
+            if (@file_put_contents($upload_dir . $filename, $img_data) !== false) {
+                $signature_path = rtrim(BASE_URL, '/') . '/modules/technician/uploads/signatures/' . $wo_id . '/' . $filename;
+            }
+        }
+    }
+    return $signature_path;
+}
+
+function save_work_order_signoff(PDO $pdo, int $wo_id, string $signer_name, string $signature_path, ?int $satisfaction = null, ?string $feedback = null): void {
+    upsert_work_order_signoff($pdo, $wo_id, $signer_name, $signature_path, $satisfaction, $feedback);
 
     // Mark WO as resolved
     $pdo->prepare("UPDATE work_orders SET status = 'resolved', actual_end = NOW() WHERE wo_id = ?")
         ->execute([$wo_id]);
-
-    // SYNC: Update linked ticket
-    sync_ticket_with_wo($pdo, $wo_id);
 }
 
 function update_work_order_status(PDO $pdo, int $wo_id, string $status): void {
@@ -757,9 +834,6 @@ function update_work_order_status(PDO $pdo, int $wo_id, string $status): void {
 
     $sql = "UPDATE work_orders SET status = ?" . (count($update) ? ', ' . implode(', ', $update) : '') . " WHERE wo_id = ?";
     $pdo->prepare($sql)->execute($params);
-
-    // SYNC: Update linked ticket
-    sync_ticket_with_wo($pdo, $wo_id);
 }
 
 function can_complete_work_order(PDO $pdo, int $wo_id): array {
@@ -880,42 +954,22 @@ function get_low_stock_parts(PDO $pdo): array {
 }
 
 function record_part_usage(PDO $pdo, int $wo_id, int $part_id, int $quantity_used, int $technician_id, ?string $serial_number = null): bool {
+    // Temporarily seed $_SESSION['user_id'] for save_work_order_part if the
+    // caller (e.g. retry_manager) is running outside a normal request context.
+    $prev_session_user = $_SESSION['user_id'] ?? null;
+    if ($prev_session_user === null) $_SESSION['user_id'] = $technician_id;
     try {
-        $pdo->beginTransaction();
-        
-        // Record usage
-        $stmt = $pdo->prepare("
-            INSERT INTO wo_parts_used (wo_id, part_id, quantity_used, serial_number, used_by, used_at)
-            VALUES (?, ?, ?, ?, ?, NOW())
-        ");
-        $stmt->execute([$wo_id, $part_id, $quantity_used, $serial_number, $technician_id]);
-        
-        // Decrement inventory
-        $stmt = $pdo->prepare("
-            UPDATE parts_inventory 
-            SET quantity_on_hand = quantity_on_hand - ?, 
-                updated_at = NOW()
-            WHERE part_id = ?
-        ");
-        $stmt->execute([$quantity_used, $part_id]);
-        
-        // Audit trail
-        $stmt = $pdo->prepare("
-            INSERT INTO parts_inventory_audit (part_id, wo_id, action, quantity_change, technician_id, notes)
-            VALUES (?, ?, 'usage', ?, ?, CONCAT('Part usage: ', ?, ' units consumed on WO ', ?))
-        ");
-        $stmt->execute([$part_id, $wo_id, -$quantity_used, $technician_id, $quantity_used, $wo_id]);
-        
-        $pdo->commit();
+        save_work_order_part($pdo, $wo_id, $part_id, $quantity_used, $serial_number);
         return true;
     } catch (Throwable $e) {
-        try { $pdo->rollBack(); } catch (Throwable $ex) {}
         tech_dbg('H_PARTS', 'modules/technician/functions.php:record_part_usage', 'Failed to record part usage', [
-            'wo_id' => $wo_id,
+            'wo_id'   => $wo_id,
             'part_id' => $part_id,
-            'error' => $e->getMessage(),
+            'error'   => $e->getMessage(),
         ]);
         return false;
+    } finally {
+        if ($prev_session_user === null) unset($_SESSION['user_id']);
     }
 }
 

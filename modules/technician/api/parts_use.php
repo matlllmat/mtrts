@@ -1,11 +1,12 @@
 <?php
 // modules/technician/api/parts_use.php
-// API endpoint: Record part usage on a work order with audit trail
+// API endpoint: Record part usage on a work order with stock-safe decrement.
 // POST /modules/technician/api/parts_use.php
 // Body: { wo_id, part_id, quantity_used, serial_number (optional) }
 
 $module = 'technician';
 require_once __DIR__ . '/../../../config/auth_only.php';
+require_once __DIR__ . '/../functions.php';
 
 header('Content-Type: application/json');
 
@@ -16,84 +17,37 @@ try {
         exit;
     }
 
-    $input = json_decode(file_get_contents('php://input'), true);
-    
-    $wo_id = (int)($input['wo_id'] ?? 0);
-    $part_id = (int)($input['part_id'] ?? 0);
+    $input = json_decode(file_get_contents('php://input'), true) ?? [];
+
+    $wo_id         = (int)($input['wo_id'] ?? 0);
+    $part_id       = (int)($input['part_id'] ?? 0);
     $quantity_used = (int)($input['quantity_used'] ?? 0);
     $serial_number = $input['serial_number'] ?? null;
-    $technician_id = $_SESSION['user_id'] ?? null;
+    $technician_id = (int)($_SESSION['user_id'] ?? 0);
 
-    if (!$wo_id || !$part_id || !$quantity_used || !$technician_id) {
+    if (!$wo_id || !$part_id || $quantity_used <= 0 || !$technician_id) {
         http_response_code(400);
-        echo json_encode(['error' => 'Missing required fields: wo_id, part_id, quantity_used']);
+        echo json_encode(['success' => false, 'error' => 'Missing required fields: wo_id, part_id, quantity_used']);
         exit;
     }
 
-    // Start transaction
-    $pdo->beginTransaction();
-
-    // Record the part usage
-    $stmt = $pdo->prepare("
-        INSERT INTO wo_parts_used (wo_id, part_id, quantity_used, serial_number, used_by, used_at)
-        VALUES (?, ?, ?, ?, ?, NOW())
-    ");
-    $stmt->execute([$wo_id, $part_id, $quantity_used, $serial_number, $technician_id]);
-    $usage_id = $pdo->lastInsertId();
-
-    // Decrement inventory
-    $stmt = $pdo->prepare("
-        UPDATE parts_inventory 
-        SET quantity_on_hand = quantity_on_hand - ?, 
-            updated_at = NOW()
-        WHERE part_id = ?
-    ");
-    $stmt->execute([$quantity_used, $part_id]);
-
-    // Record audit trail
-    $stmt = $pdo->prepare("
-        INSERT INTO parts_inventory_audit (part_id, wo_id, action, quantity_change, technician_id, notes)
-        VALUES (?, ?, 'usage', ?, ?, CONCAT('Part usage: ', ?, ' units consumed on WO ', ?))
-    ");
-    $stmt->execute([$part_id, $wo_id, -$quantity_used, $technician_id, $quantity_used, $wo_id]);
-
-    // Check if stock is now below reorder level
-    $stmt = $pdo->prepare("
-        SELECT quantity_on_hand, reorder_level, part_name
-        FROM parts_inventory
-        WHERE part_id = ?
-    ");
-    $stmt->execute([$part_id]);
-    $part = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    $low_stock_alert = false;
-    if ($part && $part['quantity_on_hand'] <= $part['reorder_level']) {
-        $low_stock_alert = true;
-    }
-
-    $pdo->commit();
+    $info = save_work_order_part($pdo, $wo_id, $part_id, $quantity_used, $serial_number);
 
     echo json_encode([
-        'success' => true,
-        'usage_id' => $usage_id,
-        'low_stock_alert' => $low_stock_alert,
-        'current_stock' => $part['quantity_on_hand'] ?? 0,
-        'reorder_level' => $part['reorder_level'] ?? 0,
-        'message' => 'Part usage recorded successfully'
+        'success'         => true,
+        'usage_id'        => $info['usage_id'],
+        'current_stock'   => $info['current_stock'],
+        'reorder_level'   => $info['reorder_level'],
+        'low_stock_alert' => $info['low_stock_alert'],
+        'message'         => 'Part usage recorded successfully',
     ]);
 
-} catch (PDOException $e) {
-    try { $pdo->rollBack(); } catch (Throwable $ex) {}
-    http_response_code(500);
-    echo json_encode([
-        'success' => false,
-        'error' => 'Database error: ' . $e->getMessage()
-    ]);
+} catch (InvalidArgumentException $e) {
+    http_response_code(400);
+    echo json_encode(['success' => false, 'error' => $e->getMessage()]);
 } catch (Throwable $e) {
-    http_response_code(500);
-    echo json_encode([
-        'success' => false,
-        'error' => 'Error: ' . $e->getMessage()
-    ]);
+    // Stock-insufficient and part-not-found are RuntimeExceptions from save_work_order_part.
+    // They are user errors (409 conflict) rather than 500.
+    http_response_code(409);
+    echo json_encode(['success' => false, 'error' => $e->getMessage()]);
 }
-?>

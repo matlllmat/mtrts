@@ -1,5 +1,32 @@
 <?php require __DIR__ . '/_styles.php'; ?>
 
+<?php if ($out_stock_count > 0): ?>
+<!-- ── Out of stock banner ──────────────────────────────────────── -->
+<div style="display:flex;align-items:center;gap:10px;padding:12px 18px;margin-bottom:12px;background:#fef2f2;border-left:4px solid #ef4444;border-radius:8px;">
+  <svg style="width:16px;height:16px;color:#ef4444;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+  </svg>
+  <span style="font-size:13px;color:#b91c1c;">
+    <strong><?= $out_stock_count ?> part<?= $out_stock_count !== 1 ? 's' : '' ?></strong> <?= $out_stock_count !== 1 ? 'are' : 'is' ?> completely out of stock.
+    <?php if ($low_stock_count > $out_stock_count): ?>
+      <?= $low_stock_count - $out_stock_count ?> more <?= ($low_stock_count - $out_stock_count) !== 1 ? 'are' : 'is' ?> running low.
+    <?php endif; ?>
+    <span style="font-weight:400;"> — Open a job below, then go to the <strong>Parts</strong> tab to see stock levels before using a part.</span>
+  </span>
+</div>
+<?php elseif ($low_stock_count > 0): ?>
+<!-- ── Low stock banner ─────────────────────────────────────────── -->
+<div style="display:flex;align-items:center;gap:10px;padding:12px 18px;margin-bottom:12px;background:#fffbeb;border-left:4px solid #f59e0b;border-radius:8px;">
+  <svg style="width:16px;height:16px;color:#d97706;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+  </svg>
+  <span style="font-size:13px;color:#92400e;">
+    <strong><?= $low_stock_count ?> part<?= $low_stock_count !== 1 ? 's' : '' ?></strong> <?= $low_stock_count !== 1 ? 'are' : 'is' ?> running low on stock.
+    <span style="font-weight:400;"> — Open a job below, then go to the <strong>Parts</strong> tab to see stock levels before using a part.</span>
+  </span>
+</div>
+<?php endif; ?>
+
 <!-- ── Page header ─────────────────────────────────────────────── -->
 <div class="page-header-card">
   <div>
@@ -84,6 +111,25 @@
       <option value="follow_up">Follow-up</option>
     </select>
   </div>
+  <button type="button" id="my-jobs-toggle" class="my-jobs-toggle" onclick="toggleMyJobs()">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+    </svg>
+    Working On
+  </button>
+  <!-- Sort by date -->
+  <button type="button" id="sort-date-btn" class="my-jobs-toggle" onclick="toggleSortDate()" title="Sort jobs by date">
+    <svg id="sort-date-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition:transform .25s;">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M3 4.5h14.25M3 9h9.75M3 13.5h5.25m5.25-.75L17.25 9m0 0L21 12.75M17.25 9v12"/>
+    </svg>
+    <span id="sort-date-label">Newest</span>
+  </button>
+  <button type="button" id="clear-cache-btn" class="my-jobs-toggle" onclick="clearTechCache()" title="Clears locally stored images and draft data to free up space">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+    </svg>
+    Clear Cache
+  </button>
 </div>
 
 <!-- ── Jobs grid ──────────────────────────────────────────────── -->
@@ -146,7 +192,19 @@
   ?>
   <div class="job-card"
        data-status="<?php echo htmlspecialchars($data_status); ?>"
-       data-wo-type="<?php echo htmlspecialchars($data_wo_type); ?>">
+       data-wo-type="<?php echo htmlspecialchars($data_wo_type); ?>"
+       data-assigned-to="<?php echo (int)($wo['assigned_to'] ?? 0); ?>"
+       data-created-at="<?php
+         // Use the most relevant timestamp for sorting:
+         // resolved/closed → actual_end, claimed/in-progress → claimed_at, else created_at
+         if (in_array($status, ['resolved', 'closed']) && !empty($wo['actual_end'])) {
+           echo strtotime($wo['actual_end']);
+         } elseif (!empty($wo['claimed_at'])) {
+           echo strtotime($wo['claimed_at']);
+         } else {
+           echo $wo['created_at'] ? strtotime($wo['created_at']) : 0;
+         }
+       ?>">
 
     <div class="job-card-header">
       <div class="flex items-center justify-between mb-2">
@@ -228,11 +286,16 @@
         </button>
       <?php else: ?>
         <a href="view.php?id=<?php echo (int)$wo['wo_id']; ?>"
-           class="btn-primary w-full" style="text-decoration:none;">
+           class="<?php echo in_array($status, ['resolved', 'closed']) ? 'btn-secondary' : 'btn-primary'; ?> w-full"
+           style="text-decoration:none;">
           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/>
           </svg>
-          <?php echo $status === 'assigned' ? 'Start Work' : 'Open Job'; ?>
+          <?php
+            if (in_array($status, ['resolved', 'closed'])) echo 'View Job';
+            elseif ($status === 'assigned') echo 'Start Work';
+            else echo 'Open Job';
+          ?>
         </a>
       <?php endif; ?>
     </div>
@@ -244,6 +307,10 @@
 </div>
 
 <script>
+const CURRENT_USER_ID = <?php echo (int)($_SESSION['user_id'] ?? 0); ?>;
+let myJobsOnly = false;
+let sortDateOrder = 'newest'; // 'newest' | 'oldest'
+
 function setChip(status) {
   document.querySelectorAll('.chip').forEach(c => c.classList.remove('chip-on'));
   const id = status === '' ? 'chip-all' : 'chip-' + status;
@@ -254,21 +321,208 @@ function setChip(status) {
 
 function filterByWorkType() { applyFilters(); }
 
+function toggleMyJobs() {
+  myJobsOnly = !myJobsOnly;
+  const btn = document.getElementById('my-jobs-toggle');
+  btn.classList.toggle('my-jobs-toggle--on', myJobsOnly);
+  applyFilters();
+}
+
+function toggleSortDate() {
+  sortDateOrder = sortDateOrder === 'newest' ? 'oldest' : 'newest';
+  const btn   = document.getElementById('sort-date-btn');
+  const label = document.getElementById('sort-date-label');
+  const icon  = document.getElementById('sort-date-icon');
+  if (label) label.textContent = sortDateOrder === 'newest' ? 'Newest' : 'Oldest';
+  if (icon)  icon.style.transform = sortDateOrder === 'oldest' ? 'scaleY(-1)' : 'scaleY(1)';
+  if (btn)   btn.classList.toggle('my-jobs-toggle--on', sortDateOrder === 'oldest');
+  applyFilters();
+}
+
 function applyFilters() {
   const activeChip = document.querySelector('.chip.chip-on');
   const statusFilter = activeChip ?
     (activeChip.id === 'chip-all' ? '' : activeChip.id.replace('chip-', '')) : '';
   const workTypeFilter = document.getElementById('work-type-filter').value;
 
-  document.querySelectorAll('#jobsGrid .job-card').forEach(card => {
-    const statusMatch   = statusFilter   === '' || card.dataset.status === statusFilter;
-    const workTypeMatch = workTypeFilter === '' || card.dataset.woType === workTypeFilter;
-    card.style.display  = (statusMatch && workTypeMatch) ? '' : 'none';
+  const grid = document.getElementById('jobsGrid');
+  const cards = Array.from(grid.querySelectorAll('.job-card'));
+
+  // Determine visibility
+  cards.forEach(card => {
+    const statusMatch   = statusFilter   === '' || card.dataset.status  === statusFilter;
+    const workTypeMatch = workTypeFilter === '' || card.dataset.woType  === workTypeFilter;
+    const myJobsMatch   = !myJobsOnly         || parseInt(card.dataset.assignedTo) === CURRENT_USER_ID;
+    card.style.display  = (statusMatch && workTypeMatch && myJobsMatch) ? '' : 'none';
   });
+
+  // Sort only the visible cards by the relevant timestamp, then re-append them
+  // in sorted order. Hidden cards are left in place (they stay invisible).
+  const visible = cards.filter(c => c.style.display !== 'none');
+  visible.sort((a, b) => {
+    const ta = parseInt(a.dataset.createdAt || '0', 10);
+    const tb = parseInt(b.dataset.createdAt || '0', 10);
+    return sortDateOrder === 'oldest' ? ta - tb : tb - ta;
+  });
+  // Use a DocumentFragment so we only touch the DOM once
+  const frag = document.createDocumentFragment();
+  visible.forEach(card => frag.appendChild(card));
+  grid.appendChild(frag);
+}
+
+async function clearTechCache() {
+  const btn = document.getElementById('clear-cache-btn');
+  const origHTML = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Clearing…';
+
+  // Inject spin keyframe once
+  if (!document.getElementById('_cacheClearSpinStyle')) {
+    const s = document.createElement('style');
+    s.id = '_cacheClearSpinStyle';
+    s.textContent = '@keyframes spin{to{transform:rotate(360deg)}}';
+    document.head.appendChild(s);
+  }
+
+  let blobsRemoved = 0;
+  let draftsRemoved = 0;
+  let queueItemsRemoved = 0;
+
+  try {
+    // ── Step 1: Find all blobIds still referenced by PENDING queue items ──
+    // These must NOT be deleted — they haven't been uploaded yet.
+    const LS_QUEUE = 'mrtsp.queue.v1';
+    const queue = JSON.parse(localStorage.getItem(LS_QUEUE) || '[]');
+    const pendingBlobIds = new Set(
+      queue
+        .filter(item => item.meta && item.meta.blobId && !item.synced)
+        .map(item => item.meta.blobId)
+    );
+
+    // ── Step 2: Clear orphaned / already-synced blobs from IndexedDB ──
+    if (window.MRTS && window.MRTS.idbStorage) {
+      try {
+        const idb = await window.MRTS.idbStorage.initDB();
+        await new Promise((resolve, reject) => {
+          const tx = idb.transaction(['blobs'], 'readwrite');
+          const store = tx.objectStore('blobs');
+          const req = store.openCursor();
+          req.onsuccess = (e) => {
+            const cursor = e.target.result;
+            if (!cursor) { resolve(); return; }
+            const record = cursor.value;
+            const blobId = record.id;
+            const ageMs  = Date.now() - (record.createdAt || 0);
+            const ageDays = ageMs / (1000 * 60 * 60 * 24);
+
+            // Keep if: still pending upload
+            if (pendingBlobIds.has(blobId)) {
+              cursor.continue();
+              return;
+            }
+
+            // Delete if: older than 3 days (already synced or orphaned)
+            if (ageDays > 3) {
+              cursor.delete();
+              blobsRemoved++;
+            }
+
+            cursor.continue();
+          };
+          req.onerror = () => resolve(); // non-fatal
+        });
+      } catch (e) {
+        console.warn('[clearCache] IDB cleanup failed:', e);
+      }
+    }
+
+    // ── Step 3: Remove localStorage draft keys for resolved/closed WOs ──
+    // A draft key looks like: mrtsp.draft.{woId}.v1
+    // We check the WO status from the page's rendered cards.
+    const resolvedWoIds = new Set();
+    document.querySelectorAll('#jobsGrid .job-card').forEach(card => {
+      const st = card.dataset.status;
+      if (st === 'resolved' || st === 'closed') {
+        // Extract wo_id from the card's view link
+        const link = card.querySelector('a[href*="view.php"]');
+        if (link) {
+          const m = link.href.match(/[?&]id=(\d+)/);
+          if (m) resolvedWoIds.add(m[1]);
+        }
+      }
+    });
+
+    for (const woId of resolvedWoIds) {
+      const draftKey = `mrtsp.draft.${woId}.v1`;
+      if (localStorage.getItem(draftKey) !== null) {
+        localStorage.removeItem(draftKey);
+        draftsRemoved++;
+      }
+      // Also remove the session sync flag
+      localStorage.removeItem(`mrtsp.synced_session.${woId}`);
+    }
+
+    // ── Step 4: Remove synced items from the offline queue ──
+    // Items marked synced:true are already processed — safe to drop.
+    const cleanQueue = queue.filter(item => !item.synced);
+    queueItemsRemoved = queue.length - cleanQueue.length;
+    if (queueItemsRemoved > 0) {
+      localStorage.setItem(LS_QUEUE, JSON.stringify(cleanQueue));
+    }
+
+    // ── Done ──
+    const parts = [];
+    if (blobsRemoved)      parts.push(`${blobsRemoved} cached file${blobsRemoved > 1 ? 's' : ''}`);
+    if (draftsRemoved)     parts.push(`${draftsRemoved} old draft${draftsRemoved > 1 ? 's' : ''}`);
+    if (queueItemsRemoved) parts.push(`${queueItemsRemoved} synced queue item${queueItemsRemoved > 1 ? 's' : ''}`);
+
+    const summary = parts.length ? parts.join(', ') + ' removed' : 'Nothing to clear — cache is clean';
+
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg> Done';
+    btn.style.background = 'var(--olfu-green)';
+    btn.style.borderColor = 'var(--olfu-green)';
+    btn.style.color = '#fff';
+
+    // Show a small toast below the button
+    const toast = document.createElement('div');
+    toast.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:9999;' +
+      'background:#1e293b;color:#e2e8f0;padding:10px 18px;border-radius:8px;font-size:13px;' +
+      'box-shadow:0 4px 16px rgba(0,0,0,.25);white-space:nowrap;';
+    toast.textContent = summary;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3500);
+
+  } catch (e) {
+    console.error('[clearCache] Error:', e);
+    btn.innerHTML = origHTML;
+  } finally {
+    setTimeout(() => {
+      btn.disabled = false;
+      btn.innerHTML = origHTML;
+      btn.style.background = '';
+      btn.style.borderColor = '';
+      btn.style.color = '';
+    }, 2500);
+  }
 }
 
 function claimJob(woId, button) {
-  if (!confirm('Claim this work order?')) return;
+  if (window.MRTS && window.MRTS.modal) {
+    window.MRTS.modal.confirm('Claim this work order?', {
+      title: 'Claim Job',
+      okLabel: 'Claim',
+      cancelLabel: 'Cancel',
+    }).then(function(confirmed) {
+      if (!confirmed) return;
+      _doClaimJob(woId, button);
+    });
+  } else {
+    if (!confirm('Claim this work order?')) return;
+    _doClaimJob(woId, button);
+  }
+}
+
+function _doClaimJob(woId, button) {
   button.disabled = true;
   button.textContent = 'Claiming…';
 
@@ -281,13 +535,19 @@ function claimJob(woId, button) {
   .then(data => {
     if (data.success) { window.location.reload(); }
     else {
-      alert(data.message || 'Failed to claim job');
+      const msg = data.message || 'Failed to claim job';
+      if (window.MRTS && window.MRTS.modal) {
+        window.MRTS.modal.alert(msg, { type: 'error', title: 'Claim Failed' });
+      } else { alert(msg); }
       button.disabled = false;
       button.textContent = 'Claim Job';
     }
   })
   .catch(() => {
-    alert('Network error while claiming job');
+    const msg = 'Network error while claiming job';
+    if (window.MRTS && window.MRTS.modal) {
+      window.MRTS.modal.alert(msg, { type: 'error', title: 'Network Error' });
+    } else { alert(msg); }
     button.disabled = false;
     button.textContent = 'Claim Job';
   });
@@ -311,5 +571,7 @@ window.MRTS = {
 </script>
 
 <script src="<?php echo BASE_URL; ?>modules/technician/public/app.js"></script>
+<script src="<?php echo BASE_URL; ?>modules/technician/public/modal.js"></script>
 <script src="<?php echo BASE_URL; ?>modules/technician/public/offline.js"></script>
+<script src="<?php echo BASE_URL; ?>modules/technician/public/idb-storage.js"></script>
 <script src="<?php echo BASE_URL; ?>modules/technician/public/jobs.js"></script>

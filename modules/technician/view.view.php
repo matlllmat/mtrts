@@ -78,6 +78,23 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
   <span style="color:var(--tech-gray-200);">/</span>
 </div>
 
+<?php if (in_array($status, ['resolved', 'closed'])): ?>
+<!-- ── Completed banner ───────────────────────────────────────── -->
+<div style="display:flex;align-items:center;gap:12px;padding:14px 18px;margin-bottom:16px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:var(--tech-radius-lg);">
+  <span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;background:#dcfce7;flex-shrink:0;">
+    <svg style="width:17px;height:17px;color:#15803d;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
+    </svg>
+  </span>
+  <div>
+    <p style="font-size:13px;font-weight:700;color:#14532d;letter-spacing:.3px;text-transform:uppercase;">Completed</p>
+    <p style="font-size:12px;color:#166534;margin-top:1px;">
+      This work order has been <?php echo $status === 'closed' ? 'closed' : 'resolved'; ?> and is now read-only.
+    </p>
+  </div>
+</div>
+<?php endif; ?>
+
 <!-- ── WO Header card ─────────────────────────────────────────── -->
 <div class="wo-header-card mb-5">
   <div class="flex flex-wrap items-start justify-between gap-4">
@@ -85,6 +102,48 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
     <div class="flex-1 min-w-0">
       <div class="flex items-center gap-2 flex-wrap mb-2">
         <span class="vf-mono"><?php echo htmlspecialchars($wo['wo_number']); ?></span>
+
+        <?php
+          // Work order type badge
+          $wo_type_raw = strtolower(trim($wo['wo_type'] ?? ''));
+          $wo_type_labels = [
+            'diagnosis'   => 'Diagnosis',
+            'repair'      => 'Repair',
+            'maintenance' => 'Maintenance',
+            'follow_up'   => 'Follow-up',
+          ];
+          $wo_type_label = $wo_type_labels[$wo_type_raw] ?? ucfirst(str_replace('_', ' ', $wo_type_raw));
+          $wo_type_styles = [
+            'diagnosis'   => 'background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;',
+            'repair'      => 'background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;',
+            'maintenance' => 'background:#fefce8;color:#a16207;border:1px solid #fde68a;',
+            'follow_up'   => 'background:#fdf4ff;color:#7e22ce;border:1px solid #e9d5ff;',
+          ];
+          $wo_type_style = $wo_type_styles[$wo_type_raw] ?? 'background:var(--tech-gray-100);color:var(--tech-gray-600);border:1px solid var(--tech-gray-200);';
+        ?>
+        <?php if ($wo_type_label): ?>
+          <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;<?php echo $wo_type_style; ?>">
+            <?php if ($wo_type_raw === 'diagnosis'): ?>
+              <svg style="width:11px;height:11px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/>
+              </svg>
+            <?php elseif ($wo_type_raw === 'repair'): ?>
+              <svg style="width:11px;height:11px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l5.653-4.655m0 0l.013-.012 3.55-3.55"/>
+              </svg>
+            <?php elseif ($wo_type_raw === 'maintenance'): ?>
+              <svg style="width:11px;height:11px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 010 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 010-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+              </svg>
+            <?php elseif ($wo_type_raw === 'follow_up'): ?>
+              <svg style="width:11px;height:11px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/>
+              </svg>
+            <?php endif; ?>
+            <?php echo $wo_type_label; ?>
+          </span>
+        <?php endif; ?>
 
         <?php if (!empty($wo['assigned_to_name'])): ?>
           <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium"
@@ -278,7 +337,7 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
         <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z"/>
         <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z"/>
       </svg>
-      Evidence
+      Media
     </button>
 
     <button class="tab-btn secondary-tab-btn"
@@ -289,7 +348,16 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
       </svg>
       Sign-off
     </button>
-  </div>
+
+    <button class="tab-btn secondary-tab-btn"
+            data-tab="ratings" type="button"
+            onclick="switchSecondaryTab('ratings', this)">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
+      </svg>
+      Ratings
+    </button>
+  </div><!-- /tab-nav secondary-tabs -->
 
   <!-- ════════════════════════════════════════════════════════════
        TAB PANES
@@ -297,6 +365,12 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
 
   <!-- ── Safety ─────────────────────────────────────────────── -->
   <div class="p-5" id="tab-safety">
+    <div id="gateNotice-safety" class="gateNotice" style="display:<?php echo in_array($status, ['assigned','scheduled','new']) ? '' : 'none'; ?>;align-items:center;gap:12px;padding:12px 16px;margin-bottom:16px;background:#fffbeb;border:1px solid #fde68a;border-radius:var(--tech-radius-lg);">
+      <svg style="width:18px;height:18px;color:#d97706;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>
+      </svg>
+      <p style="font-size:12.5px;font-weight:600;color:#92400e;margin:0;">Press <strong>Start Work</strong> to unlock this tab.</p>
+    </div>
     <div class="tech-card" style="margin-bottom:0;">
       <!-- Header -->
       <div style="padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--tech-gray-100);">
@@ -347,6 +421,12 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
 
   <!-- ── Checklist ───────────────────────────────────────────── -->
   <div class="p-5 hidden" id="tab-checklist">
+    <div id="gateNotice-checklist" class="gateNotice" style="display:<?php echo in_array($status, ['assigned','scheduled','new']) ? '' : 'none'; ?>;align-items:center;gap:12px;padding:12px 16px;margin-bottom:16px;background:#fffbeb;border:1px solid #fde68a;border-radius:var(--tech-radius-lg);">
+      <svg style="width:18px;height:18px;color:#d97706;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>
+      </svg>
+      <p style="font-size:12.5px;font-weight:600;color:#92400e;margin:0;">Press <strong>Start Work</strong> to unlock this tab.</p>
+    </div>
     <div class="tech-card" style="margin-bottom:0;">
       <!-- Header -->
       <div style="padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--tech-gray-100);">
@@ -491,95 +571,94 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
 
   <!-- ── Time Tracking ───────────────────────────────────────── -->
   <div class="p-5 hidden" id="tab-timetracking">
-    <div class="grid grid-cols-1 xl:grid-cols-2 gap-5 items-start">
+    <div id="gateNotice-timetracking" class="gateNotice" style="display:<?php echo in_array($status, ['assigned','scheduled','new']) ? '' : 'none'; ?>;align-items:center;gap:10px;padding:11px 16px;margin-bottom:16px;background:#fffbeb;border:1px solid #fde68a;border-left:3px solid #d97706;border-radius:8px;">
+      <svg style="width:15px;height:15px;color:#d97706;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>
+      </svg>
+      <p style="font-size:13px;font-weight:500;color:#92400e;margin:0;">Press <strong>Start Work</strong> to unlock this tab.</p>
+    </div>
 
-      <!-- Timer controls -->
-      <div style="background:var(--tech-surface);border:1px solid var(--tech-gray-200);border-radius:var(--tech-radius-lg);overflow:hidden;">
-        <!-- Header -->
-        <div style="padding:14px 18px;border-bottom:1px solid var(--tech-gray-100);display:flex;align-items:center;justify-content:space-between;">
-          <div style="display:flex;align-items:center;gap:8px;">
-            <span style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;background:var(--olfu-green-50);">
-              <svg style="width:15px;height:15px;color:var(--olfu-green);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
-              </svg>
-            </span>
-            <span style="font-size:13px;font-weight:700;color:var(--tech-gray-900);">Time Tracker</span>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;">
+
+      <!-- Timer card -->
+      <div style="background:#fff;border:1px solid #f3f4f6;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.05);">
+        <div style="padding:14px 18px;border-bottom:1px solid #f3f4f6;background:#fafafa;display:flex;align-items:center;justify-content:space-between;">
+          <div style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:700;color:#111827;">
+            <svg style="width:14px;height:14px;color:#15803d;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            Time Tracker
           </div>
-          <div id="timerState" style="font-size:11px;font-weight:600;padding:3px 10px;border-radius:999px;background:var(--tech-gray-100);color:var(--tech-gray-500);">Not started</div>
+          <span id="timerState" style="font-size:11px;font-weight:600;padding:3px 10px;border-radius:999px;background:#f3f4f6;color:#6b7280;">Not started</span>
         </div>
-
-        <!-- Clock display -->
-        <div style="padding:30px 20px 24px;text-align:center;border-bottom:1px solid var(--tech-gray-100);background:var(--tech-gray-50);">
-          <span id="timerValue" style="font-family:var(--tech-mono);font-size:44px;font-weight:700;color:var(--tech-gray-900);letter-spacing:3px;line-height:1;display:block;">00:00:00</span>
-          <p style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--tech-gray-400);margin-top:8px;">Elapsed time</p>
-        </div>
-
-        <!-- Controls -->
-        <div style="padding:16px 18px;">
-          <label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--tech-gray-400);display:block;margin-bottom:6px;" for="laborType">Labor Type</label>
-          <select id="laborType" class="fin text-sm w-full" style="margin-bottom:14px;">
-            <option value="">Select labor type&hellip;</option>
-            <option value="diagnosis">Diagnosis</option>
-            <option value="repair">Repair</option>
-            <option value="maintenance">Maintenance</option>
-            <option value="follow_up">Follow-up</option>
-          </select>
-
+        <div style="padding:18px;">
+          <!-- Clock -->
+          <div style="text-align:center;padding:28px 16px 20px;border-bottom:1px solid #f3f4f6;margin-bottom:18px;">
+            <span id="timerValue" style="font-family:ui-monospace,'Cascadia Code',monospace;font-size:44px;font-weight:800;color:#0f5132;letter-spacing:3px;line-height:1;display:block;">00:00:00</span>
+            <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#9ca3af;margin-top:8px;">Elapsed Time</p>
+          </div>
+          <!-- Labor type -->
+          <div style="margin-bottom:14px;">
+            <label style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;display:block;margin-bottom:5px;" for="laborType">Labor Type</label>
+            <select id="laborType" class="fin" style="width:100%;font-size:13px;">
+              <option value="">Select labor type…</option>
+              <option value="diagnosis">Diagnosis</option>
+              <option value="repair">Repair</option>
+              <option value="maintenance">Maintenance</option>
+              <option value="follow_up">Follow-up</option>
+            </select>
+          </div>
+          <!-- Buttons -->
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
             <button id="btnStart"
-                    style="display:inline-flex;align-items:center;justify-content:center;gap:7px;background:var(--olfu-green);color:#fff;font-size:13px;font-weight:600;padding:10px 0;border-radius:8px;border:none;cursor:pointer;transition:background .15s;font-family:inherit;"
-                    onmouseover="this.style.background='var(--tech-green-dk)'"
-                    onmouseout="this.style.background='var(--olfu-green)'">
+                    style="display:inline-flex;align-items:center;justify-content:center;gap:7px;background:#15803d;color:#fff;font-size:13px;font-weight:600;padding:10px 0;border-radius:8px;border:none;cursor:pointer;font-family:inherit;transition:background .15s;"
+                    onmouseover="this.style.background='#166534'"
+                    onmouseout="this.style.background='#15803d'">
               <svg style="width:14px;height:14px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 010 1.972l-11.54 6.347a1.125 1.125 0 01-1.667-.986V5.653z"/>
               </svg>
               Start
             </button>
             <button id="btnStop"
-                    style="display:inline-flex;align-items:center;justify-content:center;gap:7px;background:#fff;color:var(--tech-red);font-size:13px;font-weight:600;padding:10px 0;border-radius:8px;border:1.5px solid var(--tech-red);cursor:pointer;transition:all .15s;font-family:inherit;"
-                    onmouseover="this.style.background='#fef2f2'"
-                    onmouseout="this.style.background='#fff'">
+                    style="display:inline-flex;align-items:center;justify-content:center;gap:7px;background:#fff;color:#b91c1c;font-size:13px;font-weight:600;padding:10px 0;border-radius:8px;border:1.5px solid #fecaca;cursor:pointer;font-family:inherit;transition:all .15s;"
+                    onmouseover="this.style.background='#fef2f2';this.style.borderColor='#b91c1c'"
+                    onmouseout="this.style.background='#fff';this.style.borderColor='#fecaca'">
               <svg style="width:14px;height:14px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 7.5A2.25 2.25 0 017.5 5.25h9a2.25 2.25 0 012.25 2.25v9a2.25 2.25 0 01-2.25 2.25h-9a2.25 2.25 0 01-2.25-2.25v-9z"/>
               </svg>
-              Stop &amp; Save
+              Stop & Save
             </button>
           </div>
         </div>
       </div>
 
-      <!-- Labor breakdown -->
-      <div style="background:var(--tech-surface);border:1px solid var(--tech-gray-200);border-radius:var(--tech-radius-lg);overflow:hidden;">
-        <div style="padding:14px 18px;border-bottom:1px solid var(--tech-gray-100);display:flex;align-items:center;justify-content:space-between;">
-          <div style="display:flex;align-items:center;gap:8px;">
-            <span style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;background:var(--olfu-green-50);">
-              <svg style="width:15px;height:15px;color:var(--olfu-green);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/>
-              </svg>
-            </span>
-            <span style="font-size:13px;font-weight:700;color:var(--tech-gray-900);">Labor Breakdown</span>
+      <!-- Time Logs card -->
+      <div style="background:#fff;border:1px solid #f3f4f6;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.05);">
+        <div style="padding:14px 18px;border-bottom:1px solid #f3f4f6;background:#fafafa;display:flex;align-items:center;justify-content:space-between;">
+          <div style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:700;color:#111827;">
+            <svg style="width:14px;height:14px;color:#15803d;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z"/>
+            </svg>
+            Time Logs
           </div>
           <span id="laborTotalBadge" class="hidden"
-                style="font-size:12px;font-weight:700;font-family:var(--tech-mono);color:var(--olfu-green);background:var(--olfu-green-50);border:1px solid var(--olfu-green-100);padding:3px 10px;border-radius:999px;">
+                style="font-size:11.5px;font-weight:700;font-family:ui-monospace,monospace;color:#0f5132;background:#f3f4f6;border:1px solid #e5e7eb;padding:3px 10px;border-radius:999px;">
             0:00:00
           </span>
         </div>
-
         <div style="padding:16px 18px;">
-          <div id="timeLogsList" class="space-y-2"></div>
-
-          <div id="laborEmptyState" style="padding:32px 16px;text-align:center;">
-            <div style="width:36px;height:36px;border-radius:50%;background:var(--tech-gray-100);display:flex;align-items:center;justify-content:center;margin:0 auto 10px;">
-              <svg style="width:16px;height:16px;color:var(--tech-gray-300);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+          <div id="timeLogsList"></div>
+          <div id="laborEmptyState" style="padding:36px 16px;text-align:center;">
+            <div style="width:40px;height:40px;border-radius:50%;background:#f3f4f6;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;">
+              <svg style="width:18px;height:18px;color:#d1d5db;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
               </svg>
             </div>
-            <p style="font-size:12px;color:var(--tech-gray-400);font-style:italic;">No entries yet. Start the timer to log time.</p>
+            <p style="font-size:13px;color:#9ca3af;font-style:italic;margin:0;">No time entries yet. Start the timer to log time.</p>
           </div>
-
-          <div id="timeTotalRow" class="hidden" style="display:none;align-items:center;justify-content:space-between;margin-top:10px;padding:10px 14px;background:var(--olfu-green-50);border:1px solid var(--olfu-green-100);border-radius:8px;">
-            <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--olfu-green);">Total Time</span>
-            <span id="timeTotalValue" style="font-family:var(--tech-mono);font-size:14px;font-weight:700;color:var(--olfu-green);">0:00:00</span>
+          <div id="timeTotalRow" class="hidden" style="display:none;align-items:center;justify-content:space-between;margin-top:10px;padding:10px 14px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;">
+            <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#6b7280;">Total Time</span>
+            <span id="timeTotalValue" style="font-family:ui-monospace,monospace;font-size:14px;font-weight:800;color:#0f5132;">0:00:00</span>
           </div>
         </div>
       </div>
@@ -589,6 +668,12 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
 
   <!-- ── Parts ───────────────────────────────────────────────── -->
   <div class="p-6 hidden" id="tab-parts">
+    <div id="gateNotice-parts" class="gateNotice" style="display:<?php echo in_array($status, ['assigned','scheduled','new']) ? '' : 'none'; ?>;align-items:center;gap:12px;padding:12px 16px;margin-bottom:16px;background:#fffbeb;border:1px solid #fde68a;border-radius:var(--tech-radius-lg);">
+      <svg style="width:18px;height:18px;color:#d97706;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>
+      </svg>
+      <p style="font-size:12.5px;font-weight:600;color:#92400e;margin:0;">Press <strong>Start Work</strong> to unlock this tab.</p>
+    </div>
     <div class="tech-card">
       <div class="tech-card__head">
         <div class="tech-card__title" style="color:var(--tech-green);">
@@ -765,43 +850,36 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
 
   <!-- ── Communication / Notes ───────────────────────────────── -->
   <div class="p-5 hidden" id="tab-communication">
-    <div class="grid grid-cols-1 xl:grid-cols-2 gap-5 items-start">
+    <div id="gateNotice-communication" class="gateNotice" style="display:<?php echo in_array($status, ['assigned','scheduled','new']) ? '' : 'none'; ?>;align-items:center;gap:10px;padding:11px 16px;margin-bottom:16px;background:#fffbeb;border:1px solid #fde68a;border-left:3px solid #d97706;border-radius:8px;">
+      <svg style="width:15px;height:15px;color:#d97706;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>
+      </svg>
+      <p style="font-size:13px;font-weight:500;color:#92400e;margin:0;">Press <strong>Start Work</strong> to unlock this tab.</p>
+    </div>
 
-      <!-- Left: Compose -->
-      <div style="background:var(--tech-surface);border:1px solid var(--tech-gray-200);border-radius:var(--tech-radius-lg);overflow:hidden;">
-        <div style="padding:14px 18px;border-bottom:1px solid var(--tech-gray-100);display:flex;align-items:center;gap:8px;">
-          <span style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;background:var(--olfu-green-50);">
-            <svg style="width:15px;height:15px;color:var(--olfu-green);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/>
-            </svg>
-          </span>
-          <div>
-            <p style="font-size:13px;font-weight:700;color:var(--tech-gray-900);line-height:1.2;">New Note</p>
-            <p style="font-size:11px;color:var(--tech-gray-400);">Text or voice</p>
-          </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;">
+
+      <!-- Compose -->
+      <div style="background:#fff;border:1px solid #f3f4f6;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.05);">
+        <div style="padding:14px 18px;border-bottom:1px solid #f3f4f6;background:#fafafa;display:flex;align-items:center;gap:7px;">
+          <svg style="width:14px;height:14px;color:#15803d;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/>
+          </svg>
+          <span style="font-size:13px;font-weight:700;color:#111827;">New Note</span>
         </div>
         <div style="padding:16px 18px;">
-          <input id="noteTitle" type="text" class="fin text-sm w-full"
-                 placeholder="Note title (optional)&hellip;"
-                 style="margin-bottom:10px;" />
-          <textarea id="noteText" rows="5" class="fin text-sm w-full resize-none"
-                    placeholder="Add a progress note&hellip;"
-                    style="margin-bottom:14px;"></textarea>
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
-            <button id="btnVoice"
-                    style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;padding:8px 14px;border-radius:8px;border:1px solid var(--tech-gray-200);background:var(--tech-surface);color:var(--tech-gray-600);cursor:pointer;transition:background .15s;font-family:inherit;"
-                    onmouseover="this.style.background='var(--tech-gray-50)'"
-                    onmouseout="this.style.background='var(--tech-surface)'">
-              <svg style="width:14px;height:14px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z"/>
-              </svg>
-              Voice
-            </button>
+          <input id="noteTitle" type="text" class="fin"
+                 placeholder="Note title (optional)…"
+                 style="width:100%;margin-bottom:10px;font-size:13px;" />
+          <textarea id="noteText" rows="5" class="fin"
+                    placeholder="Add a progress note…"
+                    style="width:100%;resize:none;margin-bottom:14px;font-size:13px;"></textarea>
+          <div style="display:flex;justify-content:flex-end;">
             <button id="btnAddNote"
-                    style="display:inline-flex;align-items:center;gap:6px;background:var(--olfu-green);color:#fff;font-size:13px;font-weight:600;padding:8px 18px;border-radius:8px;border:none;cursor:pointer;transition:background .15s;font-family:inherit;"
-                    onmouseover="this.style.background='var(--tech-green-dk)'"
-                    onmouseout="this.style.background='var(--olfu-green)'">
-              <svg style="width:14px;height:14px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    style="display:inline-flex;align-items:center;gap:6px;background:#15803d;color:#fff;font-size:13px;font-weight:600;padding:8px 18px;border-radius:8px;border:none;cursor:pointer;font-family:inherit;transition:background .15s;"
+                    onmouseover="this.style.background='#166534'"
+                    onmouseout="this.style.background='#15803d'">
+              <svg style="width:13px;height:13px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14"/>
               </svg>
               Add Note
@@ -810,30 +888,23 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
         </div>
       </div>
 
-      <!-- Right: Saved notes list -->
-      <div style="background:var(--tech-surface);border:1px solid var(--tech-gray-200);border-radius:var(--tech-radius-lg);overflow:hidden;">
-        <div style="padding:14px 18px;border-bottom:1px solid var(--tech-gray-100);display:flex;align-items:center;justify-content:space-between;">
-          <div style="display:flex;align-items:center;gap:8px;">
-            <span style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;background:var(--olfu-green-50);">
-              <svg style="width:15px;height:15px;color:var(--olfu-green);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-              </svg>
-            </span>
-            <span style="font-size:13px;font-weight:700;color:var(--tech-gray-900);">Saved Notes</span>
-          </div>
-          <span id="notesCountBadge" style="font-size:11px;font-weight:600;color:var(--tech-gray-500);background:var(--tech-gray-100);padding:2px 8px;border-radius:999px;">0</span>
+      <!-- Saved notes -->
+      <div style="background:#fff;border:1px solid #f3f4f6;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.05);">
+        <div style="padding:14px 18px;border-bottom:1px solid #f3f4f6;background:#fafafa;display:flex;align-items:center;gap:7px;">
+          <svg style="width:14px;height:14px;color:#15803d;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          <span style="font-size:13px;font-weight:700;color:#111827;">Saved Notes</span>
         </div>
-
         <div style="padding:16px 18px;">
-          <div id="notesList" class="space-y-2"><!-- Rendered by workorder.js --></div>
-          <!-- Empty state (hidden by JS when notes exist) -->
-          <div id="notesEmptyState" style="padding:32px 16px;text-align:center;">
-            <div style="width:36px;height:36px;border-radius:50%;background:var(--tech-gray-100);display:flex;align-items:center;justify-content:center;margin:0 auto 10px;">
-              <svg style="width:16px;height:16px;color:var(--tech-gray-300);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+          <div id="notesList"></div>
+          <div id="notesEmptyState" style="padding:36px 16px;text-align:center;">
+            <div style="width:40px;height:40px;border-radius:50%;background:#f3f4f6;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;">
+              <svg style="width:18px;height:18px;color:#d1d5db;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/>
               </svg>
             </div>
-            <p style="font-size:12px;color:var(--tech-gray-400);font-style:italic;">No notes yet. Add one on the left.</p>
+            <p style="font-size:13px;color:#9ca3af;font-style:italic;margin:0;">No notes yet. Add one on the left.</p>
           </div>
         </div>
       </div>
@@ -842,107 +913,113 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
   </div>
 
   <!-- ── Evidence (Documentation) ──────────────────────────────── -->
-  <div class="p-6 hidden" id="tab-evidence">
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+  <div class="p-5 hidden" id="tab-evidence">
+    <div id="gateNotice-evidence" class="gateNotice" style="display:<?php echo in_array($status, ['assigned','scheduled','new']) ? '' : 'none'; ?>;align-items:center;gap:10px;padding:11px 16px;margin-bottom:16px;background:#fffbeb;border:1px solid #fde68a;border-left:3px solid #d97706;border-radius:8px;">
+      <svg style="width:15px;height:15px;color:#d97706;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>
+      </svg>
+      <p style="font-size:13px;font-weight:500;color:#92400e;margin:0;">Press <strong>Start Work</strong> to unlock this tab.</p>
+    </div>
+
+    <!-- Before / After photos -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
 
       <!-- Before -->
-      <div class="tech-card" style="margin-bottom:0;">
-        <div class="tech-card__head">
-          <div class="tech-card__title">
-            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="color:var(--tech-gray-400);">
+      <div style="background:#fff;border:1px solid #f3f4f6;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.05);">
+        <div style="padding:13px 18px;border-bottom:1px solid #f3f4f6;background:#fafafa;display:flex;align-items:center;justify-content:space-between;">
+          <div style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:700;color:#111827;">
+            <svg style="width:14px;height:14px;color:#9ca3af;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.776 48.776 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z"/>
               <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z"/>
             </svg>
             Before
           </div>
-          <span class="tech-card__meta">(<span id="beforeCount">0</span> files)</span>
+          <span style="font-size:11.5px;color:#9ca3af;">(<span id="beforeCount">0</span> files)</span>
         </div>
-        <div class="tech-card__body">
+        <div style="padding:14px 16px;">
           <label for="beforeFiles"
-                 class="flex items-center gap-3 w-full rounded-lg px-4 py-2.5 cursor-pointer transition-colors group mb-3"
-                 style="border:1px dashed var(--tech-gray-200);background:var(--tech-gray-50);"
-                 onmouseover="this.style.borderColor='var(--tech-green-mid)';this.style.background='var(--tech-green-lt)'"
-                 onmouseout="this.style.borderColor='var(--tech-gray-200)';this.style.background='var(--tech-gray-50)'">
-            <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"
-                 style="color:var(--tech-gray-400);">
+                 style="display:flex;align-items:center;gap:10px;width:100%;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px;cursor:pointer;background:#f9fafb;transition:all .15s;margin-bottom:10px;"
+                 onmouseover="this.style.borderColor='#86efac';this.style.background='#f0fdf4'"
+                 onmouseout="this.style.borderColor='#e5e7eb';this.style.background='#f9fafb'">
+            <svg style="width:15px;height:15px;color:#9ca3af;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.776 48.776 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z"/>
               <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z"/>
             </svg>
-            <span class="text-xs font-medium" style="color:var(--tech-gray-500);">Tap to capture / upload</span>
-            <input id="beforeFiles" type="file" accept="image/*,video/*" capture="environment" multiple class="sr-only" />
+            <span style="font-size:12.5px;font-weight:500;color:#6b7280;">Tap to capture / upload</span>
+            <input id="beforeFiles" type="file" accept="image/*,video/*" capture="environment" multiple style="display:none;" />
           </label>
-          <div class="grid grid-cols-2 gap-2" id="beforeMedia"></div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;" id="beforeMedia"></div>
         </div>
       </div>
 
       <!-- After -->
-      <div class="tech-card" style="margin-bottom:0;">
-        <div class="tech-card__head">
-          <div class="tech-card__title">
-            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="color:var(--tech-green);">
+      <div style="background:#fff;border:1px solid #f3f4f6;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.05);">
+        <div style="padding:13px 18px;border-bottom:1px solid #f3f4f6;background:#fafafa;display:flex;align-items:center;justify-content:space-between;">
+          <div style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:700;color:#111827;">
+            <svg style="width:14px;height:14px;color:#15803d;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.776 48.776 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z"/>
               <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z"/>
             </svg>
             After
           </div>
-          <span class="tech-card__meta">(<span id="afterCount">0</span> files)</span>
+          <span style="font-size:11.5px;color:#9ca3af;">(<span id="afterCount">0</span> files)</span>
         </div>
-        <div class="tech-card__body">
+        <div style="padding:14px 16px;">
           <label for="afterFiles"
-                 class="flex items-center gap-3 w-full rounded-lg px-4 py-2.5 cursor-pointer transition-colors group mb-3"
-                 style="border:1px dashed var(--tech-gray-200);background:var(--tech-gray-50);"
-                 onmouseover="this.style.borderColor='var(--tech-green-mid)';this.style.background='var(--tech-green-lt)'"
-                 onmouseout="this.style.borderColor='var(--tech-gray-200)';this.style.background='var(--tech-gray-50)'">
-            <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"
-                 style="color:var(--tech-gray-400);">
+                 style="display:flex;align-items:center;gap:10px;width:100%;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px;cursor:pointer;background:#f9fafb;transition:all .15s;margin-bottom:10px;"
+                 onmouseover="this.style.borderColor='#86efac';this.style.background='#f0fdf4'"
+                 onmouseout="this.style.borderColor='#e5e7eb';this.style.background='#f9fafb'">
+            <svg style="width:15px;height:15px;color:#9ca3af;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.776 48.776 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z"/>
               <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z"/>
             </svg>
-            <span class="text-xs font-medium" style="color:var(--tech-gray-500);">Tap to capture / upload</span>
-            <input id="afterFiles" type="file" accept="image/*,video/*" capture="environment" multiple class="sr-only" />
+            <span style="font-size:12.5px;font-weight:500;color:#6b7280;">Tap to capture / upload</span>
+            <input id="afterFiles" type="file" accept="image/*,video/*" capture="environment" multiple style="display:none;" />
           </label>
-          <div class="grid grid-cols-2 gap-2" id="afterMedia"></div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;" id="afterMedia"></div>
         </div>
       </div>
     </div>
 
     <!-- Config backups -->
-    <div class="tech-card">
-      <div class="tech-card__head">
-        <div class="tech-card__title" style="color:var(--tech-green);">
-          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+    <div style="background:#fff;border:1px solid #f3f4f6;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.05);">
+      <div style="padding:13px 18px;border-bottom:1px solid #f3f4f6;background:#fafafa;display:flex;align-items:center;justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:700;color:#111827;">
+          <svg style="width:14px;height:14px;color:#15803d;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
           </svg>
           Configuration Backups &amp; Logs
         </div>
-        <span class="tech-card__meta">(<span id="configCount">0</span> files)</span>
+        <span style="font-size:11.5px;color:#9ca3af;">(<span id="configCount">0</span> files)</span>
       </div>
-      <div class="tech-card__body">
+      <div style="padding:14px 16px;">
         <label for="configFiles"
-               class="flex items-center gap-3 w-full rounded-lg px-4 py-2.5 cursor-pointer transition-colors mb-3"
-               style="border:1px dashed var(--tech-gray-200);background:var(--tech-gray-50);"
-               onmouseover="this.style.borderColor='var(--tech-green-mid)';this.style.background='var(--tech-green-lt)'"
-               onmouseout="this.style.borderColor='var(--tech-gray-200)';this.style.background='var(--tech-gray-50)'">
-          <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"
-               style="color:var(--tech-gray-400);">
+               style="display:flex;align-items:center;gap:10px;width:100%;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px;cursor:pointer;background:#f9fafb;transition:all .15s;margin-bottom:10px;"
+               onmouseover="this.style.borderColor='#86efac';this.style.background='#f0fdf4'"
+               onmouseout="this.style.borderColor='#e5e7eb';this.style.background='#f9fafb'">
+          <svg style="width:15px;height:15px;color:#9ca3af;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
           </svg>
-          <span class="text-xs font-medium" style="color:var(--tech-gray-500);">Upload config files, logs, backups</span>
-          <span class="ml-auto text-xs hidden sm:inline" style="color:var(--tech-gray-400);">
-            .json .xml .cfg .log .zip .tar&hellip; &middot; Max 50MB
-          </span>
+          <span style="font-size:12.5px;font-weight:500;color:#6b7280;">Upload config files, logs, backups</span>
+          <span style="margin-left:auto;font-size:11px;color:#9ca3af;">.json .xml .cfg .log .zip .tar… · Max 50MB</span>
           <input id="configFiles"
                  type="file"
                  accept=".json,.xml,.cfg,.conf,.ini,.txt,.log,.csv,.zip,.tar,.gz,.bak,.img"
-                 multiple class="sr-only" />
+                 multiple style="display:none;" />
         </label>
-        <div class="grid grid-cols-3 gap-2" id="configMedia"></div>
+        <div style="display:grid;grid-template-columns:1fr;gap:6px;" id="configMedia"></div>
       </div>
     </div>
   </div>
 
   <!-- ── Sign-off (Documentation) ─────────────────────────────── -->
   <div class="p-6 hidden" id="tab-signoff">
+    <div id="gateNotice-signoff" class="gateNotice" style="display:<?php echo in_array($status, ['assigned','scheduled','new']) ? '' : 'none'; ?>;align-items:center;gap:12px;padding:12px 16px;margin-bottom:16px;background:#fffbeb;border:1px solid #fde68a;border-radius:var(--tech-radius-lg);">
+      <svg style="width:18px;height:18px;color:#d97706;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>
+      </svg>
+      <p style="font-size:12.5px;font-weight:600;color:#92400e;margin:0;">Press <strong>Start Work</strong> to unlock this tab.</p>
+    </div>
 
     <!-- Validation blocker -->
     <div id="completeBlocker" class="mb-5 hidden p-4 rounded-lg" 
@@ -950,48 +1027,41 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-      <!-- Requester info fields -->
+      <!-- Authorized Signatory -->
       <div class="tech-card" style="margin-bottom:0;background:var(--tech-gray-50);">
         <div class="tech-card__head" style="background:var(--tech-gray-50);">
           <div class="tech-card__title" style="color:var(--tech-green);">
             <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"/>
             </svg>
-            Requester Sign-off
+            Authorized Signatory
           </div>
         </div>
         <div class="tech-card__body space-y-4">
           <div>
-            <label class="vf-lbl block mb-1.5" for="signerName">
-              Full name <span style="color:var(--tech-red);">*</span>
+            <label class="vf-lbl block mb-1.5" for="signatorySelect">
+              Select signatory <span style="color:var(--tech-red);">*</span>
             </label>
-            <input class="fin text-sm w-full" id="signerName" placeholder="e.g., Juan Dela Cruz" />
-          </div>
-          <div>
-            <label class="vf-lbl block mb-1.5" for="signerId">
-              ID number <span style="color:var(--tech-red);">*</span>
-            </label>
-            <input class="fin text-sm w-full" id="signerId" placeholder="e.g., 2021-00123" />
-          </div>
-          <div>
-            <label class="vf-lbl block mb-1.5" for="signerEmail">
-              Email address <span style="color:var(--tech-red);">*</span>
-            </label>
-            <input class="fin text-sm w-full" id="signerEmail" type="email" placeholder="e.g., j.delacruz@olfu.edu.ph" />
-          </div>
-          <div>
-            <label class="vf-lbl block mb-1.5" for="signerPosition">Position / Role</label>
-            <select class="fin text-sm w-full" id="signerPosition">
-              <option value="">Select position…</option>
-              <option value="Faculty">Faculty</option>
-              <option value="Staff">Staff</option>
-              <option value="Department Staff">Department Staff</option>
-              <option value="IT Staff">IT Staff</option>
-              <option value="IT Manager">IT Manager</option>
-              <option value="Admin">Admin</option>
-              <option value="Student">Student</option>
-              <option value="Other">Other</option>
+            <select class="fin text-sm w-full" id="signatorySelect">
+              <option value="">Select authorized signatory…</option>
+              <?php foreach ($signatory_users as $su): ?>
+                <option value="<?php echo (int)$su['user_id']; ?>"
+                        data-name="<?php echo htmlspecialchars($su['full_name'], ENT_QUOTES); ?>"
+                        <?php echo ($signoff && (int)($signoff['signed_by_user_id'] ?? 0) === (int)$su['user_id']) ? 'selected' : ''; ?>>
+                  <?php echo htmlspecialchars($su['full_name']) . ' — ' . htmlspecialchars(ucwords(str_replace('_', ' ', $su['role_name']))); ?>
+                </option>
+              <?php endforeach; ?>
             </select>
+            <?php if (empty($signatory_users)): ?>
+              <p class="text-xs mt-1" style="color:var(--tech-gray-400);">No eligible signatories found. Ensure users with technician module access exist.</p>
+            <?php endif; ?>
+          </div>
+          <!-- Selected signatory identity display -->
+          <div id="signatoryIdentityWrap" style="display:<?php echo ($signoff && !empty($signoff['signer_name'])) ? '' : 'none'; ?>;padding:10px 14px;border-radius:8px;background:#f0fdf4;border:1px solid #bbf7d0;">
+            <div style="font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:#15803d;margin-bottom:3px;">Signatory</div>
+            <div id="signatoryIdentityName" style="font-size:13px;font-weight:600;color:#14532d;">
+              <?php echo htmlspecialchars($signoff['signer_name'] ?? ''); ?>
+            </div>
           </div>
         </div>
       </div>
@@ -1023,6 +1093,15 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
                 <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/>
               </svg>
               <span class="ml-2 text-sm font-medium">Sign here</span>
+            </div>
+            <!-- Locked overlay — shown when work order is not in progress -->
+            <div id="sigLockedOverlay"
+                 class="absolute inset-0 flex flex-col items-center justify-center rounded-xl pointer-events-none"
+                 style="background:rgba(243,244,246,0.82);backdrop-filter:blur(2px);display:flex;">
+              <svg style="width:22px;height:22px;color:#9ca3af;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>
+              </svg>
+              <span style="font-size:12px;font-weight:600;color:#9ca3af;margin-top:6px;">Locked — Start Work first</span>
             </div>
           </div>
           <div class="flex items-center justify-between mt-3">
@@ -1069,44 +1148,6 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
       </div>
     </div>
 
-    <!-- Satisfaction rating -->
-    <div class="tech-card mt-6">
-      <div class="tech-card__head">
-        <div class="tech-card__title" style="color:var(--tech-green);">
-          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
-          </svg>
-          Service Satisfaction Rating
-        </div>
-      </div>
-      <div class="tech-card__body">
-        <p class="text-xs mb-4" style="color:var(--tech-gray-500);">
-          How satisfied are you with the service provided? (1–5 stars)
-        </p>
-        <div class="flex items-center gap-3 mb-4">
-          <div class="flex gap-1" id="satisfactionStars">
-            <?php for ($s = 1; $s <= 5; $s++): ?>
-            <button type="button" class="satisfaction-star" data-rating="<?php echo $s; ?>">
-              <svg class="w-8 h-8 transition-colors" fill="currentColor" viewBox="0 0 24 24"
-                   style="color:var(--tech-gray-200);">
-                <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
-              </svg>
-            </button>
-            <?php endfor; ?>
-          </div>
-          <span class="text-sm font-medium" id="satisfactionText" style="color:var(--tech-gray-500);">Please rate</span>
-          <input type="hidden" id="satisfactionRating" name="satisfaction" value="">
-        </div>
-        <div>
-          <label class="vf-lbl block mb-1.5" for="satisfactionFeedback">
-            Additional feedback (optional)
-          </label>
-          <textarea id="satisfactionFeedback" class="fin text-sm w-full resize-none" rows="3"
-                    placeholder="Tell us about your experience with this service…"></textarea>
-        </div>
-      </div>
-    </div>
-
     <!-- Action buttons -->
     <div class="mt-5 flex justify-end gap-3">
       <button id="btnSaveDraft"
@@ -1129,6 +1170,54 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
         </svg>
         Complete Work Order
       </button>
+    </div>
+  </div>
+
+  <!-- ── Ratings (read-only placeholder for future requester ratings) ── -->
+  <div class="p-6 hidden" id="tab-ratings">
+    <div class="tech-card" style="margin-bottom:0;">
+      <div class="tech-card__head">
+        <div class="tech-card__title" style="color:var(--tech-green);">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
+          </svg>
+          Service Rating
+        </div>
+      </div>
+      <div class="tech-card__body">
+        <?php
+          $rating_val = isset($signoff['satisfaction']) ? (int)$signoff['satisfaction'] : 0;
+          $has_rating = $rating_val >= 1 && $rating_val <= 5;
+        ?>
+        <?php if ($has_rating): ?>
+          <!-- Read-only star display -->
+          <div class="flex items-center gap-2 mb-3">
+            <?php for ($s = 1; $s <= 5; $s++): ?>
+              <svg class="w-7 h-7" fill="currentColor" viewBox="0 0 24 24"
+                   style="color:<?php echo $s <= $rating_val ? '#f59e0b' : '#e5e7eb'; ?>;">
+                <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
+              </svg>
+            <?php endfor; ?>
+            <span class="text-sm font-semibold" style="color:var(--tech-gray-700);"><?php echo $rating_val; ?> / 5</span>
+          </div>
+          <?php if (!empty($signoff['feedback'])): ?>
+            <div style="padding:12px 14px;border-radius:8px;background:var(--tech-gray-50);border:1px solid var(--tech-gray-200);">
+              <div style="font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--tech-gray-400);margin-bottom:6px;">Feedback</div>
+              <p style="font-size:13px;color:var(--tech-gray-700);margin:0;line-height:1.6;"><?php echo nl2br(htmlspecialchars($signoff['feedback'])); ?></p>
+            </div>
+          <?php endif; ?>
+        <?php else: ?>
+          <!-- Placeholder -->
+          <div style="padding:40px 20px;text-align:center;">
+            <svg style="width:40px;height:40px;color:var(--tech-gray-200);margin:0 auto 12px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
+            </svg>
+            <p style="font-size:13px;color:var(--tech-gray-400);font-style:italic;margin:0;">
+              Ratings are submitted by the requester after work order review.<br>No rating has been submitted yet.
+            </p>
+          </div>
+        <?php endif; ?>
+      </div>
     </div>
   </div>
 
@@ -1196,13 +1285,18 @@ $__wo_payload = [
   'time_logs'   => $time_logs ?? [],
   'total_time'  => $total_time ?? 0,
   'signoff' => $signoff ? [
-    'signer_name'    => $signoff['signer_name'],
-    'signature_path' => $signoff['signature_path'],
-    'satisfaction'   => $signoff['satisfaction'],
-    'feedback'       => $signoff['feedback'],
-    'signed_at'      => $signoff['signed_at'],
+    'signer_name'        => $signoff['signer_name'],
+    'signature_path'     => $signoff['signature_path'],
+    'satisfaction'       => $signoff['satisfaction'],
+    'feedback'           => $signoff['feedback'],
+    'signed_at'          => $signoff['signed_at'],
+    'signed_by_user_id'  => $signoff['signed_by_user_id'] ?? null,
   ] : null,
-  'evidence_required'  => (bool)($evidence_required ?? false),
+  'signatory_users' => array_map(fn($u) => [
+    'user_id'   => (int)$u['user_id'],
+    'full_name' => $u['full_name'],
+    'role_name' => $u['role_name'],
+  ], $signatory_users ?? []),  'evidence_required'  => (bool)($evidence_required ?? false),
   'signature_required' => (bool)($signature_required ?? true),
   'can_edit'           => (bool)($can_edit ?? false),
   'can_execute_now'    => (bool)($can_execute_now ?? false),
@@ -1531,35 +1625,11 @@ function startWork(woId, button) {
   );
 }
 
-/* ── Satisfaction stars ──────────────────────────────────── */
-(function () {
-  const stars      = document.querySelectorAll('.satisfaction-star');
-  const ratingIn   = document.getElementById('satisfactionRating');
-  const ratingText = document.getElementById('satisfactionText');
-  const labels     = ['', 'Very Dissatisfied', 'Dissatisfied', 'Neutral', 'Satisfied', 'Very Satisfied'];
-
-  function paintStars(n) {
-    stars.forEach((s, i) => {
-      s.querySelector('svg').style.color = (i < n) ? '#F59E0B' : 'var(--tech-gray-200)';
-    });
-  }
-
-  stars.forEach(star => {
-    star.addEventListener('click', function () {
-      const r = parseInt(this.dataset.rating);
-      ratingIn.value = r;
-      ratingText.textContent = labels[r];
-      paintStars(r);
-    });
-    star.addEventListener('mouseenter', function () { paintStars(parseInt(this.dataset.rating)); });
-  });
-  document.getElementById('satisfactionStars')?.addEventListener('mouseleave', () => {
-    paintStars(parseInt(ratingIn.value) || 0);
-  });
-})();
+/* ── Satisfaction stars removed — ratings are submitted by requester only ── */
 </script>
 
 <script src="<?php echo BASE_URL; ?>modules/technician/public/app.js"></script>
+<script src="<?php echo BASE_URL; ?>modules/technician/public/modal.js"></script>
 <script src="<?php echo BASE_URL; ?>modules/technician/public/offline.js"></script>
 <script src="<?php echo BASE_URL; ?>modules/technician/public/idb-storage.js"></script>
 <script src="<?php echo BASE_URL; ?>modules/technician/public/signature.js"></script>
@@ -1666,4 +1736,49 @@ async function woHandleSync(btn) {
     if (icon) icon.style.animation = '';
   }
 }
+</script>
+
+<script>
+/* ── Emergency queue clear ───────────────────────────────────
+   If the offline queue has grown too large (e.g. repeated failed syncs
+   accumulating blob data), this clears it so new uploads can proceed.
+   The physical files already on disk are NOT affected.
+──────────────────────────────────────────────────────────────── */
+(function () {
+  const QUEUE_KEY = 'mrtsp.queue.v1';
+  const WARNING_BYTES = 5 * 1024 * 1024; // 5 MB
+
+  function getQueueSize() {
+    try {
+      const raw = localStorage.getItem(QUEUE_KEY) || '[]';
+      return raw.length * 2; // UTF-16 chars → approx bytes
+    } catch { return 0; }
+  }
+
+  function showQueueWarning() {
+    const size = getQueueSize();
+    if (size < WARNING_BYTES) return;
+
+    const mb = (size / 1024 / 1024).toFixed(1);
+    const banner = document.createElement('div');
+    banner.id = 'queueWarningBanner';
+    banner.style.cssText = 'position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:9999;' +
+      'background:#7f1d1d;color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;' +
+      'box-shadow:0 4px 16px rgba(0,0,0,.35);display:flex;align-items:center;gap:12px;max-width:480px;';
+    banner.innerHTML = `
+      <svg style="flex-shrink:0;width:20px;height:20px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
+      </svg>
+      <span>Sync queue is <strong>${mb} MB</strong> — uploads may be failing. Clear the stuck queue?</span>
+      <button onclick="window.MRTS.offline.clearQueue();document.getElementById('queueWarningBanner').remove();location.reload();"
+              style="flex-shrink:0;background:#fff;color:#7f1d1d;border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;">
+        Clear Queue
+      </button>
+    `;
+    document.body.appendChild(banner);
+  }
+
+  // Check after page is fully loaded
+  window.addEventListener('load', () => setTimeout(showQueueWarning, 1500));
+})();
 </script>
