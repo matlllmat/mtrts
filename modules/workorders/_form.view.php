@@ -4,6 +4,19 @@
 
 $v = fn($k) => htmlspecialchars($old[$k] ?? $wo[$k] ?? '');
 $e = fn($k) => isset($errors[$k]) ? 'fin-err' : '';
+
+// Determine if RMA must be locked because the linked ticket's asset is under warranty
+$_warranty_locked = false;
+if ($is_edit && !empty($wo['wo_id'])) {
+    if (!isset($_warranty_banner)) {
+        $_warranty_banner = function_exists('get_wo_warranty_status')
+            ? get_wo_warranty_status($pdo, (int)$wo['wo_id'])
+            : ['parts_covered' => 0];
+    }
+    $_warranty_locked = !empty($_warranty_banner['parts_covered']);
+} elseif (!empty($wo['ticket_id'])) {
+    $_warranty_locked = ticket_has_active_parts_warranty($pdo, (int)$wo['ticket_id']);
+}
 ?>
 
 <!-- Back + breadcrumb -->
@@ -110,8 +123,21 @@ $e = fn($k) => isset($errors[$k]) ? 'fin-err' : '';
             <div class="flex items-center gap-2 mt-2">
               <input type="checkbox" name="is_rma" value="1" id="is-rma"
                      class="w-4 h-4 rounded border-gray-300 text-olfu-green focus:ring-green-500"
-                     <?= ($old['is_rma'] ?? $wo['is_rma'] ?? 0) ? 'checked' : '' ?> />
-              <label for="is-rma" class="text-sm text-gray-600 font-medium">Mark as RMA</label>
+                     <?= ($_warranty_locked || ($old['is_rma'] ?? $wo['is_rma'] ?? 0)) ? 'checked' : '' ?>
+                     <?= $_warranty_locked ? 'disabled' : '' ?> />
+              <?php if ($_warranty_locked): ?>
+                <input type="hidden" name="is_rma" value="1">
+              <?php endif; ?>
+              <label for="is-rma" class="text-sm <?= $_warranty_locked ? 'text-amber-700 font-semibold' : 'text-gray-600 font-medium' ?>">
+                Mark as RMA<?= $_warranty_locked ? ' (locked)' : '' ?>
+              </label>
+            </div>
+            <div id="rma-warranty-badge"
+                 class="<?= $_warranty_locked ? 'flex' : 'hidden' ?> mt-2 items-center gap-1.5 text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5">
+              <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+              </svg>
+              Under warranty detected — RMA auto-enabled
             </div>
           </div>
         </div>
@@ -313,13 +339,36 @@ if (ticketSearch) {
 
 const ticketsData = <?= json_encode($tickets) ?>;
 function checkWarranty(ticketId) {
-    const ticket = ticketsData.find(t => t.ticket_id == ticketId);
-    if (ticket) {
-        const rmaCheckbox = document.getElementById('is-rma');
-        if (rmaCheckbox && ticket.warranty_status === 'under_warranty') {
-            rmaCheckbox.checked = true;
+    const ticket      = ticketsData.find(t => t.ticket_id == ticketId);
+    const rmaCheckbox = document.getElementById('is-rma');
+    const rmaBadge    = document.getElementById('rma-warranty-badge');
+    if (!rmaCheckbox) return;
+
+    if (ticket && ticket.warranty_status === 'under_warranty') {
+        rmaCheckbox.checked  = true;
+        rmaCheckbox.disabled = true;
+        // Ensure hidden fallback so disabled checkbox still submits
+        if (!document.getElementById('is-rma-hidden')) {
+            const h = document.createElement('input');
+            h.type = 'hidden'; h.name = 'is_rma'; h.value = '1'; h.id = 'is-rma-hidden';
+            rmaCheckbox.parentNode.appendChild(h);
         }
+        const lbl = rmaCheckbox.nextElementSibling;
+        if (lbl && lbl.tagName === 'LABEL') { lbl.textContent = 'Mark as RMA (locked)'; lbl.className = 'text-sm text-amber-700 font-semibold'; }
+        if (rmaBadge) { rmaBadge.classList.remove('hidden'); rmaBadge.classList.add('flex'); }
+    } else {
+        rmaCheckbox.disabled = false;
+        const h = document.getElementById('is-rma-hidden');
+        if (h) h.remove();
+        const lbl = rmaCheckbox.nextElementSibling;
+        if (lbl && lbl.tagName === 'LABEL') { lbl.textContent = 'Mark as RMA'; lbl.className = 'text-sm text-gray-600 font-medium'; }
+        if (rmaBadge) { rmaBadge.classList.add('hidden'); rmaBadge.classList.remove('flex'); }
     }
+}
+
+// Fire on page load for tickets pre-filled from the ticket detail "Create Work Order" button
+if (hiddenTicketId && hiddenTicketId.value) {
+    checkWarranty(hiddenTicketId.value);
 }
 
 function fetchKb(ticketId) {

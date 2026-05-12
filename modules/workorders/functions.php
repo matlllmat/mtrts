@@ -222,6 +222,18 @@ function get_wo_warranty_status(PDO $pdo, int $wo_id): array {
     return $row ?: ['parts_covered' => 0, 'coverage_type' => null, 'warranty_end' => null];
 }
 
+function ticket_has_active_parts_warranty(PDO $pdo, int $ticket_id): bool {
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*) FROM tickets t
+        LEFT JOIN asset_warranty aw ON t.asset_id = aw.asset_id
+        WHERE t.ticket_id = ?
+          AND aw.coverage_type IN ('parts','parts_and_labor')
+          AND CURDATE() BETWEEN aw.warranty_start AND aw.warranty_end
+    ");
+    $stmt->execute([$ticket_id]);
+    return (int)$stmt->fetchColumn() > 0;
+}
+
 // ── Time Logs ─────────────────────────────────────────────────
 
 function get_wo_time_logs(PDO $pdo, int $wo_id): array {

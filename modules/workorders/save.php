@@ -19,6 +19,13 @@ $is_edit = $wo_id > 0;
 $data    = sanitize_wo_post($_POST, $user_id);
 $errors  = [];
 
+// Server-side RMA enforcement: warranty-covered tickets always get is_rma=1
+if (!empty($data['ticket_id'])) {
+    if (ticket_has_active_parts_warranty($pdo, (int)$data['ticket_id'])) {
+        $data['is_rma'] = 1;
+    }
+}
+
 // ── Validation ────────────────────────────────────────────────
 
 if (empty($data['ticket_id'])) {
