@@ -15,11 +15,47 @@
     <p class="text-sm text-gray-400 mt-0.5">Week of <?= $start_date->format('M j') ?> to <?= $end_date->format('M j, Y') ?></p>
   </div>
   <div class="flex gap-2">
-    <a href="?week=<?= $week_offset - 1 ?>" class="px-3 py-1.5 border border-gray-200 rounded text-sm hover:bg-gray-50">◀ Prev</a>
-    <a href="?week=0" class="px-3 py-1.5 border border-gray-200 rounded text-sm hover:bg-gray-50 <?= $week_offset === 0 ? 'bg-gray-100' : '' ?>">Today</a>
-    <a href="?week=<?= $week_offset + 1 ?>" class="px-3 py-1.5 border border-gray-200 rounded text-sm hover:bg-gray-50">Next ▶</a>
+    <?php
+      $nav_qs = http_build_query(array_filter(['tech' => $filter_tech ?: null, 'type' => $filter_type ?: null]));
+      $nav_sep = $nav_qs ? '&' : '';
+    ?>
+    <a href="?week=<?= $week_offset - 1 ?><?= $nav_qs ? '&'.$nav_qs : '' ?>" class="px-3 py-1.5 border border-gray-200 rounded text-sm hover:bg-gray-50">◀ Prev</a>
+    <a href="?week=0<?= $nav_qs ? '&'.$nav_qs : '' ?>" class="px-3 py-1.5 border border-gray-200 rounded text-sm hover:bg-gray-50 <?= $week_offset === 0 ? 'bg-gray-100' : '' ?>">Today</a>
+    <a href="?week=<?= $week_offset + 1 ?><?= $nav_qs ? '&'.$nav_qs : '' ?>" class="px-3 py-1.5 border border-gray-200 rounded text-sm hover:bg-gray-50">Next ▶</a>
   </div>
 </div>
+
+<!-- Filter bar -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 px-4 py-3 mb-3 flex flex-wrap items-center gap-2">
+  <select id="f-tech" onchange="applyCalFilter()" class="fsel text-sm" style="width:auto;min-width:160px">
+    <option value="">All Technicians</option>
+    <?php foreach ($technicians as $t): ?>
+      <option value="<?= $t['user_id'] ?>" <?= $filter_tech == $t['user_id'] ? 'selected' : '' ?>>
+        <?= htmlspecialchars($t['full_name']) ?>
+      </option>
+    <?php endforeach; ?>
+  </select>
+  <select id="f-type" onchange="applyCalFilter()" class="fsel text-sm" style="width:auto;min-width:140px">
+    <option value="">All Types</option>
+    <option value="diagnosis" <?= $filter_type === 'diagnosis' ? 'selected' : '' ?>>Diagnosis</option>
+    <option value="repair" <?= $filter_type === 'repair' ? 'selected' : '' ?>>Repair</option>
+    <option value="maintenance" <?= $filter_type === 'maintenance' ? 'selected' : '' ?>>Maintenance</option>
+    <option value="follow_up" <?= $filter_type === 'follow_up' ? 'selected' : '' ?>>Follow-up</option>
+  </select>
+  <?php if ($filter_tech || $filter_type): ?>
+    <a href="?week=<?= $week_offset ?>" class="text-xs text-gray-400 hover:text-gray-700 underline">Clear filters</a>
+  <?php endif; ?>
+</div>
+<script>
+function applyCalFilter() {
+  const params = new URLSearchParams({
+    week: <?= $week_offset ?>,
+    tech: document.getElementById('f-tech').value,
+    type: document.getElementById('f-type').value,
+  });
+  window.location = 'calendar.php?' + params.toString();
+}
+</script>
 
 <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col" style="min-width: 800px;">
   <!-- Header row for days -->

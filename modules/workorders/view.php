@@ -40,7 +40,7 @@ $config_media = array_values(array_filter($media, fn($m) => $m['media_type'] ===
 $signoff      = get_wo_signoff($pdo, $id);
 $assignments  = get_wo_assignment_history($pdo, $id);
 $technicians  = get_all_technicians($pdo);
-$kb_articles  = get_related_kb_articles($pdo, $wo['category_id'] ?? null);
+$kb_articles  = get_wo_kb_articles($pdo, $id);
 
 $active_tab   = $_GET['tab'] ?? 'checklist';
 

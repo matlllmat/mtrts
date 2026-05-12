@@ -441,6 +441,50 @@ function get_related_kb_articles(PDO $pdo, ?int $category_id): array {
     return $stmt->fetchAll();
 }
 
+function get_wo_kb_articles(PDO $pdo, int $wo_id): array {
+    $meta = $pdo->prepare("
+        SELECT a.category_id, a.model,
+               COALESCE(l.building,'') AS building, COALESCE(l.room,'') AS room
+        FROM work_orders wo
+        JOIN tickets t ON wo.ticket_id = t.ticket_id
+        LEFT JOIN assets a ON t.asset_id = a.asset_id
+        LEFT JOIN locations l ON t.location_id = l.location_id
+        WHERE wo.wo_id = ?
+        LIMIT 1
+    ");
+    $meta->execute([$wo_id]);
+    $m = $meta->fetch(PDO::FETCH_ASSOC);
+    if (!$m) return [];
+
+    $articles = [];
+
+    if (!empty($m['category_id'])) {
+        $stmt = $pdo->prepare("
+            SELECT article_id, title, content FROM kb_articles
+            WHERE category_id = ? AND is_published = 1
+            ORDER BY updated_at DESC LIMIT 5
+        ");
+        $stmt->execute([$m['category_id']]);
+        foreach ($stmt->fetchAll() as $r) $articles[$r['article_id']] = $r;
+    }
+
+    $keywords = array_filter([trim($m['model'] ?? ''), trim($m['building'] ?? ''), trim($m['room'] ?? '')]);
+    foreach ($keywords as $kw) {
+        if (strlen($kw) < 2) continue;
+        $stmt = $pdo->prepare("
+            SELECT article_id, title, content FROM kb_articles
+            WHERE is_published = 1
+              AND (title LIKE ? OR content LIKE ? OR tags LIKE ?)
+            LIMIT 3
+        ");
+        $like = "%$kw%";
+        $stmt->execute([$like, $like, $like]);
+        foreach ($stmt->fetchAll() as $r) $articles[$r['article_id']] = $r;
+    }
+
+    return array_values($articles);
+}
+
 // ── Write Operations ──────────────────────────────────────────
 
 function generate_wo_number(PDO $pdo): string {
