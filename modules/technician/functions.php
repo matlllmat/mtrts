@@ -606,12 +606,23 @@ function complete_work_order_transactional(PDO $pdo, array $payload, int $techni
         throw $e;
     }
 
+    if (function_exists('sync_ticket_with_wo')) {
+        try {
+            sync_ticket_with_wo($pdo, $wo_id);
+        } catch (Throwable $syncErr) {
+            tech_dbg('H_COMPLETE', 'modules/technician/functions.php:sync_ticket', 'Ticket sync failed (non-fatal)', [
+                'wo_id' => $wo_id,
+                'error' => $syncErr->getMessage(),
+            ]);
+        }
+    }
+
     return [
         'success' => true,
         'wo_id' => $wo_id,
         'status' => 'resolved',
         'has_signature' => $signature_path !== 'data:inline',
-        'satisfaction' => $signer_satisfaction,
+        'satisfaction' => null,
     ];
 }
 
@@ -686,6 +697,12 @@ function add_work_order_note(PDO $pdo, int $wo_id, string $note_text, bool $is_v
 }
 
 function save_work_order_media(PDO $pdo, int $wo_id, string $media_type, string $file_path, string $file_type, int $file_size_kb, ?string $caption = null): void {
+    $exists = $pdo->prepare("SELECT media_id FROM wo_media WHERE wo_id = ? AND file_path = ? LIMIT 1");
+    $exists->execute([$wo_id, $file_path]);
+    if ($exists->fetchColumn()) {
+        return;
+    }
+
     $stmt = $pdo->prepare("
         INSERT INTO wo_media (wo_id, media_type, file_path, file_type, file_size_kb, caption, uploaded_by)
         VALUES (?, ?, ?, ?, ?, ?, ?)

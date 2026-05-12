@@ -337,31 +337,103 @@
 
       <!-- Media tab -->
       <div id="tab-media" class="p-5 <?= $active_tab !== 'media' ? 'hidden' : '' ?>">
-        <?php if ($media): ?>
-          <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-            <?php foreach ($media as $m): ?>
-            <div class="media-card">
-              <?php if (in_array($m['file_type'], ['jpg','jpeg','png'])): ?>
-                <img src="<?= htmlspecialchars(BASE_URL . $m['file_path']) ?>" alt="<?= htmlspecialchars($m['caption'] ?? '') ?>" class="media-thumb" />
-              <?php else: ?>
-                <div class="media-thumb flex items-center justify-center text-gray-300">
-                  <svg class="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>
-                  </svg>
-                </div>
-              <?php endif; ?>
-              <div class="media-info">
-                <span class="media-type media-<?= $m['media_type'] ?>"><?= ucfirst($m['media_type']) ?></span>
+        <?php
+          $renderMediaCard = function(array $m): void {
+              $ft      = (string)($m['file_type'] ?? '');
+              $isImage = str_starts_with($ft, 'image/')
+                      || in_array(strtolower($ft), ['jpg','jpeg','png','gif','webp'], true);
+              $typeSlug = htmlspecialchars(str_replace('_', '-', $m['media_type']));
+              $typeLbl  = ucfirst(str_replace(['photo_', '_'], ['', ' '], $m['media_type']));
+        ?>
+          <div class="media-card">
+            <?php if ($isImage): ?>
+              <img src="<?= htmlspecialchars($m['file_path']) ?>" alt="<?= htmlspecialchars($m['caption'] ?? '') ?>" class="media-thumb" />
+            <?php else: ?>
+              <div class="media-thumb media-file-placeholder">
+                <svg class="w-8 h-8 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>
+                </svg>
                 <?php if ($m['caption']): ?>
-                  <p class="text-xs text-gray-600 mt-1"><?= htmlspecialchars($m['caption']) ?></p>
+                  <p class="text-xs text-gray-500 mt-1 px-1 truncate max-w-full"><?= htmlspecialchars($m['caption']) ?></p>
                 <?php endif; ?>
-                <p class="text-xs text-gray-400 mt-1"><?= htmlspecialchars($m['uploaded_by_name'] ?? '—') ?> · <?= (new DateTime($m['uploaded_at']))->format('M j') ?></p>
+              </div>
+            <?php endif; ?>
+            <div class="media-info">
+              <span class="media-type media-<?= $typeSlug ?>"><?= $typeLbl ?></span>
+              <?php if ($m['caption'] && $isImage): ?>
+                <p class="text-xs text-gray-600 mt-1"><?= htmlspecialchars($m['caption']) ?></p>
+              <?php endif; ?>
+              <p class="text-xs text-gray-400 mt-1"><?= htmlspecialchars($m['uploaded_by_name'] ?? '—') ?> · <?= (new DateTime($m['uploaded_at']))->format('M j') ?></p>
+            </div>
+          </div>
+        <?php }; ?>
+
+        <?php if (!$media): ?>
+          <p class="text-sm text-gray-400 italic">No media captured yet. Photos and evidence are uploaded by technicians during work order execution.</p>
+        <?php else: ?>
+          <div class="space-y-4">
+
+            <!-- Before section -->
+            <div class="wo-media-section">
+              <div class="wo-media-section-header">
+                <div class="wo-media-section-title">
+                  <svg class="wo-media-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.776 48.776 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z"/><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z"/>
+                  </svg>
+                  Before
+                </div>
+                <span class="wo-media-count">(<?= count($before_media) ?> files)</span>
+              </div>
+              <div class="wo-media-grid">
+                <?php if ($before_media): ?>
+                  <?php foreach ($before_media as $m): $renderMediaCard($m); endforeach; ?>
+                <?php else: ?>
+                  <p class="text-sm text-gray-400 italic col-span-3">No before photos captured.</p>
+                <?php endif; ?>
               </div>
             </div>
-            <?php endforeach; ?>
+
+            <!-- After section -->
+            <div class="wo-media-section">
+              <div class="wo-media-section-header">
+                <div class="wo-media-section-title">
+                  <svg class="wo-media-icon wo-media-icon-after" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.776 48.776 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z"/><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z"/>
+                  </svg>
+                  After
+                </div>
+                <span class="wo-media-count">(<?= count($after_media) ?> files)</span>
+              </div>
+              <div class="wo-media-grid">
+                <?php if ($after_media): ?>
+                  <?php foreach ($after_media as $m): $renderMediaCard($m); endforeach; ?>
+                <?php else: ?>
+                  <p class="text-sm text-gray-400 italic col-span-3">No after photos captured.</p>
+                <?php endif; ?>
+              </div>
+            </div>
+
+            <!-- Configuration Backups & Logs section -->
+            <div class="wo-media-section">
+              <div class="wo-media-section-header">
+                <div class="wo-media-section-title">
+                  <svg class="wo-media-icon wo-media-icon-config" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                  </svg>
+                  Configuration Backups &amp; Logs
+                </div>
+                <span class="wo-media-count">(<?= count($config_media) ?> files)</span>
+              </div>
+              <div class="wo-media-grid-config">
+                <?php if ($config_media): ?>
+                  <?php foreach ($config_media as $m): $renderMediaCard($m); endforeach; ?>
+                <?php else: ?>
+                  <p class="text-sm text-gray-400 italic">No configuration files uploaded.</p>
+                <?php endif; ?>
+              </div>
+            </div>
+
           </div>
-        <?php else: ?>
-          <p class="text-sm text-gray-400 italic">No media captured yet. Photos and evidence are uploaded by technicians during work order execution.</p>
         <?php endif; ?>
       </div>
 
@@ -379,6 +451,14 @@
                 <div class="vf-val"><?= (new DateTime($signoff['signed_at']))->format('M j, Y g:ia') ?></div>
               </div>
             </div>
+            <?php if (!empty($signoff['signature_path']) && $signoff['signature_path'] !== 'data:inline'): ?>
+            <div class="mb-4">
+              <div class="vf-lbl">Signature</div>
+              <img src="<?= htmlspecialchars($signoff['signature_path']) ?>"
+                   alt="Customer signature"
+                   style="max-height:120px; border:1px solid #e5e7eb; border-radius:4px; background:#fff; padding:4px;" />
+            </div>
+            <?php endif; ?>
             <?php if ($signoff['satisfaction'] !== null): ?>
             <div class="mb-3">
               <div class="vf-lbl">Satisfaction</div>

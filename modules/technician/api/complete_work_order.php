@@ -7,6 +7,7 @@
 $module = 'technician';
 require_once __DIR__ . '/../../../config/auth_only.php';
 require_once __DIR__ . '/../functions.php';
+require_once __DIR__ . '/../../workorders/functions.php';
 
 header('Content-Type: application/json');
 

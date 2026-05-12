@@ -139,6 +139,21 @@ tbody tr.row-link:hover td{background:#f0fdf4;color:#111827;}
 .media-before{background:#dbeafe;color:#1e40af;}
 .media-after{background:#dcfce7;color:#166534;}
 .media-evidence{background:#fef3c7;color:#92400e;}
+.media-photo-before{background:#dbeafe;color:#1e40af;}
+.media-photo-after{background:#dcfce7;color:#166534;}
+.media-config{background:#f3f4f6;color:#374151;}
+
+/* ── Media tab: sectioned Before/After/Config layout ─────── */
+.wo-media-section{background:#fff;border:1px solid #f3f4f6;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.05);}
+.wo-media-section-header{padding:12px 18px;border-bottom:1px solid #f3f4f6;background:#fafafa;display:flex;align-items:center;justify-content:space-between;}
+.wo-media-section-title{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:700;color:#111827;}
+.wo-media-icon{width:14px;height:14px;color:#9ca3af;flex-shrink:0;}
+.wo-media-icon-after{color:#15803d;}
+.wo-media-icon-config{color:#15803d;}
+.wo-media-count{font-size:11.5px;color:#9ca3af;}
+.wo-media-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:14px 16px;}
+.wo-media-grid-config{display:grid;grid-template-columns:1fr;gap:6px;padding:14px 16px;}
+.media-file-placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;}
 
 /* ── WO-specific: Sign-off ─────────────────────────────────── */
 .signoff-card{border:1px solid #e5e7eb;border-radius:10px;padding:20px;background:#f9fafb;}
