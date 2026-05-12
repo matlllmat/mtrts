@@ -832,6 +832,46 @@ INSERT INTO kb_articles (title, content, category_id, tags, created_by) VALUES
     'How to Submit a Repair Request',
     'Log in to the MTRTS portal. Click "New Ticket" from the dashboard or scan the asset QR code to pre-fill details. Fill in the Category, Location, Impact, Urgency, and a clear Description. Attach a photo of the issue if possible. Submit — you will receive a ticket number and email confirmation.',
     NULL, 'ticket,submit,request,help desk,how to', 1
+  ),
+  (
+    'Microphone: No Audio / No Signal',
+    'Check XLR/TRS cable seating at both the mic and mixer ends. Verify phantom power (+48V) is enabled on the mixer channel for condenser microphones. Confirm the channel gain/trim knob is not at zero. Swap the cable with a known-good cable to isolate whether the fault is in the cable or the mic. Test the microphone on a different known-good channel to rule out a dead channel strip.',
+    5, 'microphone,no audio,no signal,xlr,cable,phantom power', 1
+  ),
+  (
+    'Microphone: Excessive Background Noise or Hum',
+    'Check for a ground loop: try inserting a DI box or ground-lift adapter between the mic and mixer. Keep microphone cables physically separated from power cables and lighting dimmers. Inspect cable shielding for damage — a frayed or broken shield allows RF interference. Reduce channel gain and increase speaker/monitor volume to lower the effective noise floor. Confirm the microphone is not positioned near wireless transmitters or fluorescent lighting ballasts.',
+    5, 'microphone,hum,noise,interference,grounding,cable', 1
+  ),
+  (
+    'AV Rack: Device Not Powering On',
+    'Check the rack-mount power conditioner or sequencer: confirm it is switched on and its circuit breaker has not tripped. Verify the wall outlet supplying the rack is live by plugging in a test device. Ensure all rack devices are plugged into switched outlets on the power conditioner, not the always-on outlets. If a power sequencer is present, reset it by powering it off completely for 10 seconds, then back on. Check IEC power cables at the back of each device for secure seating.',
+    6, 'av rack,power,breaker,power strip,sequencer,not powering on', 1
+  ),
+  (
+    'AV Rack: Overheating / Fan Alarm',
+    'Ensure at least 1U of blank panel space is installed above heat-generating equipment (amplifiers, power supplies). Verify that rack fan units mounted at the top are spinning freely and the exhaust path is unobstructed. Clean dust filter foam on intake fans — clogged filters are the leading cause of rack overheating. If the rack has a rear door, confirm it is vented or open during operation. Consider adding a dedicated rack cooling fan tray if equipment density is high.',
+    6, 'av rack,overheating,fan,ventilation,temperature,cooling', 1
+  ),
+  (
+    'Camera: No Video Output',
+    'Confirm the output cable (HDMI or SDI) is firmly seated at both the camera and the receiving device. Verify the receiving device input format matches the camera output (e.g., both set to 1080p60 — a resolution mismatch shows as no signal). Swap the cable with a tested cable to rule out cable failure. Power-cycle the camera and the receiving device. Check camera output settings: ensure the selected output is not disabled and clean-feed mode is not hiding overlays only.',
+    7, 'camera,no video,no signal,hdmi,sdi,cable,resolution', 1
+  ),
+  (
+    'Camera: Image Blurry or Autofocus Failing',
+    'Clean the lens glass with a microfiber cloth — fingerprints and dust are the most common cause of soft images. If autofocus is continuously hunting, switch to manual focus: turn the focus ring until the subject appears sharp in the viewfinder/monitor. Ensure the subject has sufficient contrast and distinct edges for the autofocus system to lock onto. Check that the ND filter is not accidentally engaged in low-light conditions. If using a zoom lens, rack focus at maximum zoom first, then zoom back out to the desired framing.',
+    7, 'camera,blurry,autofocus,focus,lens,clean,soft image', 1
+  ),
+  (
+    'Amplifier: No Sound Output',
+    'Check the front panel for a protection-mode indicator (red LED or flashing power light) — if in protection mode, power the amplifier off, wait 30 seconds, then power on again. Verify the input cable from the mixer or source device is connected to the correct input on the amplifier. Confirm the input gain/sensitivity knob is not set to minimum. Check speaker output cables and binding post/Speakon terminals for secure connection. Ensure the amplifier is not in standby mode.',
+    8, 'amplifier,no sound,no output,gain,speaker,cable,protection mode', 1
+  ),
+  (
+    'Amplifier: Distorted Audio / Clipping',
+    'Reduce the input gain on the amplifier until the clip indicator LED stops lighting during normal program material. Lower the output level on the upstream source (mixer master fader) and compensate by raising the amplifier gain slightly to maintain headroom in the signal chain. Verify the speaker impedance matches the amplifier minimum load rating. Check speaker cone and surround for physical damage: a torn surround or stuck voice coil produces distortion at any level. If clipping occurs only on certain frequencies, check for a faulty crossover or blown tweeter.',
+    8, 'amplifier,distortion,clipping,gain,overdrive,speaker,impedance', 1
   );
 
 -- ============================================================
