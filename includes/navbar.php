@@ -77,7 +77,7 @@ $icons = [
 
       <!-- Module links — gated by role (profile is accessed via avatar, not sidebar) -->
       <?php
-      $nav_exclude = ['profile', 'notifications'];
+      $nav_exclude = ['profile', 'notifications', 'inventory'];
       foreach ($module_labels as $slug => $label):
         if (in_array($slug, $nav_exclude, true)) continue;
         if (!in_array($slug, $user_modules, true)) continue;
