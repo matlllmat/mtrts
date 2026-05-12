@@ -392,9 +392,16 @@ function get_all_technicians(PDO $pdo): array {
 function get_available_tickets(PDO $pdo): array {
     return $pdo->query("
         SELECT t.ticket_id, t.ticket_number, t.title, t.priority,
-               a.asset_tag, t.warranty_status
+               a.asset_tag,
+               CASE
+                 WHEN aw.coverage_type IN ('parts','parts_and_labor')
+                  AND CURDATE() BETWEEN aw.warranty_start AND aw.warranty_end
+                 THEN 'under_warranty'
+                 ELSE ''
+               END AS warranty_status
         FROM tickets t
         LEFT JOIN assets a ON t.asset_id = a.asset_id
+        LEFT JOIN asset_warranty aw ON a.asset_id = aw.asset_id
         WHERE t.status NOT IN ('closed','cancelled')
         ORDER BY t.created_at DESC
     ")->fetchAll();
