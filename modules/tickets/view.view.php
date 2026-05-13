@@ -14,8 +14,26 @@
             ⚡ Urgent Event
           </span>
         <?php endif; ?>
+        <?php if(($ticket['channel'] ?? '') === 'email'): ?>
+          <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200" title="Submitted via email gateway">
+            📧 Email
+          </span>
+        <?php endif; ?>
       </div>
       <h3 class="text-lg text-gray-700"><?= htmlspecialchars($ticket['title']) ?></h3>
+      <?php if(($ticket['channel'] ?? '') === 'email'):
+        $sender_name  = $ticket['external_name_from'] ?: ($ticket['requester_name'] ?? 'Unknown');
+        $sender_email = $ticket['external_email_from'] ?: ($ticket['requester_email'] ?? '');
+      ?>
+        <p class="mt-2 text-xs text-blue-700 bg-blue-50 border border-blue-100 rounded-md px-3 py-2 inline-flex items-center gap-2">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l9 6 9-6m-18 0v8a2 2 0 002 2h14a2 2 0 002-2V8m-18 0V6a2 2 0 012-2h14a2 2 0 012 2v2"/></svg>
+          Received via email gateway — From <strong><?= htmlspecialchars($sender_name) ?></strong>
+          <?php if ($sender_email): ?>&lt;<?= htmlspecialchars($sender_email) ?>&gt;<?php endif; ?>
+          <?php if (!empty($ticket['external_email_from'])): ?>
+            <span class="text-blue-500 ml-1 italic">(unregistered sender)</span>
+          <?php endif; ?>
+        </p>
+      <?php endif; ?>
     </div>
     <div class="flex flex-wrap gap-2">
       <?php if ($ticket['status'] !== 'closed' && $ticket['status'] !== 'cancelled'): ?>

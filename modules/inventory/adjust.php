@@ -1,35 +1,50 @@
 <?php
 // modules/inventory/adjust.php — Stock adjustment form + POST handler.
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    require_once __DIR__ . '/../../config/auth_only.php';
+    require_once __DIR__ . '/functions.php';
+
+    $id = (int)($_POST['part_id'] ?? 0);
+    $direction = $_POST['direction'] ?? 'add';
+    $qty       = (int)($_POST['qty'] ?? 0);
+    $reason    = trim($_POST['reason'] ?? '');
+
+    if ($qty <= 0) {
+        $_SESSION['inv_form_errors'] = ['qty' => 'Quantity must be greater than zero.'];
+        header('Location: adjust.php?id=' . $id);
+        exit;
+    }
+    if ($reason === '') {
+        $_SESSION['inv_form_errors'] = ['reason' => 'Please provide a reason for the adjustment.'];
+        header('Location: adjust.php?id=' . $id);
+        exit;
+    }
+
+    try {
+        $delta = $direction === 'subtract' ? -$qty : $qty;
+        adjust_stock($pdo, $id, $delta, $reason, (int)$_SESSION['user_id']);
+        header('Location: index.php?adjusted=1&id=' . $id);
+        exit;
+    } catch (Throwable $e) {
+        $_SESSION['inv_form_errors'] = ['general' => 'Adjustment failed: ' . $e->getMessage()];
+        header('Location: adjust.php?id=' . $id);
+        exit;
+    }
+}
+
 $module = 'inventory';
 require_once __DIR__ . '/../../config/guard.php';
 require_once __DIR__ . '/functions.php';
 require_once __DIR__ . '/_styles.php';
 
-$id = (int)($_GET['id'] ?? $_POST['part_id'] ?? 0);
+$id = (int)($_GET['id'] ?? 0);
 $part = $id > 0 ? get_part($pdo, $id) : null;
 if (!$part) { header('Location: index.php'); exit; }
 
-$error = null;
-$ok    = false;
+$error = $_SESSION['inv_form_errors']['general'] ?? $_SESSION['inv_form_errors']['qty'] ?? $_SESSION['inv_form_errors']['reason'] ?? null;
+unset($_SESSION['inv_form_errors']);
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $direction = $_POST['direction'] ?? 'add';
-    $qty       = (int)($_POST['qty'] ?? 0);
-    $reason    = trim($_POST['reason'] ?? '');
-    if ($qty <= 0)         $error = 'Quantity must be greater than zero.';
-    elseif ($reason === '') $error = 'Please provide a reason for the adjustment.';
-    else {
-        try {
-            $delta = $direction === 'subtract' ? -$qty : $qty;
-            $result = adjust_stock($pdo, $id, $delta, $reason, (int)$_SESSION['user_id']);
-            header('Location: index.php?adjusted=1&id=' . $id);
-            exit;
-        } catch (Throwable $e) {
-            $error = 'Adjustment failed: ' . $e->getMessage();
-        }
-    }
-}
 
 $history = get_part_audit_history($pdo, $id, 15);
 ?>
@@ -42,7 +57,7 @@ $history = get_part_audit_history($pdo, $id, 15);
       </svg>
     </div>
     <div>
-      <h2 class="text-xl font-bold text-gray-900 tracking-tight leading-tight">Work Orders</h2>
+      <h2 class="text-xl font-bold text-gray-900 tracking-tight leading-tight">Inventory Catalog</h2>
       <div class="flex items-center gap-2 mt-0.5">
         <span class="text-sm text-gray-500 font-medium">Adjust Stock</span>
         <span class="text-gray-300">·</span>

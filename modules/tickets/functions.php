@@ -226,11 +226,12 @@ function create_ticket(PDO $pdo, array $d): int {
         INSERT INTO tickets
             (ticket_number, requester_id, asset_id, category_id, location_id,
              title, description, impact, urgency, priority, channel,
+             external_email_from, external_name_from,
              is_event_support, request_type, preferred_window, status)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ")->execute([
         $ticket_number,
-        $d['requester_id'],
+        $d['requester_id'] ?: null,
         $d['asset_id'] ?: null,
         $d['category_id'] ?: null,
         $d['location_id'] ?: null,
@@ -240,6 +241,8 @@ function create_ticket(PDO $pdo, array $d): int {
         $d['urgency'] ?? 'medium',
         $priority,
         $d['channel'] ?? 'web',
+        $d['external_email_from'] ?? null,
+        $d['external_name_from']  ?? null,
         $d['is_event_support'] ?? 0,
         $d['request_type'] ?? 'repair',
         $d['preferred_window'] ?: null,
@@ -357,37 +360,122 @@ function check_duplicate_ticket(PDO $pdo, array $d, int $days = 7): ?int {
     return null;
 }
 
+// Whitelist + max sizes — used by both upload helpers (Module 1 #16 fix)
+const TICKET_UPLOAD_MAX_BYTES = 10 * 1024 * 1024; // 10 MB per file
+const TICKET_UPLOAD_MAX_FILES = 5;
+const TICKET_UPLOAD_ALLOWED_MIME = [
+    'image/jpeg', 'image/png', 'image/webp', 'image/gif',
+    'video/mp4', 'application/pdf',
+];
+const TICKET_UPLOAD_ALLOWED_EXT = ['jpg','jpeg','png','webp','gif','mp4','pdf'];
+
+function _validate_ticket_upload(string $name, string $tmp_path, int $size, int $error): ?string {
+    if ($error === UPLOAD_ERR_NO_FILE) return null;            // skip empty slot
+    if ($error !== UPLOAD_ERR_OK)       return "Upload failed for \"$name\".";
+    if ($size <= 0)                     return "File \"$name\" is empty.";
+    if ($size > TICKET_UPLOAD_MAX_BYTES) return "File \"$name\" exceeds 10 MB limit.";
+
+    $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+    if (!in_array($ext, TICKET_UPLOAD_ALLOWED_EXT, true)) {
+        return "File type \".$ext\" is not allowed.";
+    }
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $mime  = $finfo ? finfo_file($finfo, $tmp_path) : null;
+    if ($finfo) finfo_close($finfo);
+    if ($mime && !in_array($mime, TICKET_UPLOAD_ALLOWED_MIME, true)) {
+        return "File \"$name\" has an unsupported MIME type ($mime).";
+    }
+    return null;
+}
+
 function handle_ticket_uploads(PDO $pdo, int $ticket_id, int $user_id): void {
     if (!empty($_FILES['attachments']['name'][0])) {
         $upload_dir = __DIR__ . '/../../public/uploads/tickets/';
         if (!is_dir($upload_dir)) mkdir($upload_dir, 0777, true);
-        
+
         $stmt_att = $pdo->prepare("INSERT INTO ticket_attachments (ticket_id, file_name, file_path, file_type, file_size_kb, uploaded_by) VALUES (?, ?, ?, ?, ?, ?)");
-        
-        for ($i = 0; $i < count($_FILES['attachments']['name']); $i++) {
+
+        $count = min(count($_FILES['attachments']['name']), TICKET_UPLOAD_MAX_FILES);
+        for ($i = 0; $i < $count; $i++) {
             $tmp_name = $_FILES['attachments']['tmp_name'][$i];
             $name     = basename($_FILES['attachments']['name'][$i]);
-            $size     = $_FILES['attachments']['size'][$i];
-            $error    = $_FILES['attachments']['error'][$i];
+            $size     = (int) $_FILES['attachments']['size'][$i];
+            $error    = (int) $_FILES['attachments']['error'][$i];
 
-            if ($error === UPLOAD_ERR_OK && $size > 0) {
-                $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
-                $safe_name = $ticket_id . '_' . time() . '_' . rand(100,999) . '.' . $ext;
-                $dest = $upload_dir . $safe_name;
-                
-                if (move_uploaded_file($tmp_name, $dest)) {
-                    $stmt_att->execute([
-                        $ticket_id, 
-                        $name, 
-                        'public/uploads/tickets/' . $safe_name, 
-                        $ext, 
-                        round($size / 1024), 
-                        $user_id
-                    ]);
-                }
+            // Reject any file failing validation
+            if (_validate_ticket_upload($name, $tmp_name, $size, $error) !== null) continue;
+
+            $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+            $safe_name = $ticket_id . '_' . time() . '_' . rand(100,999) . '.' . $ext;
+            $dest = $upload_dir . $safe_name;
+
+            if (move_uploaded_file($tmp_name, $dest)) {
+                $stmt_att->execute([
+                    $ticket_id,
+                    $name,
+                    'public/uploads/tickets/' . $safe_name,
+                    $ext,
+                    round($size / 1024),
+                    $user_id
+                ]);
             }
         }
     }
+}
+
+/**
+ * Validated upload — returns [bool $ok, ?string $error_message].
+ * Rejects the entire batch on any invalid file so the caller can roll back.
+ * Used by the public email gateway where errors must surface to the user.
+ */
+function handle_ticket_uploads_validated(PDO $pdo, int $ticket_id, int $user_id): array {
+    if (empty($_FILES['attachments']['name'][0])) return [true, null];
+
+    $count = count($_FILES['attachments']['name']);
+    if ($count > TICKET_UPLOAD_MAX_FILES) {
+        return [false, "You may attach at most " . TICKET_UPLOAD_MAX_FILES . " files per email."];
+    }
+
+    // First pass: validate every file before writing any
+    for ($i = 0; $i < $count; $i++) {
+        $err = _validate_ticket_upload(
+            basename($_FILES['attachments']['name'][$i]),
+            $_FILES['attachments']['tmp_name'][$i],
+            (int) $_FILES['attachments']['size'][$i],
+            (int) $_FILES['attachments']['error'][$i]
+        );
+        if ($err !== null) return [false, $err];
+    }
+
+    // Second pass: move and record
+    $upload_dir = __DIR__ . '/../../public/uploads/tickets/';
+    if (!is_dir($upload_dir)) mkdir($upload_dir, 0777, true);
+
+    $stmt_att = $pdo->prepare("INSERT INTO ticket_attachments (ticket_id, file_name, file_path, file_type, file_size_kb, uploaded_by) VALUES (?, ?, ?, ?, ?, ?)");
+
+    for ($i = 0; $i < $count; $i++) {
+        $tmp_name = $_FILES['attachments']['tmp_name'][$i];
+        $name     = basename($_FILES['attachments']['name'][$i]);
+        $size     = (int) $_FILES['attachments']['size'][$i];
+        $error    = (int) $_FILES['attachments']['error'][$i];
+        if ($error === UPLOAD_ERR_NO_FILE) continue;
+
+        $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+        $safe_name = $ticket_id . '_' . time() . '_' . rand(100,999) . '.' . $ext;
+        $dest = $upload_dir . $safe_name;
+
+        if (move_uploaded_file($tmp_name, $dest)) {
+            $stmt_att->execute([
+                $ticket_id,
+                $name,
+                'public/uploads/tickets/' . $safe_name,
+                $ext,
+                round($size / 1024),
+                $user_id
+            ]);
+        }
+    }
+    return [true, null];
 }
 
 function get_recommended_kb_articles(PDO $pdo, ?int $category_id = null, int $limit = 3): array {

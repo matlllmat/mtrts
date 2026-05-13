@@ -26,7 +26,7 @@ function inv_row_class(array $p): string {
 <!-- Header -->
 <div class="bg-white rounded-xl shadow-sm border border-gray-100 px-6 py-4 mb-4 flex flex-wrap items-center justify-between gap-3">
   <div>
-    <h2 class="text-xl font-bold text-gray-900 tracking-tight">Work Orders</h2>
+    <h2 class="text-xl font-bold text-gray-900 tracking-tight">Inventory Catalog</h2>
     <p class="text-sm text-gray-400 mt-0.5">Inventory &amp; Parts Management — Track stock levels and alerts.</p>
   </div>
   <div class="flex gap-2 flex-wrap">

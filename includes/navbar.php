@@ -43,6 +43,7 @@ $icons = [
     'info'       => mtrts_icon('m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z'),
     'logout'     => mtrts_icon('M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9'),
     'bell'       => mtrts_icon('M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0'),
+    'inbox'      => mtrts_icon('M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75'),
     'chevron'    => mtrts_icon('m8.25 4.5 7.5 7.5-7.5 7.5'),
 ];
 ?>
@@ -163,6 +164,43 @@ $icons = [
           </div>
         </div>
       </div>
+
+      <?php
+      // ── Email Inbox (IT staff only) ────────────────────────────────
+      $show_inbox = in_array((int)($_SESSION['role_id'] ?? 0), [1, 2, 3, 8], true);
+      if ($show_inbox):
+      ?>
+      <div class="relative">
+        <button id="inbox-bell"
+                type="button"
+                title="Email Inbox"
+                class="relative w-9 h-9 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 transition-colors duration-150">
+          <?= $icons['inbox'] ?>
+          <span id="inbox-badge"
+                class="hidden absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-olfu-green rounded-full ring-2 ring-white flex items-center justify-center text-[10px] font-bold text-white px-0.5 leading-none">
+          </span>
+        </button>
+
+        <!-- Inbox dropdown -->
+        <div id="inbox-dropdown"
+             class="hidden absolute right-0 top-full mt-2 w-96 bg-white rounded-xl shadow-lg border border-gray-100 z-50">
+          <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+            <span class="text-sm font-semibold text-gray-700">📧 Email Inbox</span>
+            <a href="<?= BASE_URL ?>public/email_submit.php" target="_blank"
+               class="text-xs text-gray-400 hover:text-gray-700">Open gateway ↗</a>
+          </div>
+          <div id="inbox-list" class="divide-y divide-gray-50 max-h-96 overflow-y-auto">
+            <p class="text-sm text-gray-400 text-center py-6">Loading&hellip;</p>
+          </div>
+          <div class="px-4 py-3 border-t border-gray-100">
+            <a href="<?= BASE_URL ?>modules/inbox/index.php"
+               class="text-xs text-olfu-green hover:underline font-medium">
+              View all emails →
+            </a>
+          </div>
+        </div>
+      </div>
+      <?php endif; ?>
 
       <?php
       $nav_pic   = $_SESSION['profile_picture'] ?? '';
@@ -292,6 +330,88 @@ $icons = [
     setInterval(() => fetchAndRender(isOpen), 30000);
   })();
   </script>
+
+  <?php if ($show_inbox): ?>
+  <!-- Inbox bell JS — mirrors notification bell pattern -->
+  <script>
+  (function () {
+    const BASE      = '<?= BASE_URL ?>';
+    const btn       = document.getElementById('inbox-bell');
+    const badge     = document.getElementById('inbox-badge');
+    const dropdown  = document.getElementById('inbox-dropdown');
+    const listEl    = document.getElementById('inbox-list');
+    if (!btn || !dropdown) return;
+    let isOpen = false;
+
+    function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+    function ago(ds) {
+      const diff = Math.floor((Date.now() - new Date(ds).getTime()) / 1000);
+      if (diff < 60)     return 'Just now';
+      if (diff < 3600)   return Math.floor(diff / 60) + 'm ago';
+      if (diff < 86400)  return Math.floor(diff / 3600) + 'h ago';
+      return Math.floor(diff / 86400) + 'd ago';
+    }
+
+    function renderBadge(n) {
+      if (n > 0) { badge.textContent = n > 99 ? '99+' : n; badge.classList.remove('hidden'); }
+      else       { badge.classList.add('hidden'); }
+    }
+
+    function renderList(items) {
+      if (!items.length) {
+        listEl.innerHTML = '<p class="text-sm text-gray-400 text-center py-8">No emails yet.</p>';
+        return;
+      }
+      listEl.innerHTML = items.map(it => `
+        <a href="${BASE}modules/tickets/view.php?id=${it.ticket_id}"
+           class="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 transition-colors${it.is_unread ? ' bg-green-50/60' : ''}">
+          <div class="w-8 h-8 rounded-full bg-olfu-green text-white flex items-center justify-center font-bold text-xs flex-shrink-0">
+            ${esc((it.sender_name || '?').charAt(0).toUpperCase())}
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2">
+              <p class="text-xs font-semibold text-gray-700 truncate">${esc(it.sender_name)}</p>
+              <span class="ml-auto text-[10px] text-gray-400 flex-shrink-0">${ago(it.created_at)}</span>
+            </div>
+            <p class="text-sm ${it.is_unread ? 'font-semibold text-gray-900' : 'text-gray-700'} truncate">${esc(it.subject)}</p>
+            <p class="text-xs text-gray-500 truncate mt-0.5">${esc(it.preview)}</p>
+          </div>
+          ${it.is_unread ? '<span class="w-2 h-2 rounded-full bg-olfu-green flex-shrink-0 mt-2"></span>' : ''}
+        </a>
+      `).join('');
+    }
+
+    function fetchAndRender(updateList) {
+      fetch(BASE + 'modules/inbox/fetch.php')
+        .then(r => r.ok ? r.json() : Promise.reject())
+        .then(d => { renderBadge(d.count || 0); if (updateList) renderList(d.items || []); })
+        .catch(() => {});
+    }
+
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      isOpen = !isOpen;
+      if (isOpen) {
+        dropdown.classList.remove('hidden');
+        listEl.innerHTML = '<p class="text-sm text-gray-400 text-center py-6">Loading&hellip;</p>';
+        fetchAndRender(true);
+      } else {
+        dropdown.classList.add('hidden');
+      }
+    });
+
+    document.addEventListener('click', e => {
+      if (isOpen && !dropdown.contains(e.target)) {
+        isOpen = false;
+        dropdown.classList.add('hidden');
+      }
+    });
+
+    fetchAndRender(false);
+    setInterval(() => fetchAndRender(isOpen), 30000);
+  })();
+  </script>
+  <?php endif; ?>
 
   <!-- Sidebar toggle JS -->
   <script>

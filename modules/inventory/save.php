@@ -2,7 +2,7 @@
 // modules/inventory/save.php — POST handler for add/edit part.
 
 $module = 'inventory';
-require_once __DIR__ . '/../../config/guard.php';
+require_once __DIR__ . '/../../config/auth_only.php';
 require_once __DIR__ . '/functions.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') { header('Location: index.php'); exit; }

@@ -29,6 +29,13 @@ $attachments    = get_ticket_attachments($pdo, $id);
 $comments       = get_ticket_comments($pdo, $id, $is_staff);
 $dynamic_fields = get_ticket_dynamic_fields($pdo, $id);
 
+// Mark email-channel tickets as seen the first time any IT staff views them
+if ($is_staff && ($ticket['channel'] ?? '') === 'email' && empty($ticket['email_seen_at'])) {
+    require_once __DIR__ . '/../inbox/functions.php';
+    mark_email_seen($pdo, $id);
+    $ticket['email_seen_at'] = date('Y-m-d H:i:s'); // reflect in this render
+}
+
 
 
 // See if there's an existing Work Order for this ticket

@@ -35,7 +35,7 @@ if ($is_edit && isset($part['quantity_on_hand'])) {
 <div class="bg-white rounded-xl shadow-sm border border-gray-100 px-6 py-5 mb-5">
   <h2 class="text-xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
     <span class="block w-1 h-6 bg-olfu-green rounded-full flex-shrink-0"></span>
-    Work Orders
+    Inventory Catalog
   </h2>
   <p class="text-sm text-gray-500 mt-1 font-medium">
     <?= $is_edit ? 'Edit Part — ' . htmlspecialchars($part['part_name'] ?? '') : 'Add New Part' ?>
@@ -143,7 +143,7 @@ if ($is_edit && isset($part['quantity_on_hand'])) {
                    list="category-list" autocomplete="off">
             <datalist id="category-list">
               <?php foreach ($_categories as $cat): ?>
-                <option value="<?= htmlspecialchars($cat) ?>">
+                <option value="<?= htmlspecialchars($cat['category']) ?>">
               <?php endforeach; ?>
             </datalist>
           </div>
