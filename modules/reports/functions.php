@@ -146,7 +146,7 @@ function get_technician_scorecards(PDO $pdo): array {
 function get_audit_logs(PDO $pdo, array $f = [], int $page = 1, int $per = 20): array {
     $where = ["1=1"];
     $params = [];
-    
+
     if (!empty($f['user_id'])) {
         $where[] = "l.user_id = ?";
         $params[] = $f['user_id'];
@@ -162,6 +162,11 @@ function get_audit_logs(PDO $pdo, array $f = [], int $page = 1, int $per = 20): 
     if (!empty($f['date_to'])) {
         $where[] = "l.created_at <= ?";
         $params[] = $f['date_to'] . ' 23:59:59';
+    }
+    if (!empty($f['q'])) {
+        $kw = '%' . $f['q'] . '%';
+        $where[] = "(l.action LIKE ? OR l.object_type LIKE ? OR l.old_values LIKE ? OR l.new_values LIKE ? OR u.full_name LIKE ? OR l.ip_address LIKE ?)";
+        array_push($params, $kw, $kw, $kw, $kw, $kw, $kw);
     }
 
     $where_str = implode(" AND ", $where);
@@ -206,26 +211,35 @@ function mask_pii(string $str): string {
 function count_audit_logs(PDO $pdo, array $f = []): int {
     $where = ["1=1"];
     $params = [];
-    
+
     if (!empty($f['user_id'])) {
-        $where[] = "user_id = ?";
+        $where[] = "l.user_id = ?";
         $params[] = $f['user_id'];
     }
     if (!empty($f['object_type'])) {
-        $where[] = "object_type = ?";
+        $where[] = "l.object_type = ?";
         $params[] = $f['object_type'];
     }
     if (!empty($f['date_from'])) {
-        $where[] = "created_at >= ?";
+        $where[] = "l.created_at >= ?";
         $params[] = $f['date_from'] . ' 00:00:00';
     }
     if (!empty($f['date_to'])) {
-        $where[] = "created_at <= ?";
+        $where[] = "l.created_at <= ?";
         $params[] = $f['date_to'] . ' 23:59:59';
+    }
+    if (!empty($f['q'])) {
+        $kw = '%' . $f['q'] . '%';
+        $where[] = "(l.action LIKE ? OR l.object_type LIKE ? OR l.old_values LIKE ? OR l.new_values LIKE ? OR u.full_name LIKE ? OR l.ip_address LIKE ?)";
+        array_push($params, $kw, $kw, $kw, $kw, $kw, $kw);
     }
 
     $where_str = implode(" AND ", $where);
-    $stmt = $pdo->prepare("SELECT COUNT(*) FROM audit_log WHERE $where_str");
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*) FROM audit_log l
+        LEFT JOIN users u ON l.user_id = u.user_id
+        WHERE $where_str
+    ");
     $stmt->execute($params);
     return (int)$stmt->fetchColumn();
 }

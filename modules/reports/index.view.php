@@ -25,18 +25,12 @@
             <option value="90">Last 90 Days</option>
             <option value="365">This Year</option>
         </select>
-        <div class="relative" id="export-wrapper">
-            <button onclick="document.getElementById('export-dropdown').classList.toggle('hidden')" class="bg-[#1a5c2a] text-white rounded-lg px-4 py-2 text-sm font-semibold hover:bg-[#1f6e32] transition-colors shadow-sm flex items-center gap-2">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                Export ▾
-            </button>
-            <div id="export-dropdown" class="hidden absolute right-0 mt-1 w-44 bg-white border border-gray-200 rounded-lg shadow-lg z-20 overflow-hidden">
-                <button onclick="doExport('csv')" class="w-full text-left px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2">📄 CSV</button>
-                <button onclick="doExport('excel')" class="w-full text-left px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2 border-t border-gray-100">📊 Excel (.xls)</button>
-            </div>
-        </div>
+        <button onclick="doExportCsv()" class="bg-[#1a5c2a] text-white rounded-lg px-4 py-2 text-sm font-semibold hover:bg-[#1f6e32] transition-colors shadow-sm flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+            Export CSV
+        </button>
         <script>
-        function doExport(fmt) {
+        function doExportCsv() {
             const range = document.getElementById('date-range').value;
             const dEnd = new Date();
             const dStart = new Date();
@@ -44,10 +38,8 @@
             const toYMD = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
             const end = toYMD(dEnd);
             const start = toYMD(dStart);
-            window.location.href = '<?= BASE_URL ?>modules/reports/export.php?start=' + start + '&end=' + end + '&format=' + fmt;
-            document.getElementById('export-dropdown').classList.add('hidden');
+            window.location.href = '<?= BASE_URL ?>modules/reports/export.php?start=' + start + '&end=' + end + '&format=csv';
         }
-        document.addEventListener('click', e => { if (!document.getElementById('export-wrapper').contains(e.target)) document.getElementById('export-dropdown').classList.add('hidden'); });
         </script>
     </div>
 </div>

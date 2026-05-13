@@ -13,7 +13,7 @@ require_once __DIR__ . '/functions.php';
 echo "[EMAIL REPORT] Starting at " . date('Y-m-d H:i:s') . "\n";
 
 $end   = date('Y-m-d');
-$start = date('Y-m-d', strtotime('-7 days'));
+$start = date('Y-m-d', strtotime('-1 month'));
 
 // ── 1. Gather stats ──
 $sla   = get_sla_compliance_stats($pdo, $start, $end);
@@ -47,7 +47,7 @@ $html = <<<HTML
 </style></head>
 <body>
     <div class="header">
-        <h1>📊 MTRTS Weekly SLA Report</h1>
+        <h1>📊 MTRTS Monthly SLA Report</h1>
         <p style="margin:4px 0 0;opacity:0.8;font-size:13px;">{$start} — {$end}</p>
     </div>
     <div class="body">
@@ -82,7 +82,7 @@ HTML;
 $recipients = $pdo->query("SELECT email, full_name FROM users WHERE role_id IN (1, 2, 8) AND is_active = 1")->fetchAll();
 
 if (function_exists('mail')) {
-    $subject = "MTRTS Weekly SLA Report — {$start} to {$end}";
+    $subject = "MTRTS Monthly SLA Report — {$start} to {$end}";
     $headers  = "MIME-Version: 1.0\r\n";
     $headers .= "Content-type: text/html; charset=UTF-8\r\n";
     $headers .= "From: MTRTS System <noreply@olfu.edu.ph>\r\n";
@@ -98,8 +98,8 @@ if (function_exists('mail')) {
     echo "[EMAIL REPORT] mail() not available. Saving report to file instead.\n";
     $path = __DIR__ . '/../../public/reports/';
     if (!is_dir($path)) mkdir($path, 0777, true);
-    file_put_contents($path . 'weekly_report_' . $end . '.html', $html);
-    echo "[EMAIL REPORT] Report saved to {$path}weekly_report_{$end}.html\n";
+    file_put_contents($path . 'monthly_report_' . $end . '.html', $html);
+    echo "[EMAIL REPORT] Report saved to {$path}monthly_report_{$end}.html\n";
 }
 
 echo "[EMAIL REPORT] Completed at " . date('Y-m-d H:i:s') . "\n";

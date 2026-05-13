@@ -14,15 +14,34 @@ $cutoff = date('Y-m-d H:i:s', strtotime('-2 years'));
 try {
     $pdo->beginTransaction();
 
-    // 1. Mask Requester Names/Emails in the audit logs for old records
-    $stmt = $pdo->prepare("
-        UPDATE audit_log 
-        SET new_values = REPLACE(new_values, '\"email\":', '\"email_masked\":'),
-            old_values = REPLACE(old_values, '\"email\":', '\"email_masked\":')
+    // 1. Mask PII values in audit logs for records older than the cutoff.
+    // Iterate so we actually overwrite values, not just rename keys.
+    $sel = $pdo->prepare("
+        SELECT log_id, old_values, new_values FROM audit_log
         WHERE created_at < ?
+          AND (old_values LIKE '%@%' OR new_values LIKE '%@%' OR old_values LIKE '%contact_number%' OR new_values LIKE '%contact_number%')
     ");
-    $stmt->execute([$cutoff]);
-    $affected = $stmt->rowCount();
+    $sel->execute([$cutoff]);
+
+    $upd = $pdo->prepare("UPDATE audit_log SET old_values = ?, new_values = ? WHERE log_id = ?");
+
+    $mask_fn = function (?string $json): ?string {
+        if (!$json) return $json;
+        $masked = preg_replace('/"email"\s*:\s*"[^"]*"/i', '"email":"***@***.***"', $json);
+        $masked = preg_replace('/"contact_number"\s*:\s*"[^"]*"/i', '"contact_number":"***-***-****"', $masked);
+        $masked = preg_replace('/"full_name"\s*:\s*"[^"]*"/i', '"full_name":"***MASKED***"', $masked);
+        return $masked;
+    };
+
+    $affected = 0;
+    foreach ($sel as $row) {
+        $new_old = $mask_fn($row['old_values']);
+        $new_new = $mask_fn($row['new_values']);
+        if ($new_old !== $row['old_values'] || $new_new !== $row['new_values']) {
+            $upd->execute([$new_old, $new_new, $row['log_id']]);
+            $affected++;
+        }
+    }
     echo "Audit logs minimized: $affected records.\n";
 
     // 2. Anonymize very old tickets (e.g. > 5 years)
