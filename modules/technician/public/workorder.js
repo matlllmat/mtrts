@@ -991,7 +991,7 @@ function renderSafety() {
     if (!displayUrl) {
       return `
         <div style="border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;background:#fff;position:relative;">
-          <div style="height:140px;background:#f9fafb;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;">
+          <div style="height:240px;background:#f9fafb;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;">
             <div style="width:20px;height:20px;border:2px solid #d1d5db;border-top-color:#1a5c2a;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
             <span style="font-size:11px;color:#6b7280;font-weight:500;">${state === 'saved' ? 'Processing...' : 'Syncing...'}</span>
           </div>
@@ -1005,9 +1005,9 @@ function renderSafety() {
 
     // Normal state — card with image on top, metadata below
     const media = isVideo
-      ? `<video ${srcAttr} muted playsinline controls style="width:100%;height:160px;object-fit:cover;display:block;background:#000;"></video>`
+      ? `<video ${srcAttr} muted playsinline controls style="width:100%;height:240px;object-fit:cover;display:block;background:#000;"></video>`
       : `<img ${srcAttr} alt="${escapeHtml(m.name || 'photo')}"
-             style="width:100%;height:160px;object-fit:cover;display:block;cursor:pointer;"
+             style="width:100%;height:240px;object-fit:cover;display:block;cursor:pointer;"
              onclick="window.open('${displayUrl}', '_blank')" />`;
 
     const syncBadge = state === 'synced'
@@ -2098,26 +2098,8 @@ function validateCompletion() {
           draft.checklist[item.id] = item.is_done === true || item.is_done === 1;
         });
       }
-      // Time logs
-      if (wo.time_logs && wo.time_logs.length > 0) {
-        const serverStops = wo.time_logs.filter((r) => (r.action || '') === 'stop');
-        draft.time_logs = serverStops.map((row) => {
-          const elapsed = parseInt(row.elapsed_ms, 10) || 0;
-          const logId = row.log_id != null ? row.log_id : row.id;
-          return {
-            id: logId != null ? `srv_${logId}` : `srv_ms_${elapsed}`,
-            labor_type: row.labor_type || 'other',
-            elapsed_ms: elapsed,
-            elapsed_display: window.MRTS.fmtTime(elapsed),
-            created_at: row.logged_at
-              ? new Date(String(row.logged_at).replace(' ', 'T')).toISOString()
-              : new Date().toISOString(),
-            created_at_display: row.logged_at || '',
-            status: 'synced',
-            source: 'server',
-          };
-        });
-      }
+      // Time logs — seeded exclusively by mergeServerStateIntoDraft() below;
+      // do NOT set draft.time_logs here to avoid duplicates.
       // Signoff
       if (wo.signoff && (wo.signoff.signer_name || wo.signoff.signature_path)) {
         if (wo.signoff.signer_name) draft.signoff.signerName = wo.signoff.signer_name;
@@ -2197,7 +2179,9 @@ function validateCompletion() {
     }
     mergeServerStateIntoDraft({
       success: true,
-      time_logs: wo.time_logs || [],
+      // For resolved/closed WOs, skip time_logs here — the auto-fetch block below
+      // will clear draft.time_logs and re-seed from the server, preventing duplicates.
+      time_logs: isResolved ? [] : (wo.time_logs || []),
       signoff:
         wo.signoff &&
         ((wo.signoff.signature_path && wo.signoff.signature_path !== 'data:inline') ||
@@ -2273,7 +2257,8 @@ function validateCompletion() {
                 draft.checklist[item.id] = !!(item.is_done === true || item.is_done === 1 || item.is_done === '1');
               });
             }
-            // Merge signoff + time logs
+            // Merge signoff + time logs — clear first to avoid duplicates on resolved WOs
+            draft.time_logs = [];
             mergeServerStateIntoDraft(state);
             // Re-render with fresh data
             renderSafety();

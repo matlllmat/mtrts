@@ -1,4 +1,4 @@
-<?php require __DIR__ . '/_styles.php'; ?>
+﻿﻿<?php require __DIR__ . '/_styles.php'; ?>
 
 <?php
 /* ── Badge helper ───────────────────────────────────────────── */
@@ -64,39 +64,34 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
 ?>
 
 <!-- ── Breadcrumb ─────────────────────────────────────────────── -->
-<div class="flex items-center gap-2 mb-4">
-  <a href="index.php"
-     class="inline-flex items-center gap-1.5 text-sm font-medium transition-colors"
-     style="color:var(--tech-gray-500);"
-     onmouseover="this.style.color='var(--tech-gray-900)'"
-     onmouseout="this.style.color='var(--tech-gray-500)'">
+<div class="flex items-center gap-2 mb-4 text-sm">
+  <a href="index.php" class="inline-flex items-center gap-1.5 text-gray-400 hover:text-gray-700 font-medium transition-colors">
     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
       <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
     </svg>
-    Back to My Jobs
+    Technician Ops
   </a>
-  <span style="color:var(--tech-gray-200);">/</span>
+  <span class="text-gray-200">/</span>
+  <span class="text-gray-600 font-semibold"><?php echo htmlspecialchars($wo['wo_number']); ?></span>
 </div>
 
 <?php if (in_array($status, ['resolved', 'closed'])): ?>
 <!-- ── Completed banner ───────────────────────────────────────── -->
-<div style="display:flex;align-items:center;gap:12px;padding:14px 18px;margin-bottom:16px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:var(--tech-radius-lg);">
-  <span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;background:#dcfce7;flex-shrink:0;">
-    <svg style="width:17px;height:17px;color:#15803d;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+<div class="flex items-center gap-3 px-4 py-3 mb-4 bg-green-50 border border-green-200 rounded-xl">
+  <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-green-100 flex-shrink-0">
+    <svg class="w-4 h-4 text-green-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
       <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
     </svg>
   </span>
   <div>
-    <p style="font-size:13px;font-weight:700;color:#14532d;letter-spacing:.3px;text-transform:uppercase;">Completed</p>
-    <p style="font-size:12px;color:#166534;margin-top:1px;">
-      This work order has been <?php echo $status === 'closed' ? 'closed' : 'resolved'; ?> and is now read-only.
-    </p>
+    <p class="text-xs font-bold text-green-900 uppercase tracking-wide">Completed</p>
+    <p class="text-xs text-green-700 mt-0.5">This work order has been <?php echo $status === 'closed' ? 'closed' : 'resolved'; ?> and is now read-only.</p>
   </div>
 </div>
 <?php endif; ?>
 
 <!-- ── WO Header card ─────────────────────────────────────────── -->
-<div class="wo-header-card mb-5">
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 px-6 py-5 mb-4">
   <div class="flex flex-wrap items-start justify-between gap-4">
     <!-- Left: title, tags, description -->
     <div class="flex-1 min-w-0">
@@ -212,7 +207,8 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
       </p>
     </div>
 
-    <!-- Right: Sync button -->
+    <!-- Right: Sync button — hidden for resolved/closed work orders -->
+    <?php if (!in_array($status, ['resolved', 'closed'])): ?>
     <div class="flex-shrink-0 flex items-start" style="margin-right:4px;">
       <button type="button" id="woSyncBtn"
               onclick="woHandleSync(this)"
@@ -227,48 +223,53 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
         <span id="woSyncLabel">Sync</span>
       </button>
     </div>
+    <?php endif; ?>
   </div>
 
-  <!-- Metadata strip -->
-  <div class="grid grid-cols-2 gap-0 mt-5 pt-5"
-       style="border-top:1px solid var(--tech-gray-100);">
-    <div class="pr-4 md:pr-0 md:pl-0" style="border-right:1px solid var(--tech-gray-100);">
-      <div class="vf-lbl">Priority</div>
+    <!-- Metadata strip -->
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-5 pt-5 border-t border-gray-100">
+    <div>
+      <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Priority</div>
       <?php
         $prio = strtolower($wo['priority'] ?? '');
-        $prio_color = match($prio) {
-          'high','urgent','critical' => 'var(--tech-red)',
-          'medium','normal'          => 'var(--tech-amber)',
-          default                    => 'var(--tech-gray-700)',
+        $prio_cls = match($prio) {
+          'high','urgent','critical' => 'text-red-600 font-semibold',
+          'medium','normal'          => 'text-amber-600 font-semibold',
+          default                    => 'text-gray-700 font-medium',
         };
       ?>
-      <div id="woPriority" class="vf-val font-semibold"
-           style="color:<?php echo $prio_color; ?>;">
-        <?php echo ucfirst($wo['priority'] ?? '—'); ?>
-      </div>
+      <div id="woPriority" class="text-sm <?php echo $prio_cls; ?>"><?php echo ucfirst($wo['priority'] ?? '&mdash;'); ?></div>
     </div>
-
-    <div class="pl-0 md:pl-5 mt-3 md:mt-0">
-      <div class="vf-lbl">Scheduled</div>
-      <div class="vf-val text-sm">
+    <div>
+      <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Scheduled</div>
+      <div class="text-sm text-gray-700 font-medium">
         <?php if ($wo['scheduled_start'] ?? null): ?>
           <?php echo (new DateTime($wo['scheduled_start']))->format('M j, g:ia'); ?>
         <?php else: ?>
-          <span class="vf-empty">Not set</span>
+          <span class="text-gray-300 italic font-normal">Not set</span>
         <?php endif; ?>
       </div>
     </div>
+    <div>
+      <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Requester</div>
+      <div class="text-sm text-gray-700 font-medium truncate"><?php echo htmlspecialchars($wo['requester_name'] ?? '&mdash;'); ?></div>
+    </div>
+    <div>
+      <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Location</div>
+      <div class="text-sm text-gray-700 font-medium truncate">
+        <?php
+          $loc_parts = array_filter([$wo['building'] ?? '', $wo['room'] ?? '']);
+          echo htmlspecialchars(implode(' &middot; ', $loc_parts) ?: '&mdash;');
+        ?>
+      </div>
+    </div>
   </div>
-
-
-
-
+</div>
 
 <!-- ══════════════════════════════════════════════════════════════
      Main tab body
      ══════════════════════════════════════════════════════════════ -->
-<div class="rounded-xl overflow-hidden mb-4 mt-4"
-     style="background:var(--tech-surface);border:1px solid var(--tech-gray-200);">
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-4 mt-4">
 
 
 
@@ -356,6 +357,15 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
         <path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
       </svg>
       Ratings
+    </button>
+
+    <button class="tab-btn secondary-tab-btn"
+            data-tab="contact" type="button"
+            onclick="switchSecondaryTab('contact', this)">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z"/>
+      </svg>
+      Contact Requester
     </button>
   </div><!-- /tab-nav secondary-tabs -->
 
@@ -914,7 +924,7 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
             <span style="font-size:12.5px;font-weight:500;color:#6b7280;">Tap to capture / upload</span>
             <input id="beforeFiles" type="file" accept="image/*,video/*" capture="environment" multiple style="display:none;" />
           </label>
-          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;" id="beforeMedia"></div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;" id="beforeMedia"></div>
         </div>
       </div>
 
@@ -942,7 +952,7 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
             <span style="font-size:12.5px;font-weight:500;color:#6b7280;">Tap to capture / upload</span>
             <input id="afterFiles" type="file" accept="image/*,video/*" capture="environment" multiple style="display:none;" />
           </label>
-          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;" id="afterMedia"></div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;" id="afterMedia"></div>
         </div>
       </div>
     </div>
@@ -1183,6 +1193,173 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
               Ratings are submitted by the requester after work order review.<br>No rating has been submitted yet.
             </p>
           </div>
+        <?php endif; ?>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Contact Requester ──────────────────────────────────── -->
+  <div class="p-5 hidden" id="tab-contact">
+    <?php
+      $has_ticket    = !empty($wo['ticket_id']);
+      $has_requester = !empty($requester);
+      $req_name      = htmlspecialchars($requester['full_name'] ?? '');
+      $req_id        = (int)($requester['user_id'] ?? 0);
+      $ticket_id_val = (int)($wo['ticket_id'] ?? 0);
+      $wo_id_val     = (int)($wo['wo_id'] ?? 0);
+      $default_subj  = 'Re: ' . htmlspecialchars(mb_substr($wo['ticket_title'] ?? $wo['wo_number'] ?? '', 0, 240));
+    ?>
+
+    <div class="tech-card" style="margin-bottom:0;">
+      <!-- Header -->
+      <div style="padding:16px 20px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--tech-gray-100);">
+        <svg style="width:18px;height:18px;color:var(--tech-green);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z"/>
+        </svg>
+        <span style="font-size:13px;font-weight:700;color:var(--tech-gray-900);">Contact Requester</span>
+      </div>
+
+      <div style="padding:20px;">
+
+        <?php if (!$has_ticket): ?>
+          <!-- No ticket linked -->
+          <div style="display:flex;align-items:center;gap:10px;padding:14px 16px;background:#f8fafc;border:1px solid var(--tech-gray-200);border-radius:8px;">
+            <svg style="width:18px;height:18px;color:var(--tech-gray-400);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"/>
+            </svg>
+            <p style="font-size:13px;color:var(--tech-gray-500);margin:0;">No ticket is linked to this work order. Messaging is unavailable.</p>
+          </div>
+
+        <?php elseif (!$has_requester): ?>
+          <!-- No requester on the ticket -->
+          <div style="display:flex;align-items:center;gap:10px;padding:14px 16px;background:#f8fafc;border:1px solid var(--tech-gray-200);border-radius:8px;">
+            <svg style="width:18px;height:18px;color:var(--tech-gray-400);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"/>
+            </svg>
+            <p style="font-size:13px;color:var(--tech-gray-500);margin:0;">No requester is linked to this ticket. Messaging is unavailable.</p>
+          </div>
+
+        <?php else: ?>
+          <!-- Requester info row -->
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">
+            <div style="width:36px;height:36px;border-radius:50%;background:var(--tech-green);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0;">
+              <?= strtoupper(mb_substr($req_name, 0, 1)) ?>
+            </div>
+            <div>
+              <div style="font-size:12px;color:var(--tech-gray-400);font-weight:600;text-transform:uppercase;letter-spacing:.05em;">Sending to</div>
+              <div style="font-size:14px;font-weight:600;color:var(--tech-gray-900);"><?= $req_name ?></div>
+            </div>
+          </div>
+
+          <!-- Subject -->
+          <div style="margin-bottom:14px;">
+            <label style="display:block;font-size:12px;font-weight:600;color:var(--tech-gray-600);margin-bottom:5px;" for="contactSubject">Subject</label>
+            <input type="text"
+                   id="contactSubject"
+                   maxlength="255"
+                   value="<?= $default_subj ?>"
+                   style="width:100%;padding:8px 12px;border:1px solid var(--tech-gray-200);border-radius:6px;font-size:13px;color:var(--tech-gray-900);outline:none;box-sizing:border-box;"
+                   onfocus="this.style.borderColor='var(--tech-green)'"
+                   onblur="this.style.borderColor='var(--tech-gray-200)'">
+          </div>
+
+          <!-- Body -->
+          <div style="margin-bottom:8px;">
+            <label style="display:block;font-size:12px;font-weight:600;color:var(--tech-gray-600);margin-bottom:5px;" for="contactBody">Message <span style="color:var(--tech-red);">*</span></label>
+            <textarea id="contactBody"
+                      rows="5"
+                      maxlength="10000"
+                      placeholder="Type your message to the requester…"
+                      oninput="document.getElementById('contactCharCount').textContent=this.value.length+' / 10,000'"
+                      style="width:100%;padding:8px 12px;border:1px solid var(--tech-gray-200);border-radius:6px;font-size:13px;color:var(--tech-gray-900);resize:vertical;outline:none;box-sizing:border-box;font-family:inherit;"
+                      onfocus="this.style.borderColor='var(--tech-green)'"
+                      onblur="this.style.borderColor='var(--tech-gray-200)'"></textarea>
+            <div style="font-size:11px;color:var(--tech-gray-400);text-align:right;margin-top:3px;" id="contactCharCount">0 / 10,000</div>
+          </div>
+
+          <!-- Validation error -->
+          <div id="contactError" style="display:none;font-size:12.5px;color:#dc2626;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:8px 12px;margin-bottom:12px;"></div>
+
+          <!-- Success message -->
+          <div id="contactSuccess" style="display:none;font-size:12.5px;color:#15803d;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:8px 12px;margin-bottom:12px;">
+            ✓ Message sent successfully.
+          </div>
+
+          <!-- Send button -->
+          <button type="button"
+                  id="contactSendBtn"
+                  onclick="contactSendMessage()"
+                  style="display:inline-flex;align-items:center;gap:6px;background:var(--tech-green);color:#fff;font-size:13px;font-weight:600;padding:9px 18px;border-radius:6px;border:none;cursor:pointer;transition:opacity .15s;"
+                  onmouseover="this.style.opacity='.85'"
+                  onmouseout="this.style.opacity='1'">
+            <svg style="width:15px;height:15px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"/>
+            </svg>
+            <span id="contactSendLabel">Send Message</span>
+          </button>
+
+          <script>
+          (function () {
+            const RECIPIENT_ID = <?= $req_id ?>;
+            const WO_ID        = <?= $wo_id_val ?>;
+            const TICKET_ID    = <?= $ticket_id_val ?>;
+            const BASE         = '<?= BASE_URL ?>';
+
+            window.contactSendMessage = function () {
+              const subject = document.getElementById('contactSubject').value.trim();
+              const body    = document.getElementById('contactBody').value.trim();
+              const btn     = document.getElementById('contactSendBtn');
+              const label   = document.getElementById('contactSendLabel');
+              const errEl   = document.getElementById('contactError');
+              const okEl    = document.getElementById('contactSuccess');
+
+              // Hide previous feedback
+              errEl.style.display = 'none';
+              okEl.style.display  = 'none';
+
+              if (!body) {
+                errEl.textContent  = 'Message body is required.';
+                errEl.style.display = 'block';
+                return;
+              }
+
+              btn.disabled      = true;
+              label.textContent = 'Sending…';
+
+              fetch(BASE + 'modules/inbox/send.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                  recipient_id: RECIPIENT_ID,
+                  subject:      subject || '(no subject)',
+                  body:         body,
+                  wo_id:        WO_ID,
+                  ticket_id:    TICKET_ID,
+                }).toString(),
+              })
+              .then(r => r.json())
+              .then(data => {
+                if (data.success) {
+                  okEl.style.display = 'block';
+                  document.getElementById('contactBody').value = '';
+                  document.getElementById('contactCharCount').textContent = '0 / 10,000';
+                } else {
+                  errEl.textContent  = data.error || 'Failed to send message.';
+                  errEl.style.display = 'block';
+                }
+              })
+              .catch(() => {
+                errEl.textContent  = 'Network error. Please try again.';
+                errEl.style.display = 'block';
+              })
+              .finally(() => {
+                btn.disabled      = false;
+                label.textContent = 'Send Message';
+              });
+            };
+          })();
+          </script>
+
         <?php endif; ?>
       </div>
     </div>

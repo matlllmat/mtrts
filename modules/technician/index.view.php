@@ -38,17 +38,15 @@
 <?php endif; ?>
 
 <!-- ── Page header ─────────────────────────────────────────────── -->
-<div class="page-header-card">
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 px-6 py-4 mb-4 flex flex-wrap items-center justify-between gap-3">
   <div>
     <h2 class="text-xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
-      <span style="color:var(--olfu-green);">
-        <svg class="w-5 h-5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l5.653-4.655"/>
-        </svg>
-      </span>
-      My Jobs
+      <svg class="w-5 h-5 text-olfu-green" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l5.653-4.655"/>
+      </svg>
+      Technician Ops
     </h2>
-    <p class="text-sm mt-0.5" style="color:var(--tech-gray-400);">View and manage your assigned work orders, even when offline.</p>
+    <p class="text-sm text-gray-400 mt-0.5">View and manage your assigned work orders.</p>
   </div>
 </div>
 
@@ -100,42 +98,39 @@
 </div>
 
 <!-- ── Work Type Filter ────────────────────────────────────────── -->
-<div class="filter-panel mb-4">
-  <div class="filter-panel__label">
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-      <path d="M4 6h16M4 12h10M4 18h7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
-    </svg>
-    Filter by Work Type
-  </div>
-  <div class="tech-filter-group">
-    <div class="tech-filter-icon">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-        <path d="M4 6h16M4 12h10M4 18h7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-      </svg>
-    </div>
-    <select id="work-type-filter" class="tech-filter-select" onchange="filterByWorkType()">
-      <option value="">All Types</option>
-      <option value="diagnosis">Diagnosis</option>
-      <option value="repair">Repair</option>
-      <option value="maintenance">Maintenance</option>
-      <option value="follow_up">Follow-up</option>
-    </select>
-  </div>
-  <button type="button" id="my-jobs-toggle" class="my-jobs-toggle" onclick="toggleMyJobs()">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 px-4 py-3 mb-4 flex flex-wrap items-center gap-2">
+  <select id="work-type-filter"
+          class="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-olfu-green/30 bg-white"
+          onchange="filterByWorkType()">
+    <option value="">All Types</option>
+    <option value="diagnosis">Diagnosis</option>
+    <option value="repair">Repair</option>
+    <option value="maintenance">Maintenance</option>
+    <option value="follow_up">Follow-up</option>
+  </select>
+
+  <button type="button" id="my-jobs-toggle"
+          onclick="toggleMyJobs()"
+          class="inline-flex items-center gap-1.5 border border-gray-200 text-gray-600 hover:border-olfu-green hover:text-olfu-green hover:bg-green-50 text-sm font-semibold px-3 py-1.5 rounded-lg transition-colors">
+    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
       <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
     </svg>
-    Working On
+    My Jobs Only
   </button>
-  <!-- Sort by date -->
-  <button type="button" id="sort-date-btn" class="my-jobs-toggle" onclick="toggleSortDate()" title="Sort jobs by date">
-    <svg id="sort-date-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition:transform .25s;">
+
+  <button type="button" id="sort-date-btn"
+          onclick="toggleSortDate()"
+          class="inline-flex items-center gap-1.5 border border-gray-200 text-gray-600 hover:border-olfu-green hover:text-olfu-green hover:bg-green-50 text-sm font-semibold px-3 py-1.5 rounded-lg transition-colors">
+    <svg id="sort-date-icon" class="w-3.5 h-3.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
       <path stroke-linecap="round" stroke-linejoin="round" d="M3 4.5h14.25M3 9h9.75M3 13.5h5.25m5.25-.75L17.25 9m0 0L21 12.75M17.25 9v12"/>
     </svg>
     <span id="sort-date-label">Newest</span>
   </button>
-  <button type="button" id="clear-cache-btn" class="my-jobs-toggle" onclick="clearTechCache()" title="Clears locally stored images and draft data to free up space">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+
+  <button type="button" id="clear-cache-btn"
+          onclick="clearTechCache()"
+          class="inline-flex items-center gap-1.5 border border-gray-200 text-gray-600 hover:border-gray-400 hover:text-gray-800 text-sm font-semibold px-3 py-1.5 rounded-lg transition-colors ml-auto">
+    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
       <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
     </svg>
     Clear Cache
@@ -334,7 +329,13 @@ function filterByWorkType() { applyFilters(); }
 function toggleMyJobs() {
   myJobsOnly = !myJobsOnly;
   const btn = document.getElementById('my-jobs-toggle');
-  btn.classList.toggle('my-jobs-toggle--on', myJobsOnly);
+  if (myJobsOnly) {
+    btn.classList.add('bg-olfu-green', 'text-white', 'border-olfu-green');
+    btn.classList.remove('text-gray-600', 'border-gray-200');
+  } else {
+    btn.classList.remove('bg-olfu-green', 'text-white', 'border-olfu-green');
+    btn.classList.add('text-gray-600', 'border-gray-200');
+  }
   applyFilters();
 }
 
@@ -345,7 +346,13 @@ function toggleSortDate() {
   const icon  = document.getElementById('sort-date-icon');
   if (label) label.textContent = sortDateOrder === 'newest' ? 'Newest' : 'Oldest';
   if (icon)  icon.style.transform = sortDateOrder === 'oldest' ? 'scaleY(-1)' : 'scaleY(1)';
-  if (btn)   btn.classList.toggle('my-jobs-toggle--on', sortDateOrder === 'oldest');
+  if (sortDateOrder === 'oldest') {
+    btn.classList.add('bg-olfu-green', 'text-white', 'border-olfu-green');
+    btn.classList.remove('text-gray-600', 'border-gray-200');
+  } else {
+    btn.classList.remove('bg-olfu-green', 'text-white', 'border-olfu-green');
+    btn.classList.add('text-gray-600', 'border-gray-200');
+  }
   applyFilters();
 }
 

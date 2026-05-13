@@ -17,6 +17,24 @@ if (!$wo) {
     exit;
 }
 
+// ── Contact Requester: look up the ticket requester ───────────────────────────
+$requester = null;
+if (!empty($wo['ticket_id'])) {
+    try {
+        $stmt_req = $pdo->prepare("
+            SELECT u.user_id, u.full_name
+            FROM tickets t
+            JOIN users u ON u.user_id = t.requester_id
+            WHERE t.ticket_id = ?
+              AND u.is_active = 1
+        ");
+        $stmt_req->execute([(int)$wo['ticket_id']]);
+        $requester = $stmt_req->fetch(PDO::FETCH_ASSOC) ?: null;
+    } catch (Throwable $e) {
+        $requester = null;
+    }
+}
+
 // Everyone can view all work orders. Execution is role-gated (queue-without-claim).
 $user_id = (int)($_SESSION['user_id'] ?? 0);
 $role_id = (int)($_SESSION['role_id'] ?? 0);

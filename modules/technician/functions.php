@@ -563,13 +563,22 @@ function complete_work_order_transactional(PDO $pdo, array $payload, int $techni
             foreach ($time_logs as $log) {
                 $elapsed_ms = (int)($log['elapsed_ms'] ?? 0);
                 $labor_type = trim((string)($log['labor_type'] ?? ''));
-                $notes = 'Completed segment';
-                if ($elapsed_ms > 0) $notes .= ' (' . $elapsed_ms . 'ms)';
+                if ($elapsed_ms <= 0) continue;
+                // Dedup: skip if an identical stop row already exists
+                $chk = $pdo->prepare("
+                    SELECT COUNT(*) FROM wo_time_logs
+                    WHERE wo_id = ? AND action = 'stop' AND elapsed_ms = ?
+                      AND (labor_type = ? OR (labor_type IS NULL AND ? IS NULL))
+                ");
+                $lt = $labor_type ?: null;
+                $chk->execute([$wo_id, $elapsed_ms, $lt, $lt]);
+                if ((int)$chk->fetchColumn() > 0) continue;
+                $notes = 'Completed segment (' . $elapsed_ms . 'ms)';
                 try {
                     $pdo->prepare("
                         INSERT INTO wo_time_logs (wo_id, technician_id, action, labor_type, elapsed_ms, notes)
                         VALUES (?, ?, 'stop', ?, ?, ?)
-                    ")->execute([$wo_id, $technician_id, $labor_type ?: null, $elapsed_ms, $notes]);
+                    ")->execute([$wo_id, $technician_id, $lt, $elapsed_ms, $notes]);
                 } catch (Throwable $inner) {
                     $pdo->prepare("
                         INSERT INTO wo_time_logs (wo_id, technician_id, action, notes)

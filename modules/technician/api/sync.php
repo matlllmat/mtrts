@@ -102,7 +102,25 @@ function validateUploadedFile($file, $fileType = 'image') {
     return ['valid' => true, 'extension' => $ext];
 }
 
-// Handle both JSON and FormData (multipart) requests
+// Dedup helper: insert a time_stop row only if no identical row already exists
+// (same wo_id, elapsed_ms, labor_type, action='stop'). Prevents double-inserts
+// when the offline queue fires after complete_work_order_transactional already
+// wrote the same segment.
+function insert_time_stop_if_new(PDO $pdo, int $wo_id, int $technician_id, ?string $labor_type, int $elapsed_ms, string $notes = 'Time segment saved'): bool {
+    if ($wo_id <= 0 || $elapsed_ms <= 0) return false;
+    $check = $pdo->prepare("
+        SELECT COUNT(*) FROM wo_time_logs
+        WHERE wo_id = ? AND action = 'stop' AND elapsed_ms = ?
+          AND (labor_type = ? OR (labor_type IS NULL AND ? IS NULL))
+    ");
+    $check->execute([$wo_id, $elapsed_ms, $labor_type, $labor_type]);
+    if ((int)$check->fetchColumn() > 0) return false; // already exists
+    $pdo->prepare("
+        INSERT INTO wo_time_logs (wo_id, technician_id, action, labor_type, elapsed_ms, notes, logged_at)
+        VALUES (?, ?, 'stop', ?, ?, ?, NOW())
+    ")->execute([$wo_id, $technician_id, $labor_type, $elapsed_ms, $notes]);
+    return true;
+}
 $payload = [];
 $action = '';
 
@@ -303,16 +321,7 @@ switch ($action) {
                 $labor_type = trim((string)($data['labor_type'] ?? ''));
                 $labor_type = $labor_type !== '' ? $labor_type : null;
                 if ($woId > 0 && $elapsed_ms > 0) {
-                    $stmt = $pdo->prepare("
-                        INSERT INTO wo_time_logs (wo_id, technician_id, action, labor_type, elapsed_ms, notes, logged_at)
-                        VALUES (?, ?, 'stop', ?, ?, 'Time segment saved', NOW())
-                    ");
-                    $stmt->execute([
-                        $woId,
-                        (int)($_SESSION['user_id'] ?? 0),
-                        $labor_type,
-                        $elapsed_ms,
-                    ]);
+                    insert_time_stop_if_new($pdo, $woId, (int)($_SESSION['user_id'] ?? 0), $labor_type, $elapsed_ms);
                     $results[] = ['id' => $itemId, 'ok' => true, 'action' => $itemAction];
                 } else {
                     $results[] = ['id' => $itemId, 'ok' => false, 'action' => $itemAction, 'error' => 'Missing wo_id or total_elapsed_ms'];
@@ -565,16 +574,7 @@ switch ($action) {
             $labor_type = trim((string)($_POST["item_{$itemId}_labor_type"] ?? ''));
             $labor_type = $labor_type !== '' ? $labor_type : null;
             if ($woId > 0 && $elapsed_ms > 0) {
-              $stmt = $pdo->prepare("
-                INSERT INTO wo_time_logs (wo_id, technician_id, action, labor_type, elapsed_ms, notes, logged_at)
-                VALUES (?, ?, 'stop', ?, ?, 'Time segment saved', NOW())
-              ");
-              $stmt->execute([
-                $woId,
-                (int)($_SESSION['user_id'] ?? 0),
-                $labor_type,
-                $elapsed_ms,
-              ]);
+              insert_time_stop_if_new($pdo, $woId, (int)($_SESSION['user_id'] ?? 0), $labor_type, $elapsed_ms);
               $results[] = ['id' => $itemId, 'ok' => true, 'action' => $itemAction];
             } else {
               $results[] = ['id' => $itemId, 'ok' => false, 'action' => $itemAction, 'error' => 'Missing wo_id or total_elapsed_ms'];
@@ -687,21 +687,11 @@ switch ($action) {
         break;
 
     case 'time_stop':
-        // Persist the completed time segment to wo_time_logs
         $wo_id      = (int)($payload['wo_id'] ?? 0);
         $elapsed_ms = (int)($payload['total_elapsed_ms'] ?? 0);
         $labor_type = trim($payload['labor_type'] ?? '');
         if ($wo_id > 0 && $elapsed_ms > 0) {
-            $stmt = $pdo->prepare("
-                INSERT INTO wo_time_logs (wo_id, technician_id, action, labor_type, elapsed_ms, notes, logged_at)
-                VALUES (?, ?, 'stop', ?, ?, 'Time segment saved', NOW())
-            ");
-            $stmt->execute([
-                $wo_id,
-                (int)($_SESSION['user_id'] ?? 0),
-                $labor_type ?: null,
-                $elapsed_ms,
-            ]);
+            insert_time_stop_if_new($pdo, $wo_id, (int)($_SESSION['user_id'] ?? 0), $labor_type ?: null, $elapsed_ms);
         }
         echo json_encode(['success' => true, 'message' => 'Time segment saved']);
         break;

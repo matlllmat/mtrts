@@ -399,26 +399,32 @@ body, .tech-module * {
 
 /* ── Media tiles ────────────────────────────────────────────── */
 .mediaTile {
-  width: 100%; aspect-ratio: 1;
-  background: #ffffff;
+  width: 100%; aspect-ratio: 4/3;
+  background: #f9fafb;
   border: 1px solid #e5e7eb;
-  border-radius: 8px;
+  border-radius: 10px;
   position: relative; overflow: hidden;
   display: flex; flex-direction: column; transition: all .2s;
 }
-.mediaTile:hover { border-color: #86efac; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+.mediaTile:hover { border-color: #86efac; box-shadow: 0 2px 8px rgba(21,128,61,.1); }
 .mediaTile__content {
   flex: 1; display: flex; flex-direction: column;
-  align-items: center; justify-content: center; padding: 8px;
+  align-items: center; justify-content: center; padding: 0;
+  overflow: hidden;
+}
+/* Make actual <img> tags inside tiles fill the space */
+.mediaTile__content img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
 }
 .mediaTile__x {
-  position: absolute; top: 4px; right: 4px;
-  background: rgba(0,0,0,.45); color: #fff; border: none;
-  width: 20px; height: 20px; border-radius: 50%;
+  position: absolute; top: 6px; right: 6px;
+  background: rgba(0,0,0,.55); color: #fff; border: none;
+  width: 24px; height: 24px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  font-size: 14px; cursor: pointer; transition: background .2s;
+  font-size: 15px; cursor: pointer; transition: background .2s;
+  z-index: 2;
 }
-.mediaTile__x:hover { background: rgba(0,0,0,.7); }
+.mediaTile__x:hover { background: rgba(0,0,0,.8); }
 .mediaTile--error   { border-color: #ef4444; background: #fef2f2; }
 .mediaTile--loading { border-color: #f59e0b; background: #fffbeb; }
 
