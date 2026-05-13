@@ -36,15 +36,24 @@ function get_sla_compliance_stats(PDO $pdo, string $start_date, string $end_date
  * Mean Time To Repair (MTTR) - Average time from Open to Resolved
  */
 function get_mttr_stats(PDO $pdo, string $start_date, string $end_date): array {
+    // MTTR = average ACTUAL labor time from wo_time_logs (elapsed_ms), not wall-clock ticket age
     $stmt = $pdo->prepare("
         SELECT 
-            AVG(TIMESTAMPDIFF(MINUTE, created_at, resolved_at)) as avg_mttr_minutes,
-            MIN(TIMESTAMPDIFF(MINUTE, created_at, resolved_at)) as min_mttr_minutes,
-            MAX(TIMESTAMPDIFF(MINUTE, created_at, resolved_at)) as max_mttr_minutes
-        FROM tickets
-        WHERE status IN ('resolved', 'closed')
-          AND resolved_at IS NOT NULL
-          AND created_at >= ? AND created_at <= ?
+            AVG(labor_minutes) as avg_mttr_minutes,
+            MIN(labor_minutes) as min_mttr_minutes,
+            MAX(labor_minutes) as max_mttr_minutes
+        FROM (
+            SELECT 
+                t.ticket_id,
+                COALESCE(SUM(tl.elapsed_ms), 0) / 60000.0 as labor_minutes
+            FROM tickets t
+            JOIN work_orders wo ON wo.ticket_id = t.ticket_id
+            LEFT JOIN wo_time_logs tl ON tl.wo_id = wo.wo_id AND tl.action = 'stop'
+            WHERE t.status IN ('resolved', 'closed')
+              AND t.resolved_at IS NOT NULL
+              AND t.created_at >= ? AND t.created_at <= ?
+            GROUP BY t.ticket_id
+        ) as labor_per_ticket
     ");
     $stmt->execute([$start_date . ' 00:00:00', $end_date . ' 23:59:59']);
     return $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
@@ -126,12 +135,13 @@ function get_technician_scorecards(PDO $pdo): array {
     return $pdo->query("
         SELECT 
             u.full_name,
-            COUNT(w.wo_id) as total_jobs,
+            COUNT(DISTINCT w.wo_id) as total_jobs,
             SUM(w.status IN ('resolved', 'closed')) as completed_jobs,
-            AVG(TIMESTAMPDIFF(MINUTE, w.actual_start, w.actual_end)) as avg_labor_time,
+            COALESCE(SUM(tl.elapsed_ms), 0) / 60000.0 as avg_labor_time,
             AVG(s.satisfaction) as avg_rating
         FROM users u
         JOIN work_orders w ON u.user_id = w.assigned_to
+        LEFT JOIN wo_time_logs tl ON tl.wo_id = w.wo_id AND tl.action = 'stop'
         LEFT JOIN wo_signoff s ON w.wo_id = s.wo_id
         WHERE u.role_id = 4
         GROUP BY u.user_id

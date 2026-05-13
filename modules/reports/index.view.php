@@ -441,11 +441,14 @@ function showTerm(termKey) {
 
 
 const formatMinutes = (mins) => {
-    if (!mins) return '0m';
-    if (mins < 60) return `${Math.round(mins)}m`;
-    const h = Math.floor(mins / 60);
-    const m = Math.round(mins % 60);
-    return `${h}h ${m}m`;
+    if (!mins || isNaN(mins)) return '—';
+    const totalSeconds = Math.round(mins * 60);
+    if (totalSeconds < 60) return `${totalSeconds}s`;
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = totalSeconds % 60;
+    if (h > 0) return s > 0 ? `${h}h ${m}m ${s}s` : (m > 0 ? `${h}h ${m}m` : `${h}h`);
+    return s > 0 ? `${m}m ${s}s` : `${m}m`;
 };
 
 const fetchStats = () => {
