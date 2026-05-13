@@ -180,22 +180,22 @@
     </div>
 </div>
 
-<!-- Row 4: Warranty + Aging -->
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-    <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-        <div class="flex items-center gap-1 mb-4 group/tooltip relative">
-            <h3 class="font-bold text-gray-800 text-base">Warranty Exposure</h3>
-            <svg onclick="showTerm('Warranty Exposure')" class="w-4 h-4 text-gray-400 hover:text-[#1a5c2a] cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-            <div class="absolute bottom-full left-0 mb-1 hidden group-hover/tooltip:block w-56 p-2 bg-gray-800 text-white text-[10px] normal-case tracking-normal font-normal rounded shadow-lg z-50 pointer-events-none">
-                Assets with manufacturer warranty expiring in the next 90 days.
+<!-- Row 4: Peak Submission Times (2/3) + Ticket Aging (1/3) -->
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
+    <div onclick="openHeatmapModal()" class="bg-white rounded-xl p-5 shadow-sm border border-gray-100 xl:col-span-2 cursor-pointer hover:shadow-md hover:border-[#1a5c2a] transition-all group">
+        <div class="flex justify-between items-center mb-4">
+            <div class="flex items-center gap-1">
+                <h3 class="font-bold text-gray-800 text-base group-hover:text-[#1a5c2a] transition-colors">Peak Submission Times</h3>
+                <svg class="w-4 h-4 text-gray-400 group-hover:text-[#1a5c2a]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
             </div>
+            <span class="text-[10px] text-gray-400 font-medium uppercase tracking-wider bg-gray-50 px-2 py-1 rounded">Click for Large View</span>
         </div>
-        <div class="space-y-2" id="warranty-container">
-            <div class="flex justify-center items-center h-20 text-sm text-gray-400 italic">Loading...</div>
+        <div id="time-heatmap-container" style="height:280px;overflow:hidden">
+            <div class="flex justify-center items-center h-full text-sm text-gray-400 italic">Loading...</div>
         </div>
     </div>
 
-    <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+    <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100 flex flex-col" style="max-height:380px">
         <div class="flex items-center gap-1 mb-4 group/tooltip relative">
             <h3 class="font-bold text-gray-800 text-base">Ticket Aging</h3>
             <svg class="w-4 h-4 text-gray-400 hover:text-[#1a5c2a] cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -203,13 +203,13 @@
                 Open ticket age distribution. Older tickets may need priority reassessment.
             </div>
         </div>
-        <div id="aging-container">
-            <div class="flex justify-center items-center h-20 text-sm text-gray-400 italic">Loading...</div>
+        <div class="flex-1" id="aging-container">
+            <div class="flex justify-center items-center h-full text-sm text-gray-400 italic">Loading...</div>
         </div>
     </div>
 </div>
 
-<!-- Row 5: Cost + Location Heatmap + Peak Times -->
+<!-- Row 5: Cost + Location Heatmap + Warranty -->
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
     <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
         <div class="flex items-center gap-1 mb-4 group/tooltip relative">
@@ -239,17 +239,18 @@
 
     <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
         <div class="flex items-center gap-1 mb-4 group/tooltip relative">
-            <h3 class="font-bold text-gray-800 text-base">Peak Submission Times</h3>
-            <svg class="w-4 h-4 text-gray-400 hover:text-[#1a5c2a] cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <h3 class="font-bold text-gray-800 text-base">Warranty Exposure</h3>
+            <svg onclick="showTerm('Warranty Exposure')" class="w-4 h-4 text-gray-400 hover:text-[#1a5c2a] cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
             <div class="absolute bottom-full left-0 mb-1 hidden group-hover/tooltip:block w-56 p-2 bg-gray-800 text-white text-[10px] normal-case tracking-normal font-normal rounded shadow-lg z-50 pointer-events-none">
-                All-time ticket volume by hour of day and day of week. Helps plan staffing and coverage windows.
+                Assets with manufacturer warranty expiring in the next 90 days.
             </div>
         </div>
-        <div id="time-heatmap-container" style="height:250px">
-            <div class="flex justify-center items-center h-full text-sm text-gray-400 italic">Loading...</div>
+        <div class="space-y-2" id="warranty-container">
+            <div class="flex justify-center items-center h-20 text-sm text-gray-400 italic">Loading...</div>
         </div>
     </div>
 </div>
+
 
 <!-- Row 6: Audit & Compliance (Full Width) -->
 <div class="pb-12">
@@ -317,6 +318,51 @@
                     <tr><td colspan="5" class="py-8 text-center text-gray-400 italic">Loading records...</td></tr>
                 </tbody>
             </table>
+        </div>
+    </div>
+</div>
+
+<!-- Heatmap Modal -->
+<div id="heatmap-modal" class="fixed inset-0 z-[70] hidden bg-gray-900 bg-opacity-60 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden transform transition-all scale-100">
+        <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-white sticky top-0 z-10">
+            <div>
+                <h3 class="text-xl font-black text-gray-900 tracking-tight flex items-center gap-2">
+                    <svg class="w-6 h-6 text-[#1a5c2a]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
+                    Peak Submission Heatmap
+                </h3>
+                <p class="text-xs font-medium text-gray-400 mt-0.5">Staffing & Traffic Analysis (All-Time System Data)</p>
+            </div>
+            <button onclick="document.getElementById('heatmap-modal').classList.add('hidden')" class="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-all active:scale-90">
+                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
+        <div class="flex-1 overflow-y-auto p-8 bg-gray-50/50">
+            <div class="grid grid-cols-1 gap-10">
+                <div class="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
+                    <div class="flex items-center justify-between mb-6">
+                        <h4 class="text-xs font-black text-gray-400 uppercase tracking-[0.2em]">Hourly Traffic Density</h4>
+                        <span class="text-[10px] bg-green-50 text-[#1a5c2a] px-2 py-1 rounded font-bold border border-green-100 uppercase">24-Hour Distribution</span>
+                    </div>
+                    <div id="modalHourWrap" style="position:relative;height:300px">
+                        <canvas id="modalHourChart" width="800" height="300" style="width:100%;height:100%"></canvas>
+                    </div>
+                </div>
+                
+                <!-- Large DOW Chart -->
+                <div class="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
+                    <div class="flex items-center justify-between mb-6">
+                        <h4 class="text-xs font-black text-gray-400 uppercase tracking-[0.2em]">Weekly Peak Cycles</h4>
+                        <span class="text-[10px] bg-amber-50 text-amber-600 px-2 py-1 rounded font-bold border border-amber-100 uppercase">7-Day Trend</span>
+                    </div>
+                    <div id="modalDowWrap" style="position:relative;height:250px">
+                        <canvas id="modalDowChart" width="800" height="250" style="width:100%;height:100%"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="px-8 py-4 bg-white border-t border-gray-100 text-center">
+            <p class="text-[10px] text-gray-400 italic">This data is recalculated every 24 hours based on system submission logs.</p>
         </div>
     </div>
 </div>
@@ -614,49 +660,97 @@ const fetchStats = () => {
             document.getElementById('hotspots-container').innerHTML = '<div class="text-sm text-red-500">Failed to load data.</div>';
         });
 
-    // Time heatmap is all-time — fetch once independently
+    // Time heatmap is all-time — fetch once independently, cache globally
     fetch(`<?= BASE_URL ?>modules/reports/api_stats.php?start=2000-01-01&end=2099-12-31&type=all`)
         .then(r => r.json())
         .then(data => {
             const container = document.getElementById('time-heatmap-container');
             if (!data.time_heatmap) { container.innerHTML = '<div class="text-sm text-gray-400 italic text-center py-4">No data.</div>'; return; }
             const th = data.time_heatmap;
+            // Cache for modal use
+            window._heatmapData = th;
             const green = '#1a5c2a';
-            const gold  = '#d97706';
 
             container.innerHTML = `
-                <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">By Hour of Day</p>
-                <canvas id="hourChart" height="60"></canvas>
-                <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-3 mb-1">By Day of Week</p>
-                <canvas id="dowChart" height="50"></canvas>
+                <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">By Hour of Day</p>
+                <div style="height:240px"><canvas id="hourChart"></canvas></div>
             `;
 
             new Chart(document.getElementById('hourChart'), {
                 type: 'bar',
                 data: {
                     labels: Array.from({length:24}, (_,i) => i === 0 ? '12am' : i < 12 ? i+'am' : i === 12 ? '12pm' : (i-12)+'pm'),
-                    datasets: [{ data: Object.values(th.by_hour), backgroundColor: green, borderRadius: 2 }]
+                    datasets: [{ data: Object.values(th.by_hour), backgroundColor: green, borderRadius: 3 }]
                 },
                 options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
                     scales: { x: { grid: { display: false }, ticks: { font: { size: 8 }, color: '#9ca3af', maxRotation: 0 } },
-                              y: { display: false, beginAtZero: true } } }
-            });
-
-            const dowLabels = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-            new Chart(document.getElementById('dowChart'), {
-                type: 'bar',
-                data: {
-                    labels: dowLabels,
-                    datasets: [{ data: th.by_dow, backgroundColor: th.by_dow.map((_,i) => (i===0||i===6) ? '#e5e7eb' : gold), borderRadius: 3 }]
-                },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
-                    scales: { x: { grid: { display: false }, ticks: { font: { size: 9, weight: '600' }, color: '#6b7280' } },
                               y: { display: false, beginAtZero: true } } }
             });
         })
         .catch(() => {
             document.getElementById('time-heatmap-container').innerHTML = '<div class="text-sm text-gray-400 italic text-center py-4">No data.</div>';
         });
+};
+
+window.openHeatmapModal = () => {
+    const modal = document.getElementById('heatmap-modal');
+    modal.classList.remove('hidden');
+
+    const renderModalCharts = (th) => {
+        const green = '#1a5c2a';
+        const gold  = '#d97706';
+        const hourLabels = Array.from({length:24}, (_,i) => i === 0 ? '12am' : i < 12 ? i+'am' : i === 12 ? '12pm' : (i-12)+'pm');
+        const dowLabels  = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+        // Destroy old charts — use distinct names to avoid collision with window.modalHourChart (DOM auto-assign)
+        if (window._chartHour && typeof window._chartHour.destroy === 'function') { window._chartHour.destroy(); window._chartHour = null; }
+        if (window._chartDow  && typeof window._chartDow.destroy  === 'function') { window._chartDow.destroy();  window._chartDow  = null; }
+
+        // Reset canvas dimensions (destroy() zeroes them out)
+        const hc = document.getElementById('modalHourChart');
+        const dc = document.getElementById('modalDowChart');
+        hc.width = 800; hc.height = 300;
+        dc.width = 800; dc.height = 250;
+
+        window._chartHour = new Chart(hc, {
+            type: 'bar',
+            data: { labels: hourLabels, datasets: [{ label: 'Tickets', data: Object.values(th.by_hour), backgroundColor: green, borderRadius: 4 }] },
+            options: {
+                responsive: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { grid: { display: false }, ticks: { font: { size: 10, weight: '600' }, color: '#9ca3af' } },
+                    y: { beginAtZero: true, grid: { color: '#f3f4f6' }, ticks: { font: { size: 10 }, color: '#9ca3af' } }
+                }
+            }
+        });
+
+        window._chartDow = new Chart(dc, {
+            type: 'bar',
+            data: { labels: dowLabels, datasets: [{ label: 'Tickets', data: th.by_dow, backgroundColor: th.by_dow.map((_,i) => (i===0||i===6) ? '#f3f4f6' : gold), borderRadius: 6 }] },
+            options: {
+                responsive: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { grid: { display: false }, ticks: { font: { size: 11, weight: 'bold' }, color: '#6b7280' } },
+                    y: { beginAtZero: true, grid: { color: '#f3f4f6' }, ticks: { font: { size: 10 }, color: '#9ca3af' } }
+                }
+            }
+        });
+    };
+
+    // Use cached data if already loaded, otherwise fetch
+    if (window._heatmapData) {
+        renderModalCharts(window._heatmapData);
+    } else {
+        fetch(`<?= BASE_URL ?>modules/reports/api_stats.php?start=2000-01-01&end=2099-12-31&type=all`)
+            .then(r => r.json())
+            .then(data => {
+                if (!data.time_heatmap) return;
+                window._heatmapData = data.time_heatmap;
+                renderModalCharts(window._heatmapData);
+            });
+    }
 };
 
 let resolutionChart;
