@@ -399,16 +399,49 @@ function get_ticket_aging(PDO $pdo): array {
 }
 
 /**
+ * ── TIME HEATMAP ─────────────────────────────────────────────
+ * Ticket volume by hour-of-day and day-of-week (all-time).
+ */
+function get_time_heatmap(PDO $pdo): array {
+    $by_hour = $pdo->query("
+        SELECT HOUR(created_at) AS hour, COUNT(*) AS count
+        FROM tickets
+        GROUP BY HOUR(created_at)
+        ORDER BY hour ASC
+    ")->fetchAll(PDO::FETCH_ASSOC);
+
+    $by_dow = $pdo->query("
+        SELECT DAYOFWEEK(created_at) AS dow, COUNT(*) AS count
+        FROM tickets
+        GROUP BY DAYOFWEEK(created_at)
+        ORDER BY dow ASC
+    ")->fetchAll(PDO::FETCH_ASSOC);
+
+    // Fill missing hours/days with 0 so the chart always has 24 / 7 points
+    $hours = array_fill(0, 24, 0);
+    foreach ($by_hour as $r) $hours[(int)$r['hour']] = (int)$r['count'];
+
+    $days = array_fill(1, 7, 0); // DAYOFWEEK: 1=Sun … 7=Sat
+    foreach ($by_dow as $r) $days[(int)$r['dow']] = (int)$r['count'];
+
+    return [
+        'by_hour' => $hours, // indexed 0–23
+        'by_dow'  => array_values($days), // 0=Sun … 6=Sat
+    ];
+}
+
+/**
  * ── COST PER TICKET / ASSET ──────────────────────────────────
- * Aggregates parts cost from work orders to compute cost per ticket and per asset.
+ * Aggregates parts + estimated labor cost from work orders.
  */
 function get_cost_stats(PDO $pdo, string $start_date, string $end_date): array {
-    // Total parts cost and cost per ticket
+    if (!defined('LABOR_RATE_PER_HOUR')) define('LABOR_RATE_PER_HOUR', 200.00);
+
+    // Parts cost per ticket
     $stmt = $pdo->prepare("
-        SELECT 
+        SELECT
             COUNT(DISTINCT t.ticket_id) as total_tickets,
-            COALESCE(SUM(pu.quantity_used * pi.unit_cost), 0) as total_parts_cost,
-            ROUND(COALESCE(SUM(pu.quantity_used * pi.unit_cost), 0) / NULLIF(COUNT(DISTINCT t.ticket_id), 0), 2) as avg_cost_per_ticket
+            COALESCE(SUM(pu.quantity_used * pi.unit_cost), 0) as total_parts_cost
         FROM tickets t
         LEFT JOIN work_orders w ON t.ticket_id = w.ticket_id
         LEFT JOIN wo_parts_used pu ON w.wo_id = pu.wo_id
@@ -418,26 +451,61 @@ function get_cost_stats(PDO $pdo, string $start_date, string $end_date): array {
     $stmt->execute([$start_date . ' 00:00:00', $end_date . ' 23:59:59']);
     $ticket_cost = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
 
-    // Top 5 costliest assets
+    // Labor cost: sum elapsed_ms from wo_time_logs for WOs in the date range
+    $stmt2 = $pdo->prepare("
+        SELECT COALESCE(SUM(tl.elapsed_ms), 0) as total_elapsed_ms
+        FROM wo_time_logs tl
+        JOIN work_orders w ON tl.wo_id = w.wo_id
+        JOIN tickets t ON w.ticket_id = t.ticket_id
+        WHERE t.created_at >= ? AND t.created_at <= ?
+    ");
+    $stmt2->execute([$start_date . ' 00:00:00', $end_date . ' 23:59:59']);
+    $labor_ms    = (float)($stmt2->fetchColumn() ?: 0);
+    $labor_hours = $labor_ms / 3600000;
+    $total_labor = round($labor_hours * LABOR_RATE_PER_HOUR, 2);
+
+    $total_tickets  = (int)($ticket_cost['total_tickets'] ?? 0);
+    $total_parts    = (float)($ticket_cost['total_parts_cost'] ?? 0);
+    $total_combined = round($total_parts + $total_labor, 2);
+    $avg_combined   = $total_tickets > 0 ? round($total_combined / $total_tickets, 2) : 0;
+
+    // Top 5 costliest assets (parts + labor combined)
+    // NOTE: MySQL forbids alias references to aggregate functions in ORDER BY arithmetic,
+    // so the full expressions are repeated here.
     $costliest = $pdo->query("
-        SELECT 
+        SELECT
             a.asset_tag, a.model,
-            COALESCE(SUM(pu.quantity_used * pi.unit_cost), 0) as total_cost,
+            COALESCE(SUM(pu.quantity_used * pi.unit_cost), 0) as parts_cost,
+            COALESCE(SUM(tl.elapsed_ms), 0) as elapsed_ms,
             COUNT(DISTINCT w.wo_id) as wo_count
         FROM assets a
         JOIN tickets t ON t.asset_id = a.asset_id
         JOIN work_orders w ON t.ticket_id = w.ticket_id
-        JOIN wo_parts_used pu ON w.wo_id = pu.wo_id
-        JOIN parts_inventory pi ON pu.part_id = pi.part_id
+        LEFT JOIN wo_parts_used pu ON w.wo_id = pu.wo_id
+        LEFT JOIN parts_inventory pi ON pu.part_id = pi.part_id
+        LEFT JOIN wo_time_logs tl ON w.wo_id = tl.wo_id
         GROUP BY a.asset_id
-        ORDER BY total_cost DESC
+        ORDER BY (
+            COALESCE(SUM(pu.quantity_used * pi.unit_cost), 0)
+            + (COALESCE(SUM(tl.elapsed_ms), 0) / 3600000) * " . LABOR_RATE_PER_HOUR . "
+        ) DESC
         LIMIT 5
     ")->fetchAll(PDO::FETCH_ASSOC);
 
+    // Add computed total_cost to each asset row
+    foreach ($costliest as &$row) {
+        $row['labor_cost'] = round(((float)$row['elapsed_ms'] / 3600000) * LABOR_RATE_PER_HOUR, 2);
+        $row['total_cost'] = round((float)$row['parts_cost'] + $row['labor_cost'], 2);
+    }
+    unset($row);
+
     return [
-        'total_parts_cost' => $ticket_cost['total_parts_cost'] ?? 0,
-        'avg_cost_per_ticket' => $ticket_cost['avg_cost_per_ticket'] ?? 0,
-        'costliest_assets' => $costliest
+        'total_parts_cost'       => $total_parts,
+        'total_labor_cost'       => $total_labor,
+        'total_combined_cost'    => $total_combined,
+        'avg_cost_per_ticket'    => $avg_combined,
+        'labor_rate_per_hour'    => LABOR_RATE_PER_HOUR,
+        'costliest_assets'       => $costliest,
     ];
 }
 

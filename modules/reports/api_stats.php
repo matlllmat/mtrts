@@ -51,7 +51,8 @@ switch ($type) {
             'warranty' => get_warranty_exposure($pdo),
             'escalations' => get_active_escalations($pdo),
             'aging' => get_ticket_aging($pdo),
-            'cost' => get_cost_stats($pdo, $start_date, $end_date)
+            'cost' => get_cost_stats($pdo, $start_date, $end_date),
+            'time_heatmap' => get_time_heatmap($pdo),
         ];
         break;
 }

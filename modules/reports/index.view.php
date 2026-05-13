@@ -41,6 +41,12 @@
             window.location.href = '<?= BASE_URL ?>modules/reports/export.php?start=' + start + '&end=' + end + '&format=csv';
         }
         </script>
+        <?php if (in_array($_SESSION['role_id'], [1, 2, 8])): ?>
+        <a href="<?= BASE_URL ?>modules/reports/sla_policies.php" class="bg-white border border-[#1a5c2a] text-[#1a5c2a] hover:bg-green-50 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 shadow-sm transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+            SLA Policies
+        </a>
+        <?php endif; ?>
     </div>
 </div>
 
@@ -103,24 +109,22 @@
 
 </div>
 
+<!-- Row 2: Resolution Trends + Frequent Failures -->
 <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
-    <div onclick="openDrilldown('resolved')" class="bg-white rounded-xl p-5 shadow-sm border border-gray-100 min-h-[320px] flex flex-col xl:col-span-2 cursor-pointer hover:shadow-md hover:border-[#1a5c2a] transition-all group">
+    <div onclick="openDrilldown('resolved')" class="bg-white rounded-xl p-5 shadow-sm border border-gray-100 xl:col-span-2 cursor-pointer hover:shadow-md hover:border-[#1a5c2a] transition-all group">
         <div class="flex justify-between items-center mb-4">
-            <div class="flex items-center gap-1 group/tooltip relative">
+            <div class="flex items-center gap-1">
                 <h3 class="font-bold text-gray-800 text-base group-hover:text-[#1a5c2a] transition-colors">Resolution Trends</h3>
                 <svg onclick="showTerm('Resolution Trends')" class="w-4 h-4 text-gray-400 hover:text-[#1a5c2a] cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                <div class="absolute bottom-full left-0 mb-1 hidden group-hover/tooltip:block w-64 p-2 bg-gray-800 text-white text-[10px] normal-case tracking-normal font-normal rounded shadow-lg z-50 pointer-events-none">
-                    Tracks the total number of tickets successfully resolved per day within the selected timeframe.
-                </div>
             </div>
             <span class="text-[10px] text-gray-400 font-medium uppercase tracking-wider bg-gray-50 px-2 py-1 rounded">Click for Details</span>
         </div>
-        <div class="flex-1 relative w-full h-full min-h-[240px]">
+        <div class="relative w-full" style="height:280px">
             <canvas id="lineChart"></canvas>
         </div>
     </div>
     
-    <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100 min-h-[320px] flex flex-col">
+    <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100 flex flex-col" style="max-height:380px">
         <div class="flex items-center gap-1 mb-4 group/tooltip relative">
             <h3 class="font-bold text-gray-800 text-base">Frequent Failures</h3>
             <svg onclick="showTerm('Asset Hotspots')" class="w-4 h-4 text-gray-400 hover:text-[#1a5c2a] cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -134,8 +138,9 @@
     </div>
 </div>
 
+<!-- Row 3: Escalations + Scorecards -->
 <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
-    <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100 min-h-[320px] flex flex-col xl:col-span-2">
+    <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100 xl:col-span-2 flex flex-col" style="max-height:380px">
         <div class="flex items-center gap-1 mb-4 group/tooltip relative">
             <h3 class="font-bold text-gray-800 text-base">Escalations & Breaches</h3>
             <svg onclick="showTerm('SLA Compliance')" class="w-4 h-4 text-gray-400 hover:text-[#1a5c2a] cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -143,7 +148,7 @@
                 Current tickets that have exceeded their SLA deadlines and require management intervention.
             </div>
         </div>
-        <div class="overflow-x-auto">
+        <div class="flex-1 overflow-x-auto overflow-y-auto">
             <table class="w-full text-left border-collapse">
                 <thead>
                     <tr class="border-b border-gray-100">
@@ -160,12 +165,12 @@
         </div>
     </div>
     
-    <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100 min-h-[320px] flex flex-col">
+    <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100 flex flex-col" style="max-height:380px">
         <div class="flex items-center gap-1 mb-4 group/tooltip relative">
             <h3 class="font-bold text-gray-800 text-base">Technician Scorecards</h3>
             <svg onclick="showTerm('Technician Scorecards')" class="w-4 h-4 text-gray-400 hover:text-[#1a5c2a] cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
         </div>
-        <div class="overflow-y-auto pr-2">
+        <div class="flex-1 overflow-y-auto pr-2">
             <table class="w-full text-left border-collapse">
                 <tbody id="scorecards-tbody" class="divide-y divide-gray-50 text-[11px]">
                     <tr><td class="py-4 text-center text-gray-400 italic">Loading...</td></tr>
@@ -175,8 +180,8 @@
     </div>
 </div>
 
+<!-- Row 4: Warranty + Aging -->
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-
     <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
         <div class="flex items-center gap-1 mb-4 group/tooltip relative">
             <h3 class="font-bold text-gray-800 text-base">Warranty Exposure</h3>
@@ -190,7 +195,6 @@
         </div>
     </div>
 
-    <!-- Ticket Aging -->
     <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
         <div class="flex items-center gap-1 mb-4 group/tooltip relative">
             <h3 class="font-bold text-gray-800 text-base">Ticket Aging</h3>
@@ -205,9 +209,8 @@
     </div>
 </div>
 
-<!-- Row 4: Cost + Audit -->
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 pb-8">
-    <!-- Cost Per Ticket -->
+<!-- Row 5: Cost + Location Heatmap + Peak Times -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
     <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
         <div class="flex items-center gap-1 mb-4 group/tooltip relative">
             <h3 class="font-bold text-gray-800 text-base">Cost Analytics</h3>
@@ -221,7 +224,6 @@
         </div>
     </div>
 
-    <!-- Location Heatmap (moved here) -->
     <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
         <div class="flex items-center gap-1 mb-4 group/tooltip relative">
             <h3 class="font-bold text-gray-800 text-base">Location Heatmap</h3>
@@ -235,22 +237,45 @@
         </div>
     </div>
 
-    <!-- Audit & Compliance -->
-    <div class="bg-[#f0fdf4] rounded-xl p-5 shadow-sm border border-[#dcfce7]">
-        <div class="flex justify-between items-center mb-4">
-            <h3 class="font-bold text-[#166534] text-base">Audit & Compliance</h3>
-            <span class="bg-[#dcfce7] text-[#166534] text-[10px] font-bold px-2 py-1 rounded tracking-wider uppercase border border-green-200">Secure</span>
+    <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+        <div class="flex items-center gap-1 mb-4 group/tooltip relative">
+            <h3 class="font-bold text-gray-800 text-base">Peak Submission Times</h3>
+            <svg class="w-4 h-4 text-gray-400 hover:text-[#1a5c2a] cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <div class="absolute bottom-full left-0 mb-1 hidden group-hover/tooltip:block w-56 p-2 bg-gray-800 text-white text-[10px] normal-case tracking-normal font-normal rounded shadow-lg z-50 pointer-events-none">
+                All-time ticket volume by hour of day and day of week. Helps plan staffing and coverage windows.
+            </div>
         </div>
-        <p class="text-xs text-gray-600 mb-3 italic">Immutable audit log active. PII masked for non-admins. Data retention enforced automatically.</p>
+        <div id="time-heatmap-container" style="height:250px">
+            <div class="flex justify-center items-center h-full text-sm text-gray-400 italic">Loading...</div>
+        </div>
+    </div>
+</div>
+
+<!-- Row 6: Audit & Compliance (Full Width) -->
+<div class="pb-12">
+    <div class="bg-[#f0fdf4] rounded-xl p-6 shadow-sm border border-[#dcfce7] flex flex-col md:flex-row items-center justify-between gap-6">
+        <div class="flex-1">
+            <div class="flex items-center gap-3 mb-2">
+                <h3 class="font-bold text-[#166534] text-lg">Audit & Compliance</h3>
+                <span class="bg-[#dcfce7] text-[#166534] text-[10px] font-bold px-2 py-1 rounded tracking-wider uppercase border border-green-200">Secure Audit Active</span>
+            </div>
+            <p class="text-sm text-gray-600 italic max-w-2xl">Every system action is recorded in an immutable audit trail. Data retention and PII masking are enforced automatically for regulatory compliance.</p>
+        </div>
         
-        <div class="grid grid-cols-1 gap-2 mt-auto">
-            <a href="<?= BASE_URL ?>modules/reports/audit.php" class="flex items-center justify-center gap-2 text-sm font-semibold text-white bg-[#1a5c2a] px-4 py-2 rounded-lg shadow-sm hover:bg-[#1f6e32] transition-colors">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        <div class="flex flex-wrap gap-3 w-full md:w-auto">
+            <a href="<?= BASE_URL ?>modules/reports/audit.php" class="flex-1 md:flex-none flex items-center justify-center gap-2 text-sm font-bold text-white bg-[#1a5c2a] px-6 py-3 rounded-xl shadow-lg shadow-green-900/10 hover:bg-[#1f6e32] transition-all active:scale-95">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                 E-Discovery Logs
             </a>
-            <a href="<?= BASE_URL ?>api/analytics.php" target="_blank" class="flex items-center justify-center gap-2 text-sm font-semibold text-[#1a5c2a] bg-white px-4 py-2 rounded-lg shadow-sm border border-[#dcfce7] hover:bg-green-50 transition-colors">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                REST BI Connector
+            <?php if (in_array($_SESSION['role_id'], [1, 2, 8])): ?>
+            <a href="<?= BASE_URL ?>modules/reports/sla_policies.php" class="flex-1 md:flex-none flex items-center justify-center gap-2 text-sm font-bold text-[#1a5c2a] bg-white px-6 py-3 rounded-xl shadow-sm border border-[#dcfce7] hover:bg-green-50 transition-all active:scale-95">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                SLA Policies
+            </a>
+            <?php endif; ?>
+            <a href="<?= BASE_URL ?>api/analytics.php" target="_blank" class="flex-1 md:flex-none flex items-center justify-center gap-2 text-sm font-bold text-[#1a5c2a] bg-white px-6 py-3 rounded-xl shadow-sm border border-[#dcfce7] hover:bg-green-50 transition-all active:scale-95">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                BI Connector
             </a>
         </div>
     </div>
@@ -548,15 +573,27 @@ const fetchStats = () => {
             const costContainer = document.getElementById('cost-container');
             if (data.cost) {
                 const c = data.cost;
+                const fmt = v => '₱' + Number(v||0).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
                 let costHtml = `
-                    <div class="grid grid-cols-2 gap-3 mb-3">
-                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-100">
-                            <p class="text-[10px] font-bold text-gray-500 uppercase">Total Parts Cost</p>
-                            <p class="text-lg font-extrabold text-gray-800">₱${Number(c.total_parts_cost||0).toLocaleString()}</p>
+                    <div class="space-y-2 mb-3">
+                        <div class="flex justify-between items-center px-3 py-2 bg-gray-50 rounded-lg border border-gray-100">
+                            <span class="text-[10px] font-bold text-gray-500 uppercase">Parts Cost</span>
+                            <span class="text-sm font-bold text-gray-700">${fmt(c.total_parts_cost)}</span>
                         </div>
-                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-100">
-                            <p class="text-[10px] font-bold text-gray-500 uppercase">Avg / Ticket</p>
-                            <p class="text-lg font-extrabold text-[#1a5c2a]">₱${Number(c.avg_cost_per_ticket||0).toLocaleString()}</p>
+                        <div class="flex justify-between items-center px-3 py-2 bg-blue-50 rounded-lg border border-blue-100">
+                            <div>
+                                <span class="text-[10px] font-bold text-blue-600 uppercase">Labor Cost</span>
+                                <span class="text-[9px] text-blue-400 ml-1">@ ₱${Number(c.labor_rate_per_hour||200).toLocaleString()}/hr</span>
+                            </div>
+                            <span class="text-sm font-bold text-blue-700">${fmt(c.total_labor_cost)}</span>
+                        </div>
+                        <div class="flex justify-between items-center px-3 py-2 bg-[#f0fdf4] rounded-lg border border-green-200">
+                            <span class="text-[10px] font-bold text-[#166534] uppercase">Total Combined</span>
+                            <span class="text-sm font-extrabold text-[#1a5c2a]">${fmt(c.total_combined_cost)}</span>
+                        </div>
+                        <div class="flex justify-between items-center px-3 py-2 bg-gray-50 rounded-lg border border-gray-100">
+                            <span class="text-[10px] font-bold text-gray-500 uppercase">Avg / Ticket</span>
+                            <span class="text-sm font-bold text-[#1a5c2a]">${fmt(c.avg_cost_per_ticket)}</span>
                         </div>
                     </div>`;
                 if (c.costliest_assets && c.costliest_assets.length > 0) {
@@ -564,7 +601,7 @@ const fetchStats = () => {
                     costHtml += c.costliest_assets.map(a => `
                         <div class="flex items-center justify-between p-2 bg-gray-50 rounded border border-gray-100 mb-1">
                             <div><span class="text-xs font-bold text-gray-700">${a.asset_tag}</span> <span class="text-[10px] text-gray-400">${a.model}</span></div>
-                            <span class="text-xs font-bold text-red-600">₱${Number(a.total_cost).toLocaleString()}</span>
+                            <span class="text-xs font-bold text-red-600">${fmt(a.total_cost)}</span>
                         </div>`).join('');
                 }
                 costContainer.innerHTML = costHtml;
@@ -575,6 +612,50 @@ const fetchStats = () => {
         .catch(err => {
             console.error('Failed to fetch stats:', err);
             document.getElementById('hotspots-container').innerHTML = '<div class="text-sm text-red-500">Failed to load data.</div>';
+        });
+
+    // Time heatmap is all-time — fetch once independently
+    fetch(`<?= BASE_URL ?>modules/reports/api_stats.php?start=2000-01-01&end=2099-12-31&type=all`)
+        .then(r => r.json())
+        .then(data => {
+            const container = document.getElementById('time-heatmap-container');
+            if (!data.time_heatmap) { container.innerHTML = '<div class="text-sm text-gray-400 italic text-center py-4">No data.</div>'; return; }
+            const th = data.time_heatmap;
+            const green = '#1a5c2a';
+            const gold  = '#d97706';
+
+            container.innerHTML = `
+                <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">By Hour of Day</p>
+                <canvas id="hourChart" height="60"></canvas>
+                <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-3 mb-1">By Day of Week</p>
+                <canvas id="dowChart" height="50"></canvas>
+            `;
+
+            new Chart(document.getElementById('hourChart'), {
+                type: 'bar',
+                data: {
+                    labels: Array.from({length:24}, (_,i) => i === 0 ? '12am' : i < 12 ? i+'am' : i === 12 ? '12pm' : (i-12)+'pm'),
+                    datasets: [{ data: Object.values(th.by_hour), backgroundColor: green, borderRadius: 2 }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+                    scales: { x: { grid: { display: false }, ticks: { font: { size: 8 }, color: '#9ca3af', maxRotation: 0 } },
+                              y: { display: false, beginAtZero: true } } }
+            });
+
+            const dowLabels = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+            new Chart(document.getElementById('dowChart'), {
+                type: 'bar',
+                data: {
+                    labels: dowLabels,
+                    datasets: [{ data: th.by_dow, backgroundColor: th.by_dow.map((_,i) => (i===0||i===6) ? '#e5e7eb' : gold), borderRadius: 3 }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+                    scales: { x: { grid: { display: false }, ticks: { font: { size: 9, weight: '600' }, color: '#6b7280' } },
+                              y: { display: false, beginAtZero: true } } }
+            });
+        })
+        .catch(() => {
+            document.getElementById('time-heatmap-container').innerHTML = '<div class="text-sm text-gray-400 italic text-center py-4">No data.</div>';
         });
 };
 

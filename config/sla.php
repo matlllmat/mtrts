@@ -2,6 +2,52 @@
 // config/sla.php
 // Shared SLA Engine logic for MTRTS
 
+define('LABOR_RATE_PER_HOUR', 200.00); // ₱200/hr — configurable labor cost rate
+
+/**
+ * Returns all SLA policies with joined category and location names.
+ */
+function get_all_sla_policies(PDO $pdo): array {
+    return $pdo->query("
+        SELECT sp.*,
+               ac.category_name,
+               l.building, l.room
+        FROM sla_policies sp
+        LEFT JOIN asset_categories ac ON sp.category_id = ac.category_id
+        LEFT JOIN locations l ON sp.location_id = l.location_id
+        ORDER BY sp.is_active DESC, FIELD(sp.priority,'critical','high','medium','low'), sp.policy_id ASC
+    ")->fetchAll(PDO::FETCH_ASSOC);
+}
+
+/**
+ * Creates a new SLA policy and writes an audit log entry.
+ * Returns ['success' => bool, 'message' => string, 'policy_id' => int|null]
+ */
+function create_sla_policy(PDO $pdo, array $d, ?int $user_id): array {
+    $allowed = ['policy_name','priority','category_id','location_id','is_event_support',
+                'request_type','response_minutes','diagnosis_minutes','resolution_minutes',
+                'uses_business_hours','is_active'];
+    $cols = $vals = $params = [];
+    foreach ($allowed as $col) {
+        if (array_key_exists($col, $d)) {
+            $cols[]   = $col;
+            $vals[]   = '?';
+            $params[] = $d[$col];
+        }
+    }
+    if (empty($cols)) return ['success' => false, 'message' => 'No valid fields.', 'policy_id' => null];
+
+    $pdo->prepare("INSERT INTO sla_policies (" . implode(', ', $cols) . ") VALUES (" . implode(', ', $vals) . ")")->execute($params);
+    $new_id = (int)$pdo->lastInsertId();
+
+    $pdo->prepare("
+        INSERT INTO audit_log (user_id, action, object_type, object_id, new_values, ip_address, created_at)
+        VALUES (?, 'CREATE', 'sla_policy', ?, ?, ?, NOW())
+    ")->execute([$user_id, $new_id, json_encode($d), $_SERVER['REMOTE_ADDR'] ?? 'CLI']);
+
+    return ['success' => true, 'message' => 'Policy created.', 'policy_id' => $new_id];
+}
+
 /**
  * Initializes a new SLA record for a ticket using the specificity-based policy selection.
  */
