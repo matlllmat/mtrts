@@ -33,6 +33,7 @@ DROP TABLE IF EXISTS ticket_attachments;
 DROP TABLE IF EXISTS tickets;
 DROP TABLE IF EXISTS sla_policies;
 DROP TABLE IF EXISTS kb_articles;
+DROP TABLE IF EXISTS wo_feedback;
 DROP TABLE IF EXISTS parts_low_stock_alerts;
 DROP TABLE IF EXISTS parts_inventory_audit;
 DROP TABLE IF EXISTS parts_inventory;
@@ -666,6 +667,23 @@ CREATE TABLE parts_low_stock_alerts (
 );
 
 -- ============================================================
+-- MODULE 7: JOB COMPLETION FEEDBACK
+-- ============================================================
+
+CREATE TABLE wo_feedback (
+  feedback_id  INT      PRIMARY KEY AUTO_INCREMENT,
+  wo_id        INT      NOT NULL,
+  requester_id INT      NOT NULL,
+  rating       TINYINT  NOT NULL,
+  comment      TEXT     NULL,
+  submitted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  UNIQUE KEY uq_wo_feedback_wo_id (wo_id),
+  FOREIGN KEY (wo_id)        REFERENCES work_orders(wo_id),
+  FOREIGN KEY (requester_id) REFERENCES users(user_id)
+);
+
+-- ============================================================
 -- SEED DATA: ROLES
 -- ============================================================
 
@@ -770,25 +788,25 @@ INSERT INTO users (email, password_hash, full_name, role_id, is_active) VALUES
 INSERT INTO role_modules (role_id, module_slug) VALUES
   (1,'dashboard'),(1,'assets'),(1,'tickets'),(1,'workorders'),
   (1,'technician'),(1,'reports'),(1,'users'),(1,'inventory'),
-  (1,'kb'),(1,'profile'),(1,'notifications');
+  (1,'kb'),(1,'profile'),(1,'notifications'),(1,'inbox');
 INSERT INTO role_modules (role_id, module_slug) VALUES
   (2,'dashboard'),(2,'assets'),(2,'tickets'),(2,'workorders'),
-  (2,'reports'),(2,'inventory'),(2,'kb'),(2,'profile'),(2,'notifications');
+  (2,'reports'),(2,'inventory'),(2,'kb'),(2,'profile'),(2,'notifications'),(2,'inbox');
 INSERT INTO role_modules (role_id, module_slug) VALUES
   (3,'dashboard'),(3,'assets'),(3,'tickets'),(3,'inventory'),
-  (3,'kb'),(3,'profile'),(3,'notifications');
+  (3,'kb'),(3,'profile'),(3,'notifications'),(3,'inbox');
 INSERT INTO role_modules (role_id, module_slug) VALUES
-  (4,'technician'),(4,'tickets'),(4,'kb'),(4,'profile'),(4,'notifications');
+  (4,'technician'),(4,'tickets'),(4,'kb'),(4,'profile'),(4,'notifications'),(4,'inbox');
 INSERT INTO role_modules (role_id, module_slug) VALUES
-  (5,'tickets'),(5,'profile'),(5,'notifications');
+  (5,'tickets'),(5,'profile'),(5,'notifications'),(5,'inbox');
 INSERT INTO role_modules (role_id, module_slug) VALUES
-  (6,'tickets'),(6,'profile'),(6,'notifications');
+  (6,'tickets'),(6,'profile'),(6,'notifications'),(6,'inbox');
 INSERT INTO role_modules (role_id, module_slug) VALUES
-  (7,'tickets'),(7,'profile'),(7,'notifications');
+  (7,'tickets'),(7,'profile'),(7,'notifications'),(7,'inbox');
 INSERT INTO role_modules (role_id, module_slug) VALUES
   (8,'dashboard'),(8,'assets'),(8,'tickets'),(8,'workorders'),
   (8,'technician'),(8,'reports'),(8,'users'),(8,'inventory'),
-  (8,'kb'),(8,'profile'),(8,'notifications');
+  (8,'kb'),(8,'profile'),(8,'notifications'),(8,'inbox');
 
 -- ============================================================
 -- SEED DATA: SLA POLICIES

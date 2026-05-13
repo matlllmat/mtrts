@@ -2,6 +2,7 @@
 $module = 'technician';
 require_once __DIR__ . '/../../config/guard.php';
 require_once __DIR__ . '/functions.php';
+require_once __DIR__ . '/../feedback/functions.php';
 
 $wo_id = (int)($_GET['id'] ?? 0);
 if (!$wo_id) {
@@ -172,6 +173,13 @@ try {
     $inventory_parts = $stmt_inv->fetchAll(PDO::FETCH_ASSOC);
 } catch (Throwable $e) {
     $inventory_parts = [];
+}
+
+try {
+    $feedback = get_feedback_for_wo($pdo, $wo_id);
+} catch (Throwable $e) {
+    // wo_feedback table may not exist yet — treat as no feedback
+    $feedback = null;
 }
 
 require __DIR__ . '/view.view.php';

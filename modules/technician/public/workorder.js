@@ -31,6 +31,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
+  // ── Auto-activate tab from URL hash ──────────────────────────
+  if (window.location.hash === '#ratings') {
+    const ratingsBtn = document.querySelector('[data-tab="ratings"]');
+    switchSecondaryTab('ratings', ratingsBtn);
+  }
+
   // Elements
   const els = {
     status: document.getElementById('woStatusBadge'),
@@ -58,9 +64,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     configFiles: document.getElementById('configFiles'),
     configMedia: document.getElementById('configMedia'),
     configCount: document.getElementById('configCount'),
-    partNumber: document.getElementById('partNumber'),
-    partQty: document.getElementById('partQty'),
-    partSerial: document.getElementById('partSerial'),
     partsList: document.getElementById('partsList'),
     signatorySelect: document.getElementById('signatorySelect'),
     sigCanvas: document.getElementById('sigCanvas'),
@@ -71,7 +74,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     btnComplete: document.getElementById('btnComplete'),
     blocker: document.getElementById('completeBlocker'),
     btnAddNote: document.getElementById('btnAddNote'),
-    btnAddPart: document.getElementById('btnAddPart'),
     timerValue: document.getElementById('timerValue'),
     timerState: document.getElementById('timerState'),
     btnStart: document.getElementById('btnStart'),
@@ -225,7 +227,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       els.afterFiles,
       els.configFiles,
       els.btnAddNote,
-      els.btnAddPart,
       els.btnClearSig,
       els.btnSaveSig,
       els.btnSaveDraft,
@@ -233,9 +234,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       els.btnStart,
       els.btnStop,
       els.laborType,
-      els.partNumber,
-      els.partQty,
-      els.partSerial,
       els.noteTitle,
       els.noteText,
       els.signatorySelect,
@@ -374,8 +372,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     wo &&
     Array.isArray(wo.time_logs) &&
     wo.time_logs.some((r) => (r.action || '') === 'stop');
+  // Only count as done when a time entry is actually saved — not while timer is merely running/paused.
   const hasTimeLogs =
-    (draft.time_logs || []).length > 0 || timerSeconds > 0 || woHasStopLog;
+    (draft.time_logs || []).length > 0 || woHasStopLog;
   const woHasSignoff =
     wo &&
     wo.signoff &&
@@ -492,8 +491,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       wo &&
       Array.isArray(wo.time_logs) &&
       wo.time_logs.some((r) => (r.action || '') === 'stop');
+    // Only mark as done when a time entry has actually been saved (stop & save).
+    // A running or paused timer does NOT count — the technician must stop & save first.
     const hasTimeLogs =
-      (draft.time_logs || []).length > 0 || timerSeconds > 0 || woHasStopLog;
+      (draft.time_logs || []).length > 0 || woHasStopLog;
 
     if (timeCheckbox) {
       if (hasTimeLogs) {
@@ -608,10 +609,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     const previewSigner = document.getElementById('savedSigSignerName');
     if (previewWrap && previewImg) {
       if (hasSig) {
-        previewImg.src =
-          draft.signoff.signatureDataUrl ||
-          (wo && wo.signoff && wo.signoff.signature_path) ||
-          '';
+        const sigPath = wo && wo.signoff && wo.signoff.signature_path !== 'data:inline'
+          ? wo.signoff.signature_path
+          : '';
+        const sigSrc = draft.signoff.signatureDataUrl || sigPath || '';
+        if (sigSrc) {
+          previewImg.src = sigSrc;
+          previewImg.style.display = '';
+        } else {
+          // Signer name captured but no image (e.g. signature_path = 'data:inline')
+          previewImg.style.display = 'none';
+        }
         if (previewSigner) {
           previewSigner.textContent =
             draft.signoff.signerName || (wo && wo.signoff && wo.signoff.signer_name) || '';
@@ -957,56 +965,71 @@ function renderSafety() {
     const state = m.state || 'saved';
     const displayUrl = m.dataUrl || m.serverUrl;
     const srcAttr = displayUrl ? `src="${displayUrl}"` : '';
-    
+    const sideLabel = side === 'before' ? 'BEFORE' : 'AFTER';
+    const sideLabelColor = side === 'before' ? '#6b7280' : '#15803d';
+    const sideLabelBg = side === 'before' ? '#f3f4f6' : '#dcfce7';
+
     // Show error state
     if (state === 'error') {
       return `
-        <div class="mediaTile mediaTile--error">
-          <div class="absolute inset-0 flex flex-col items-center justify-center bg-red-50/95 rounded">
-            <svg class="w-6 h-6 text-red-500 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <div style="border:1px solid #fecaca;border-radius:10px;overflow:hidden;background:#fff;position:relative;">
+          <div style="height:140px;background:#fef2f2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;">
+            <svg style="width:24px;height:24px;color:#ef4444;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
-            <span class="text-xs text-red-700 font-medium text-center px-2">${escapeHtml(m.error || 'Upload failed')}</span>
+            <span style="font-size:11px;color:#b91c1c;font-weight:500;text-align:center;padding:0 8px;">${escapeHtml(m.error || 'Upload failed')}</span>
           </div>
-          <button class="mediaTile__x" type="button" data-side="${side}" data-media-remove="${m.id}" aria-label="Remove">×</button>
+          <div style="padding:8px 10px;">
+            <span style="font-size:11px;color:#9ca3af;font-style:italic;">Failed</span>
+          </div>
+          <button style="position:absolute;top:6px;right:6px;width:20px;height:20px;border-radius:50%;background:rgba(0,0,0,.55);border:none;color:#fff;font-size:14px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;" type="button" data-side="${side}" data-media-remove="${m.id}" aria-label="Remove">×</button>
         </div>
       `;
     }
-    
+
     // Show loading/processing state
     if (!displayUrl) {
       return `
-        <div class="mediaTile mediaTile--loading">
-          <div class="absolute inset-0 flex flex-col items-center justify-center bg-gray-50/95 rounded">
-            <div class="w-4 h-4 border-2 border-gray-300 border-t-olfu-green rounded-full animate-spin mb-1"></div>
-            <span class="text-xs text-gray-600 font-medium">${state === 'saved' ? 'Processing...' : 'Syncing...'}</span>
+        <div style="border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;background:#fff;position:relative;">
+          <div style="height:140px;background:#f9fafb;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;">
+            <div style="width:20px;height:20px;border:2px solid #d1d5db;border-top-color:#1a5c2a;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+            <span style="font-size:11px;color:#6b7280;font-weight:500;">${state === 'saved' ? 'Processing...' : 'Syncing...'}</span>
           </div>
-          <button class="mediaTile__x" type="button" data-side="${side}" data-media-remove="${m.id}" aria-label="Remove">×</button>
+          <div style="padding:8px 10px;">
+            <span style="font-size:11px;color:#9ca3af;">Uploading…</span>
+          </div>
+          <button style="position:absolute;top:6px;right:6px;width:20px;height:20px;border-radius:50%;background:rgba(0,0,0,.55);border:none;color:#fff;font-size:14px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;" type="button" data-side="${side}" data-media-remove="${m.id}" aria-label="Remove">×</button>
         </div>
       `;
     }
-    
-    // Normal state
-    const inner = isVideo
-      ? `<video ${srcAttr} muted playsinline controls></video>`
-      : `<img ${srcAttr} alt="${escapeHtml(m.name || 'photo')}" 
-             style="cursor:pointer;" 
+
+    // Normal state — card with image on top, metadata below
+    const media = isVideo
+      ? `<video ${srcAttr} muted playsinline controls style="width:100%;height:160px;object-fit:cover;display:block;background:#000;"></video>`
+      : `<img ${srcAttr} alt="${escapeHtml(m.name || 'photo')}"
+             style="width:100%;height:160px;object-fit:cover;display:block;cursor:pointer;"
              onclick="window.open('${displayUrl}', '_blank')" />`;
-    
-    // Add checkmark for synced state
-    const badge = state === 'synced' ? `
-      <div class="absolute top-1 right-1 bg-olfu-green rounded-full p-1">
-        <svg class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-          <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
-        </svg>
-      </div>
-    ` : '';
-    
+
+    const syncBadge = state === 'synced'
+      ? `<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:600;color:#15803d;background:#dcfce7;border-radius:4px;padding:1px 5px;">
+           <svg style="width:9px;height:9px;" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+           Synced
+         </span>`
+      : '';
+
+    const fileName = m.name ? escapeHtml(m.name) : '';
+
     return `
-      <div class="mediaTile">
-        ${inner}
-        ${badge}
-        <button class="mediaTile__x" type="button" data-side="${side}" data-media-remove="${m.id}" aria-label="Remove">×</button>
+      <div style="border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;background:#fff;position:relative;box-shadow:0 1px 3px rgba(0,0,0,.06);">
+        ${media}
+        <div style="padding:8px 10px 10px;">
+          <div style="display:flex;align-items:center;gap:5px;margin-bottom:4px;">
+            <span style="font-size:10px;font-weight:700;letter-spacing:.04em;color:${sideLabelColor};background:${sideLabelBg};border-radius:4px;padding:1px 5px;">${sideLabel}</span>
+            ${syncBadge}
+          </div>
+          ${fileName ? `<p style="font-size:12px;font-weight:500;color:#374151;margin:0 0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${fileName}">${fileName}</p>` : ''}
+        </div>
+        <button style="position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,.55);border:none;color:#fff;font-size:15px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;" type="button" data-side="${side}" data-media-remove="${m.id}" aria-label="Remove">×</button>
       </div>
     `;
   }
@@ -1476,13 +1499,11 @@ function renderSafety() {
     const pane = document.getElementById('tab-ratings');
     if (!pane) return;
 
-    // Pull latest satisfaction + feedback from the live wo object (updated by sync)
-    const satisfaction = (wo && wo.signoff && wo.signoff.satisfaction != null)
-      ? parseInt(wo.signoff.satisfaction, 10)
-      : 0;
-    const feedback = (wo && wo.signoff && wo.signoff.feedback)
-      ? String(wo.signoff.feedback).trim()
-      : '';
+    // Read from wo_feedback (submitted by requester via feedback page)
+    const wof = wo && wo.wo_feedback ? wo.wo_feedback : null;
+    const rating = wof && wof.rating >= 1 && wof.rating <= 5 ? wof.rating : 0;
+    const comment = wof && wof.comment ? String(wof.comment).trim() : '';
+    const submittedAt = wof && wof.submitted_at ? wof.submitted_at : '';
 
     const card = pane.querySelector('.tech-card');
     if (!card) return;
@@ -1490,26 +1511,31 @@ function renderSafety() {
     const body = card.querySelector('.tech-card__body');
     if (!body) return;
 
-    if (satisfaction >= 1 && satisfaction <= 5) {
+    if (rating >= 1 && rating <= 5) {
       const stars = [1,2,3,4,5].map(s =>
-        `<svg style="width:28px;height:28px;color:${s <= satisfaction ? '#f59e0b' : '#e5e7eb'};" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
+        `<svg style="width:26px;height:26px;color:${s <= rating ? '#f59e0b' : '#e5e7eb'};" fill="currentColor" viewBox="0 0 20 20">
+          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
         </svg>`
       ).join('');
 
-      const feedbackHtml = feedback
-        ? `<div style="padding:12px 14px;border-radius:8px;background:var(--tech-gray-50);border:1px solid var(--tech-gray-200);margin-top:12px;">
-             <div style="font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--tech-gray-400);margin-bottom:6px;">Feedback</div>
-             <p style="font-size:13px;color:var(--tech-gray-700);margin:0;line-height:1.6;">${escapeHtml(feedback)}</p>
-           </div>`
-        : '';
+      const dateStr = submittedAt ? escapeHtml(submittedAt.slice(0, 10)) : '';
+      const commentBody = comment
+        ? `<p style="font-size:13.5px;color:var(--tech-gray-700);margin:0;line-height:1.65;">${escapeHtml(comment)}</p>`
+        : `<p style="font-size:13px;color:var(--tech-gray-400);font-style:italic;margin:0;">No comment provided.</p>`;
 
+      body.style.padding = '0';
       body.innerHTML = `
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-          ${stars}
-          <span style="font-size:13px;font-weight:600;color:var(--tech-gray-700);margin-left:4px;">${satisfaction} / 5</span>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--tech-gray-100);">
+          <div style="display:flex;align-items:center;gap:5px;">
+            ${stars}
+            <span style="font-size:15px;font-weight:700;color:var(--tech-gray-800);margin-left:8px;">${rating} <span style="font-weight:400;color:var(--tech-gray-400);font-size:13px;">/ 5</span></span>
+          </div>
+          ${dateStr ? `<span style="font-size:11.5px;color:var(--tech-gray-400);">Submitted ${dateStr}</span>` : ''}
         </div>
-        ${feedbackHtml}`;
+        <div style="padding:16px 20px;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--tech-gray-400);margin-bottom:8px;">Requester Comment</div>
+          ${commentBody}
+        </div>`;
     } else {
       body.innerHTML = `
         <div style="padding:40px 20px;text-align:center;">
@@ -1613,10 +1639,10 @@ function validateCompletion() {
     if (wo && wo.signature_required && !hasSig) reasons.push('Capture requester signature');
 
     // Check if time was tracked (either currently running or has logged entries)
-    // Uses freshDraft to ensure we pick up latest time entries from localStorage
+    // Only count as done when a time entry is actually saved (stop & save).
     const hasTimeLogs = (freshDraft.time_logs || []).length > 0;
-    const hasTime = timerSeconds > 0 || hasTimeLogs;
-    if (!hasTime) reasons.push('Start time tracking');
+    const hasTime = hasTimeLogs;
+    if (!hasTime) reasons.push('Stop & save time tracking first');
 
     return reasons;
   }
@@ -1633,29 +1659,6 @@ function validateCompletion() {
 
   // Note: Safety and Checklist handlers are attached in renderSafety() and renderChecklist()
   // since those functions dynamically render the lists after page load
-
-  // Manual entry add
-  els.btnAddPart && els.btnAddPart.addEventListener('click', () => {
-    if (!canMutateOrWarn()) return;
-    const partNumber = (els.partNumber.value || '').trim();
-    const qty = Math.max(1, Number(els.partQty.value || 1));
-    const serial = (els.partSerial.value || '').trim();
-    if (!partNumber) return;
-    // Merge with existing entry if same part number
-    const existingIdx = draft.parts.findIndex(p => p.partNumber === partNumber && p.category === 'manual');
-    if (existingIdx >= 0) {
-      draft.parts[existingIdx].qty += qty;
-    } else {
-      const item = { id: `p_${Date.now()}_${Math.random().toString(16).slice(2)}`, partNumber, qty, serial, category: 'manual' };
-      draft.parts.push(item);
-    }
-    els.partNumber.value = '';
-    els.partQty.value = '1';
-    els.partSerial.value = '';
-    saveDraft(draft);
-    window.MRTS.offline.queueAction('part_add', woId, item);
-    renderParts();
-  });
 
   // ── Browse-by-category parts picker ──────────────────────────
   (function () {
@@ -1734,25 +1737,6 @@ function validateCompletion() {
       if (el) el.classList.add('parts-cat-tab--on');
       renderChips();
       renderPreview();
-    };
-
-    window.setPartsMode = function (mode) {
-      const browse = document.getElementById('partsPanelBrowse');
-      const manual = document.getElementById('partsPanelManual');
-      const btnB   = document.getElementById('partsModeBrowse');
-      const btnM   = document.getElementById('partsModeManual');
-      if (!browse || !manual) return;
-      if (mode === 'browse') {
-        browse.style.display = '';
-        manual.style.display = 'none';
-        if (btnB) { btnB.style.background = '#1a5c2a'; btnB.style.color = '#fff'; }
-        if (btnM) { btnM.style.background = 'none';    btnM.style.color = 'var(--tech-gray-500)'; }
-      } else {
-        browse.style.display = 'none';
-        manual.style.display = '';
-        if (btnM) { btnM.style.background = '#1a5c2a'; btnM.style.color = '#fff'; }
-        if (btnB) { btnB.style.background = 'none';    btnB.style.color = 'var(--tech-gray-500)'; }
-      }
     };
 
     const btnAddBrowse = document.getElementById('btnAddBrowsePart');
@@ -2180,24 +2164,37 @@ function validateCompletion() {
         before: new Set(draft.evidence.before.map((m) => m.serverUrl).filter(Boolean)),
         after:  new Set(draft.evidence.after .map((m) => m.serverUrl).filter(Boolean)),
       };
+      // Clear server-sourced config entries before re-seeding
+      if (!Array.isArray(draft.config)) draft.config = [];
+      draft.config = draft.config.filter((m) => m.source !== 'server');
+      const localConfigUrls = new Set(draft.config.map((m) => m.serverUrl).filter(Boolean));
+
       wo.media.forEach((m) => {
         const side = m.media_type === 'photo_before' ? 'before'
                    : m.media_type === 'photo_after'  ? 'after'
                    : null;
-        if (!side || !m.file_path) return;
-        if (localUrls[side].has(m.file_path)) return;
-        draft.evidence[side].push({
-          id: 'srv_' + m.media_id,
-          kind: 'image',
-          name: m.caption || ('image_' + m.media_id),
-          serverUrl: m.file_path,
-          state: 'synced',
-          source: 'server',
-        });
+        if (side) {
+          if (!m.file_path || localUrls[side].has(m.file_path)) return;
+          draft.evidence[side].push({
+            id: 'srv_' + m.media_id,
+            kind: 'image',
+            name: m.caption || ('image_' + m.media_id),
+            serverUrl: m.file_path,
+            state: 'synced',
+            source: 'server',
+          });
+        } else if (m.media_type === 'config') {
+          if (!m.file_path || localConfigUrls.has(m.file_path)) return;
+          draft.config.push({
+            id: 'srv_' + m.media_id,
+            name: m.caption || m.file_path.split('/').pop() || ('config_' + m.media_id),
+            serverUrl: m.file_path,
+            state: 'synced',
+            source: 'server',
+          });
+        }
       });
     }
-
-    // Hydrate server time logs + sign-off into draft so checklist auto-rows match DB after resolve/reload.
     mergeServerStateIntoDraft({
       success: true,
       time_logs: wo.time_logs || [],
@@ -2365,18 +2362,11 @@ function validateCompletion() {
       if (state.signoff.signed_by_user_id) draft.signoff.signatoryUserId = state.signoff.signed_by_user_id;
       const p = state.signoff.signature_path || '';
       if (p && p !== 'data:inline') draft.signoff.signatureDataUrl = p;
+    }
 
-      // Always update wo.signoff with latest satisfaction + feedback from server
-      // so renderRatingsTab() shows the requester's rating after Sync
-      if (wo) {
-        if (!wo.signoff) wo.signoff = {};
-        wo.signoff.satisfaction = state.signoff.satisfaction != null
-          ? (parseInt(String(state.signoff.satisfaction), 10) || null)
-          : wo.signoff.satisfaction;
-        wo.signoff.feedback = state.signoff.feedback != null
-          ? state.signoff.feedback
-          : wo.signoff.feedback;
-      }
+    // Merge wo_feedback (requester rating) from server state
+    if (wo && state.wo_feedback !== undefined) {
+      wo.wo_feedback = state.wo_feedback;
       renderRatingsTab();
     }
 
@@ -2478,20 +2468,35 @@ function validateCompletion() {
         before: new Set(draft.evidence.before.map((m) => m.serverUrl).filter(Boolean)),
         after:  new Set(draft.evidence.after .map((m) => m.serverUrl).filter(Boolean)),
       };
+      // Clear server-sourced config entries before re-seeding
+      if (!Array.isArray(draft.config)) draft.config = [];
+      draft.config = draft.config.filter((m) => m.source !== 'server');
+      const localConfigUrls = new Set(draft.config.map((m) => m.serverUrl).filter(Boolean));
+
       wo.media.forEach((m) => {
         const side = m.media_type === 'photo_before' ? 'before'
                    : m.media_type === 'photo_after'  ? 'after'
                    : null;
-        if (!side || !m.file_path) return;
-        if (localUrls[side].has(m.file_path)) return;
-        draft.evidence[side].push({
-          id: 'srv_' + m.media_id,
-          kind: 'image',
-          name: m.caption || ('image_' + m.media_id),
-          serverUrl: m.file_path,
-          state: 'synced',
-          source: 'server',
-        });
+        if (side) {
+          if (!m.file_path || localUrls[side].has(m.file_path)) return;
+          draft.evidence[side].push({
+            id: 'srv_' + m.media_id,
+            kind: 'image',
+            name: m.caption || ('image_' + m.media_id),
+            serverUrl: m.file_path,
+            state: 'synced',
+            source: 'server',
+          });
+        } else if (m.media_type === 'config') {
+          if (!m.file_path || localConfigUrls.has(m.file_path)) return;
+          draft.config.push({
+            id: 'srv_' + m.media_id,
+            name: m.caption || m.file_path.split('/').pop() || ('config_' + m.media_id),
+            serverUrl: m.file_path,
+            state: 'synced',
+            source: 'server',
+          });
+        }
       });
     }
 

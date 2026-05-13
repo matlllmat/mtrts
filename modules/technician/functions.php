@@ -4,6 +4,7 @@ define('TECH_DEBUG', true);
 date_default_timezone_set('Asia/Manila');
 // All database queries and helpers for the Technician Operations module.
 // $pdo is provided by the hub; never create a new connection here.
+require_once __DIR__ . '/../notifications/functions.php';
 
 // ── Work Order Listing ───────────────────────────────────────
 
@@ -606,6 +607,37 @@ function complete_work_order_transactional(PDO $pdo, array $payload, int $techni
             'trace' => $e->getTraceAsString()
         ]);
         throw $e;
+    }
+
+    // ── Completion_Notification to Requester ──────────────────────
+    // Look up the requester for this Work Order's ticket.
+    // Must run AFTER commit so the notification is only sent on success.
+    try {
+        $stmt_req = $pdo->prepare("
+            SELECT t.requester_id, wo.wo_number
+            FROM work_orders wo
+            JOIN tickets t ON wo.ticket_id = t.ticket_id
+            WHERE wo.wo_id = ?
+        ");
+        $stmt_req->execute([$wo_id]);
+        $req_row = $stmt_req->fetch();
+        if ($req_row && !empty($req_row['requester_id'])) {
+            $wo_number = $req_row['wo_number'];
+            notify_user(
+                $pdo,
+                (int)$req_row['requester_id'],
+                "Your repair job has been completed",
+                "{$wo_number} has been resolved. Please share your feedback.",
+                BASE_URL . "modules/feedback/submit.php?wo_id={$wo_id}",
+                "job_complete_{$wo_id}"
+            );
+        }
+    } catch (Throwable $notifErr) {
+        // Non-fatal: log but do not re-throw
+        tech_dbg('H_COMPLETE', 'modules/technician/functions.php:completion_notification', 'Notification failed (non-fatal)', [
+            'wo_id' => $wo_id,
+            'error' => $notifErr->getMessage(),
+        ]);
     }
 
     if (function_exists('sync_ticket_with_wo')) {

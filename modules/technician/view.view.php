@@ -685,20 +685,6 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
       </div>
       <div class="tech-card__body">
 
-        <!-- Mode toggle -->
-        <div style="display:flex;gap:0;border:1px solid var(--tech-gray-200);border-radius:8px;overflow:hidden;width:fit-content;margin-bottom:1.25rem;">
-          <button type="button" id="partsModeBrowse"
-                  onclick="setPartsMode('browse')"
-                  style="padding:6px 16px;font-size:12px;font-weight:500;background:#1a5c2a;color:#fff;border:none;cursor:pointer;font-family:inherit;">
-            Browse by category
-          </button>
-          <button type="button" id="partsModeManual"
-                  onclick="setPartsMode('manual')"
-                  style="padding:6px 16px;font-size:12px;font-weight:500;background:none;border:none;cursor:pointer;color:var(--tech-gray-500);font-family:inherit;">
-            Manual entry
-          </button>
-        </div>
-
         <!-- Browse panel -->
         <div id="partsPanelBrowse">
           <div style="font-size:11px;font-weight:600;letter-spacing:0.07em;text-transform:uppercase;color:var(--tech-gray-400);margin-bottom:10px;">Category</div>
@@ -752,26 +738,6 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
                     style="background:#9ca3af;cursor:not-allowed;"
                     disabled>
               + Add part
-            </button>
-          </div>
-        </div>
-
-        <!-- Manual entry panel -->
-        <div id="partsPanelManual" style="display:none;">
-          <div style="font-size:11px;font-weight:600;letter-spacing:0.07em;text-transform:uppercase;color:var(--tech-gray-400);margin-bottom:10px;">Log manually</div>
-          <div class="flex flex-wrap gap-2 mb-4">
-            <input class="fin text-sm flex-1 min-w-36" id="partNumber" placeholder="Part number or name" />
-            <input class="fin text-sm w-20" id="partQty" type="number" min="1" value="1" placeholder="Qty" />
-            <input class="fin text-sm flex-1 min-w-36" id="partSerial" placeholder="Serial (optional)" />
-            <button id="btnAddPart"
-                    class="inline-flex items-center justify-center gap-1.5 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors whitespace-nowrap"
-                    style="background:var(--tech-green);"
-                    onmouseover="this.style.background='var(--tech-green-dk)'"
-                    onmouseout="this.style.background='var(--tech-green)'">
-              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14"/>
-              </svg>
-              Add Part
             </button>
           </div>
         </div>
@@ -921,8 +887,8 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
       <p style="font-size:13px;font-weight:500;color:#92400e;margin:0;">Press <strong>Start Work</strong> to unlock this tab.</p>
     </div>
 
-    <!-- Before / After photos -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+    <!-- Before / After photos — stacked vertically, card-style like Work Orders view -->
+    <div style="display:flex;flex-direction:column;gap:16px;margin-bottom:16px;">
 
       <!-- Before -->
       <div style="background:#fff;border:1px solid #f3f4f6;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.05);">
@@ -938,7 +904,7 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
         </div>
         <div style="padding:14px 16px;">
           <label for="beforeFiles"
-                 style="display:flex;align-items:center;gap:10px;width:100%;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px;cursor:pointer;background:#f9fafb;transition:all .15s;margin-bottom:10px;"
+                 style="display:flex;align-items:center;gap:10px;width:100%;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px;cursor:pointer;background:#f9fafb;transition:all .15s;margin-bottom:12px;"
                  onmouseover="this.style.borderColor='#86efac';this.style.background='#f0fdf4'"
                  onmouseout="this.style.borderColor='#e5e7eb';this.style.background='#f9fafb'">
             <svg style="width:15px;height:15px;color:#9ca3af;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -948,7 +914,7 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
             <span style="font-size:12.5px;font-weight:500;color:#6b7280;">Tap to capture / upload</span>
             <input id="beforeFiles" type="file" accept="image/*,video/*" capture="environment" multiple style="display:none;" />
           </label>
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;" id="beforeMedia"></div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;" id="beforeMedia"></div>
         </div>
       </div>
 
@@ -966,7 +932,7 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
         </div>
         <div style="padding:14px 16px;">
           <label for="afterFiles"
-                 style="display:flex;align-items:center;gap:10px;width:100%;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px;cursor:pointer;background:#f9fafb;transition:all .15s;margin-bottom:10px;"
+                 style="display:flex;align-items:center;gap:10px;width:100%;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px;cursor:pointer;background:#f9fafb;transition:all .15s;margin-bottom:12px;"
                  onmouseover="this.style.borderColor='#86efac';this.style.background='#f0fdf4'"
                  onmouseout="this.style.borderColor='#e5e7eb';this.style.background='#f9fafb'">
             <svg style="width:15px;height:15px;color:#9ca3af;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -976,7 +942,7 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
             <span style="font-size:12.5px;font-weight:500;color:#6b7280;">Tap to capture / upload</span>
             <input id="afterFiles" type="file" accept="image/*,video/*" capture="environment" multiple style="display:none;" />
           </label>
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;" id="afterMedia"></div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;" id="afterMedia"></div>
         </div>
       </div>
     </div>
@@ -1173,7 +1139,7 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
     </div>
   </div>
 
-  <!-- ── Ratings (read-only placeholder for future requester ratings) ── -->
+  <!-- ── Ratings (requester feedback from wo_feedback table) ── -->
   <div class="p-6 hidden" id="tab-ratings">
     <div class="tech-card" style="margin-bottom:0;">
       <div class="tech-card__head">
@@ -1184,31 +1150,32 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
           Service Rating
         </div>
       </div>
-      <div class="tech-card__body">
-        <?php
-          $rating_val = isset($signoff['satisfaction']) ? (int)$signoff['satisfaction'] : 0;
-          $has_rating = $rating_val >= 1 && $rating_val <= 5;
-        ?>
-        <?php if ($has_rating): ?>
-          <!-- Read-only star display -->
-          <div class="flex items-center gap-2 mb-3">
-            <?php for ($s = 1; $s <= 5; $s++): ?>
-              <svg class="w-7 h-7" fill="currentColor" viewBox="0 0 24 24"
-                   style="color:<?php echo $s <= $rating_val ? '#f59e0b' : '#e5e7eb'; ?>;">
-                <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
-              </svg>
-            <?php endfor; ?>
-            <span class="text-sm font-semibold" style="color:var(--tech-gray-700);"><?php echo $rating_val; ?> / 5</span>
-          </div>
-          <?php if (!empty($signoff['feedback'])): ?>
-            <div style="padding:12px 14px;border-radius:8px;background:var(--tech-gray-50);border:1px solid var(--tech-gray-200);">
-              <div style="font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--tech-gray-400);margin-bottom:6px;">Feedback</div>
-              <p style="font-size:13px;color:var(--tech-gray-700);margin:0;line-height:1.6;"><?php echo nl2br(htmlspecialchars($signoff['feedback'])); ?></p>
+      <div class="tech-card__body" style="padding:0;">
+        <?php if ($feedback): ?>
+          <?php $fb_rating = (int)$feedback['rating']; ?>
+          <!-- Rating row -->
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--tech-gray-100);">
+            <div style="display:flex;align-items:center;gap:5px;">
+              <?php for ($s = 1; $s <= 5; $s++): ?>
+                <svg style="width:26px;height:26px;color:<?= $s <= $fb_rating ? '#f59e0b' : '#e5e7eb'; ?>;" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                </svg>
+              <?php endfor; ?>
+              <span style="font-size:15px;font-weight:700;color:var(--tech-gray-800);margin-left:8px;"><?= $fb_rating ?> <span style="font-weight:400;color:var(--tech-gray-400);font-size:13px;">/ 5</span></span>
             </div>
-          <?php endif; ?>
+            <span style="font-size:11.5px;color:var(--tech-gray-400);">Submitted <?= date('M j, Y', strtotime($feedback['submitted_at'])) ?></span>
+          </div>
+          <!-- Comment row -->
+          <div style="padding:16px 20px;">
+            <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--tech-gray-400);margin-bottom:8px;">Requester Comment</div>
+            <?php if (!empty($feedback['comment'])): ?>
+              <p style="font-size:13.5px;color:var(--tech-gray-700);margin:0;line-height:1.65;"><?= nl2br(htmlspecialchars($feedback['comment'])) ?></p>
+            <?php else: ?>
+              <p style="font-size:13px;color:var(--tech-gray-400);font-style:italic;margin:0;">No comment provided.</p>
+            <?php endif; ?>
+          </div>
         <?php else: ?>
-          <!-- Placeholder -->
-          <div style="padding:40px 20px;text-align:center;">
+          <div style="padding:48px 20px;text-align:center;">
             <svg style="width:40px;height:40px;color:var(--tech-gray-200);margin:0 auto 12px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
             </svg>
@@ -1301,6 +1268,11 @@ $__wo_payload = [
   'can_edit'           => (bool)($can_edit ?? false),
   'can_execute_now'    => (bool)($can_execute_now ?? false),
   'can_claim'          => false,
+  'wo_feedback'        => $feedback ? [
+    'rating'       => (int)$feedback['rating'],
+    'comment'      => $feedback['comment'] ?? '',
+    'submitted_at' => $feedback['submitted_at'] ?? '',
+  ] : null,
 ];
 $__wo_json = json_encode($__wo_payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 if ($__wo_json === false) {

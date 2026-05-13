@@ -152,6 +152,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $time_logs    = get_time_logs($pdo, $wo_id);
             $signoff      = get_work_order_signoff($pdo, $wo_id);
 
+            // Load wo_feedback (requester rating from feedback module)
+            $wo_feedback_row = null;
+            try {
+                require_once __DIR__ . '/../../feedback/functions.php';
+                $wo_feedback_row = get_feedback_for_wo($pdo, $wo_id);
+            } catch (Throwable $fbErr) {
+                // Table may not exist yet — non-fatal
+            }
+
             // Normalise checklist items to the same shape workorder.js expects
             $checklist_out = array_map(fn($item) => [
                 'id'                => $item['item_id'] ?? $item['id'] ?? 0,
@@ -188,6 +197,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 'parts'      => $parts ?? [],
                 'time_logs'  => $time_logs ?? [],
                 'signoff'    => $signoff_out,
+                'wo_feedback' => $wo_feedback_row ? [
+                    'rating'       => (int)$wo_feedback_row['rating'],
+                    'comment'      => $wo_feedback_row['comment'] ?? '',
+                    'submitted_at' => $wo_feedback_row['submitted_at'] ?? '',
+                ] : null,
             ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         } catch (Throwable $e) {
             http_response_code(500);
