@@ -166,14 +166,13 @@ $icons = [
       </div>
 
       <?php
-      // ── Email Inbox (IT staff only) ────────────────────────────────
-      $show_inbox = in_array((int)($_SESSION['role_id'] ?? 0), [1, 2, 3, 8], true);
-      if ($show_inbox):
+      // ── Inbox (all authenticated users) ───────────────────────────
+      $_is_it = in_array((int)($_SESSION['role_id'] ?? 0), [1, 2, 3, 8], true);
       ?>
       <div class="relative">
         <button id="inbox-bell"
                 type="button"
-                title="Email Inbox"
+                title="<?= $_is_it ? 'Email Inbox' : 'Messages' ?>"
                 class="relative w-9 h-9 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 transition-colors duration-150">
           <?= $icons['inbox'] ?>
           <span id="inbox-badge"
@@ -185,9 +184,11 @@ $icons = [
         <div id="inbox-dropdown"
              class="hidden absolute right-0 top-full mt-2 w-96 bg-white rounded-xl shadow-lg border border-gray-100 z-50">
           <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-            <span class="text-sm font-semibold text-gray-700">📧 Email Inbox</span>
+            <span class="text-sm font-semibold text-gray-700"><?= $_is_it ? '📧 Email Inbox' : '📬 Messages' ?></span>
+            <?php if ($_is_it): ?>
             <a href="<?= BASE_URL ?>public/email_submit.php" target="_blank"
-               class="text-xs text-gray-400 hover:text-gray-700">Open gateway ↗</a>
+               class="text-xs text-gray-400 hover:text-gray-700">Open email gateway →</a>
+            <?php endif; ?>
           </div>
           <div id="inbox-list" class="divide-y divide-gray-50 max-h-96 overflow-y-auto">
             <p class="text-sm text-gray-400 text-center py-6">Loading&hellip;</p>
@@ -195,12 +196,11 @@ $icons = [
           <div class="px-4 py-3 border-t border-gray-100">
             <a href="<?= BASE_URL ?>modules/inbox/index.php"
                class="text-xs text-olfu-green hover:underline font-medium">
-              View all emails →
+              View all <?= $_is_it ? 'emails' : 'messages' ?> →
             </a>
           </div>
         </div>
       </div>
-      <?php endif; ?>
 
       <?php
       $nav_pic   = $_SESSION['profile_picture'] ?? '';
@@ -331,7 +331,6 @@ $icons = [
   })();
   </script>
 
-  <?php if ($show_inbox): ?>
   <!-- Inbox bell JS — mirrors notification bell pattern -->
   <script>
   (function () {
@@ -359,11 +358,19 @@ $icons = [
 
     function renderList(items) {
       if (!items.length) {
-        listEl.innerHTML = '<p class="text-sm text-gray-400 text-center py-8">No emails yet.</p>';
+        listEl.innerHTML = '<p class="text-sm text-gray-400 text-center py-8">No messages yet.</p>';
         return;
       }
-      listEl.innerHTML = items.map(it => `
-        <a href="${BASE}modules/tickets/view.php?id=${it.ticket_id}"
+      listEl.innerHTML = items.map(it => {
+        // Email items link to the ticket; message items link to the inbox
+        const href = it.ticket_id
+          ? BASE + 'modules/tickets/view.php?id=' + it.ticket_id
+          : BASE + 'modules/inbox/index.php';
+        const typeLabel = it.ticket_id
+          ? '<span style="font-size:10px;font-weight:700;background:#f3f4f6;color:#6b7280;padding:1px 6px;border-radius:999px;flex-shrink:0;">Email</span>'
+          : '<span style="font-size:10px;font-weight:700;background:#dcfce7;color:#15803d;padding:1px 6px;border-radius:999px;flex-shrink:0;">Message</span>';
+        return `
+        <a href="${href}"
            class="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 transition-colors${it.is_unread ? ' bg-green-50/60' : ''}">
           <div class="w-8 h-8 rounded-full bg-olfu-green text-white flex items-center justify-center font-bold text-xs flex-shrink-0">
             ${esc((it.sender_name || '?').charAt(0).toUpperCase())}
@@ -371,14 +378,15 @@ $icons = [
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2">
               <p class="text-xs font-semibold text-gray-700 truncate">${esc(it.sender_name)}</p>
+              ${typeLabel}
               <span class="ml-auto text-[10px] text-gray-400 flex-shrink-0">${ago(it.created_at)}</span>
             </div>
             <p class="text-sm ${it.is_unread ? 'font-semibold text-gray-900' : 'text-gray-700'} truncate">${esc(it.subject)}</p>
             <p class="text-xs text-gray-500 truncate mt-0.5">${esc(it.preview)}</p>
           </div>
           ${it.is_unread ? '<span class="w-2 h-2 rounded-full bg-olfu-green flex-shrink-0 mt-2"></span>' : ''}
-        </a>
-      `).join('');
+        </a>`;
+      }).join('');
     }
 
     function fetchAndRender(updateList) {
@@ -411,7 +419,6 @@ $icons = [
     setInterval(() => fetchAndRender(isOpen), 30000);
   })();
   </script>
-  <?php endif; ?>
 
   <!-- Sidebar toggle JS -->
   <script>

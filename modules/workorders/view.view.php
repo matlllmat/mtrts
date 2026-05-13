@@ -335,6 +335,15 @@
                 <?php if ($tl['labor_type']): ?>
                   <span class="wo-badge badge-type ml-2"><?= ucfirst(str_replace('_',' ',$tl['labor_type'])) ?></span>
                 <?php endif; ?>
+                <?php if (!empty($tl['elapsed_ms']) && (int)$tl['elapsed_ms'] > 0):
+                  $ms = (int)$tl['elapsed_ms'];
+                  $s  = (int)floor($ms / 1000);
+                  $h  = str_pad((int)floor($s / 3600), 2, '0', STR_PAD_LEFT);
+                  $m  = str_pad((int)floor(($s % 3600) / 60), 2, '0', STR_PAD_LEFT);
+                  $sc = str_pad($s % 60, 2, '0', STR_PAD_LEFT);
+                ?>
+                  <span class="ml-2 font-mono text-xs font-bold text-olfu-green"><?= "$h:$m:$sc" ?></span>
+                <?php endif; ?>
                 <span class="tl-time ml-2"><?= (new DateTime($tl['logged_at']))->format('M j, g:ia') ?> · <?= htmlspecialchars($tl['technician_name'] ?? 'Unknown') ?></span>
                 <?php if ($tl['notes']): ?>
                   <div class="tl-notes"><?= htmlspecialchars($tl['notes']) ?></div>

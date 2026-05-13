@@ -4,7 +4,15 @@ debug-*.log
 
 # Uploaded files
 public/uploads/
+modules/technician/uploads/
 
 # OS noise
 .DS_Store
 Thumbs.db
+
+# IDE / editor
+.vscode/
+.idea/
+
+# Kiro spec files (optional — remove this line if you want to push specs)
+# .kiro/

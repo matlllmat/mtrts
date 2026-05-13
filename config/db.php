@@ -20,12 +20,7 @@ try {
   $dsn = "mysql:host=" . DB_HOST . ";port=3306;dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
   $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
 } catch (PDOException $e) {
-  try {
-    $dsn = "mysql:host=" . DB_HOST . ";port=3307;dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
-    $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
-  } catch (PDOException $e2) {
-    die("Database connection failed on both ports (3306 and 3307). Error: " . $e2->getMessage());
-  }
+  die("Database connection failed. Error: " . $e->getMessage() . "<br>Make sure MySQL is running in XAMPP.");
 }
 
 /**

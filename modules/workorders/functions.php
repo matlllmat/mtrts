@@ -252,11 +252,23 @@ function compute_total_time(array $logs): int {
     $total   = 0;
     $started = null;
     foreach ($logs as $log) {
-        if (in_array($log['action'], ['start', 'resume'])) {
+        $action     = $log['action'] ?? '';
+        $elapsed_ms = (int)($log['elapsed_ms'] ?? 0);
+
+        if (in_array($action, ['start', 'resume'])) {
             $started = strtotime($log['logged_at']);
-        } elseif (in_array($log['action'], ['pause', 'stop']) && $started) {
-            $total  += strtotime($log['logged_at']) - $started;
-            $started = null;
+        } elseif (in_array($action, ['pause', 'stop', 'segment'])) {
+            if ($elapsed_ms > 0) {
+                // Stored elapsed_ms is most accurate — use it regardless of start pairing
+                $total  += (int)floor($elapsed_ms / 1000);
+                $started = null;
+            } elseif ($started) {
+                // No elapsed_ms: fall back to timestamp difference
+                $diff = strtotime($log['logged_at']) - $started;
+                if ($diff > 0) $total += $diff;
+                $started = null;
+            }
+            // If elapsed_ms=0 and no start pair, skip (sub-second segment)
         }
     }
     return $total;
