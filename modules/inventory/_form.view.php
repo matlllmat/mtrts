@@ -1,5 +1,11 @@
 <?php
 // modules/inventory/_form.view.php — Shared add/edit form.
+// Ensure variables are defined to satisfy linters and avoid runtime notices
+$old     = $old ?? [];
+$part    = $part ?? [];
+$errors  = $errors ?? [];
+$is_edit = $is_edit ?? false;
+
 $v = function(string $k, $default = '') use ($old, $part) {
     if (array_key_exists($k, $old))  return htmlspecialchars((string)$old[$k]);
     if (array_key_exists($k, $part)) return htmlspecialchars((string)$part[$k]);
