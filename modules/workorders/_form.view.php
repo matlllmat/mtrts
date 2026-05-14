@@ -107,7 +107,7 @@ if ($is_edit && !empty($wo['wo_id'])) {
               <label class="flbl mb-0">Assign To</label>
               <button type="button" id="btn-suggest"
                       class="text-xs font-bold text-emerald-700 hover:underline disabled:text-gray-400 disabled:no-underline"
-                      disabled>
+                      <?= empty($wo['ticket_id']) ? 'disabled' : '' ?>>
                 ✨ Suggest technician
               </button>
             </div>
@@ -295,11 +295,14 @@ if ($is_edit && !empty($wo['wo_id'])) {
         </div>
         <div id="kb-list" class="space-y-3">
           <?php if (!empty($kb_articles)): ?>
-            <?php foreach ($kb_articles as $kb): ?>
+            <?php foreach ($kb_articles as $index => $kb): ?>
               <div class="p-3 bg-blue-50/50 rounded-lg border border-blue-100">
                 <h4 class="text-xs font-bold text-blue-800 mb-1"><?= htmlspecialchars($kb['title']) ?></h4>
                 <p class="text-[11px] text-blue-600 line-clamp-2"><?= htmlspecialchars($kb['content']) ?></p>
-                <button type="button" class="text-[10px] font-bold text-blue-700 mt-1 hover:underline" onclick="alert(<?= htmlspecialchars(json_encode($kb['content'])) ?>)">View full script</button>
+                <button type="button" class="text-[10px] font-bold text-blue-700 mt-1 hover:underline" 
+                        onclick="viewKbScript(<?= $index ?>)">
+                  View full script
+                </button>
               </div>
             <?php endforeach; ?>
           <?php endif; ?>
@@ -310,10 +313,32 @@ if ($is_edit && !empty($wo['wo_id'])) {
 </form>
 
 <script>
-// --- Ticket Searchable Logic ---
+// Key UI Elements
 const ticketSearch = document.getElementById('ticket-search');
 const ticketList   = document.getElementById('ticket-list');
 const hiddenTicketId = document.getElementById('hidden-ticket-id');
+const assigneeSearch = document.getElementById('assignee-search');
+const techList       = document.getElementById('tech-list');
+const hiddenAssigned = document.getElementById('hidden-assigned-to');
+const fStart         = document.getElementById('f-start');
+const fEnd           = document.getElementById('f-end');
+const btnSuggest     = document.getElementById('btn-suggest');
+const suggestPanel   = document.getElementById('suggest-panel');
+const suggestList    = document.getElementById('suggest-list');
+const warnBox        = document.getElementById('conflict-warning');
+const warnMsg        = document.getElementById('conflict-msg');
+
+// --- KB Script Viewer ---
+let currentKbArticles = <?= json_encode($kb_articles) ?>;
+
+function viewKbScript(index) {
+    const kb = currentKbArticles[index];
+    if (kb) {
+        alert("KNOWLEDGE BASE: " + kb.title + "\n\n" + kb.content);
+    }
+}
+
+// --- Ticket Searchable Logic ---
 
 if (ticketSearch) {
     ticketSearch.addEventListener('input', function() {
@@ -393,12 +418,16 @@ function fetchKb(ticketId) {
         .then(r => r.json())
         .then(data => {
             if (data.kb && data.kb.length > 0) {
+                currentKbArticles = data.kb; // Update global state
                 section.classList.remove('hidden');
-                list.innerHTML = data.kb.map(kb => `
+                list.innerHTML = data.kb.map((kb, idx) => `
                     <div class="p-3 bg-blue-50/50 rounded-lg border border-blue-100">
                         <h4 class="text-xs font-bold text-blue-800 mb-1">${kb.title}</h4>
                         <p class="text-[11px] text-blue-600 line-clamp-2">${kb.content}</p>
-                        <button type="button" class="text-[10px] font-bold text-blue-700 mt-1 hover:underline" onclick="alert(\`${kb.content.replace(/`/g, '\\`')}\`)">View full script</button>
+                        <button type="button" class="text-[10px] font-bold text-blue-700 mt-1 hover:underline" 
+                                onclick="viewKbScript(${idx})">
+                            View full script
+                        </button>
                     </div>
                 `).join('');
             } else {
@@ -410,9 +439,6 @@ function fetchKb(ticketId) {
 }
 
 // --- Assignee Searchable Logic ---
-const assigneeSearch = document.getElementById('assignee-search');
-const techList       = document.getElementById('tech-list');
-const hiddenAssigned = document.getElementById('hidden-assigned-to');
 
 if (assigneeSearch) {
     assigneeSearch.addEventListener('input', function() {
@@ -434,9 +460,6 @@ if (assigneeSearch) {
 }
 
 // --- Suggest (Auto-assignment) Logic ---
-const btnSuggest    = document.getElementById('btn-suggest');
-const suggestPanel  = document.getElementById('suggest-panel');
-const suggestList   = document.getElementById('suggest-list');
 
 function _autoAssignParams() {
     return new URLSearchParams({
@@ -450,7 +473,8 @@ function _autoAssignParams() {
 function _renderCandidates(list, autoFill) {
     suggestList.innerHTML = '';
     if (!list || !list.length) {
-        suggestPanel.classList.add('hidden');
+        suggestPanel.classList.remove('hidden');
+        suggestList.innerHTML = '<div class="text-[11px] text-gray-400 italic p-2 border border-dashed border-gray-200 rounded-lg text-center">No matching technicians found for this ticket.</div>';
         return;
     }
     suggestPanel.classList.remove('hidden');
@@ -505,12 +529,22 @@ function fetchSuggestions(autoFill) {
         if (btnSuggest) btnSuggest.disabled = true;
         return;
     }
-    if (btnSuggest) btnSuggest.disabled = false;
-
-    fetch('suggest.php?' + _autoAssignParams().toString())
-        .then(r => r.json())
-        .then(data => _renderCandidates(data.candidates || [], autoFill))
-        .catch(err => console.error('suggest:', err));
+    if (btnSuggest) {
+        btnSuggest.disabled = true;
+        const originalText = btnSuggest.innerHTML;
+        btnSuggest.innerHTML = '<span class="flex items-center gap-1 animate-pulse">✨ Searching...</span>';
+        
+        fetch('suggest.php?' + _autoAssignParams().toString())
+            .then(r => r.json())
+            .then(data => {
+                _renderCandidates(data.candidates || [], autoFill);
+            })
+            .catch(err => console.error('suggest:', err))
+            .finally(() => {
+                btnSuggest.disabled = false;
+                btnSuggest.innerHTML = originalText;
+            });
+    }
 }
 
 if (btnSuggest) {
@@ -547,10 +581,6 @@ function toggleHoldReason() {
 }
 
 // Double booking conflict checker
-const fStart    = document.getElementById('f-start');
-const fEnd      = document.getElementById('f-end');
-const warnBox   = document.getElementById('conflict-warning');
-const warnMsg   = document.getElementById('conflict-msg');
 const woId      = <?= $is_edit ? $wo['wo_id'] : '0' ?>;
 
 function checkConflict() {
