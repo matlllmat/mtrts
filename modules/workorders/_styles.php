@@ -155,6 +155,25 @@ tbody tr.row-link:hover td{background:#f0fdf4;color:#111827;}
 .wo-media-grid-config{display:grid;grid-template-columns:1fr;gap:6px;padding:14px 16px;}
 .media-file-placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;}
 
+/* Download button on image cards */
+.media-thumb-overlay{position:absolute;inset:0;background:rgba(0,0,0,0);display:flex;align-items:center;justify-content:center;transition:background .2s;pointer-events:none;}
+.media-card:hover .media-thumb-overlay{background:rgba(0,0,0,.22);}
+.media-thumb-overlay svg{opacity:0;transform:scale(.85);transition:opacity .2s,transform .2s;}
+.media-card:hover .media-thumb-overlay svg{opacity:1;transform:scale(1);}
+.media-dl-btn{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:6px;background:#f3f4f6;color:#6b7280;border:1px solid #e5e7eb;cursor:pointer;transition:all .15s;flex-shrink:0;text-decoration:none;}
+.media-dl-btn:hover{background:#15803d;color:#fff;border-color:#15803d;}
+
+/* File row for non-image (config) media */
+.media-card-file{overflow:visible;}
+.media-file-row{display:flex;align-items:center;gap:12px;padding:10px 14px;}
+.media-file-icon-wrap{position:relative;flex-shrink:0;width:44px;height:44px;background:#f3f4f6;border-radius:8px;display:flex;align-items:center;justify-content:center;}
+.media-file-ext{position:absolute;bottom:-4px;right:-4px;background:#374151;color:#fff;font-size:8px;font-weight:700;padding:1px 4px;border-radius:3px;text-transform:uppercase;letter-spacing:.03em;}
+.media-file-details{flex:1;min-width:0;}
+.media-file-name{font-size:13px;font-weight:600;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.media-file-meta{font-size:11px;color:#9ca3af;margin-top:2px;}
+.media-dl-btn-primary{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:7px;background:#15803d;color:#fff;font-size:12px;font-weight:600;cursor:pointer;transition:background .15s;white-space:nowrap;text-decoration:none;flex-shrink:0;}
+.media-dl-btn-primary:hover{background:#166534;}
+
 /* ── WO-specific: Sign-off ─────────────────────────────────── */
 .signoff-card{border:1px solid #e5e7eb;border-radius:10px;padding:20px;background:#f9fafb;}
 .star{color:#d1d5db;font-size:18px;}

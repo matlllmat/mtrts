@@ -367,27 +367,73 @@
                       || in_array(strtolower($ft), ['jpg','jpeg','png','gif','webp'], true);
               $typeSlug = htmlspecialchars(str_replace('_', '-', $m['media_type']));
               $typeLbl  = ucfirst(str_replace(['photo_', '_'], ['', ' '], $m['media_type']));
+              $filePath = htmlspecialchars($m['file_path']);
+              $filename = basename(parse_url($m['file_path'], PHP_URL_PATH));
+              $ext      = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+              $caption  = $m['caption'] ?? '';
+              $sizeKb   = (int)($m['file_size_kb'] ?? 0);
+              $sizeStr  = $sizeKb > 1024 ? round($sizeKb / 1024, 1) . ' MB' : ($sizeKb > 0 ? $sizeKb . ' KB' : '');
+              // File icon colour by extension
+              $iconColor = match(true) {
+                  $ext === 'pdf'                              => '#dc2626',
+                  in_array($ext, ['zip','tar','gz','bz2','7z','rar'], true) => '#d97706',
+                  in_array($ext, ['json','xml','yaml','yml','conf','config','ini','toml'], true) => '#059669',
+                  default                                    => '#6b7280',
+              };
         ?>
-          <div class="media-card">
+          <div class="media-card<?= !$isImage ? ' media-card-file' : '' ?>">
             <?php if ($isImage): ?>
-              <img src="<?= htmlspecialchars($m['file_path']) ?>" alt="<?= htmlspecialchars($m['caption'] ?? '') ?>" class="media-thumb" />
-            <?php else: ?>
-              <div class="media-thumb media-file-placeholder">
-                <svg class="w-8 h-8 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>
-                </svg>
-                <?php if ($m['caption']): ?>
-                  <p class="text-xs text-gray-500 mt-1 px-1 truncate max-w-full"><?= htmlspecialchars($m['caption']) ?></p>
+              <a href="<?= $filePath ?>" target="_blank" class="block relative" style="display:block;position:relative;">
+                <img src="<?= $filePath ?>" alt="<?= htmlspecialchars($caption) ?>" class="media-thumb" />
+                <div class="media-thumb-overlay">
+                  <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                  </svg>
+                </div>
+              </a>
+              <div class="media-info">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:4px;">
+                  <span class="media-type media-<?= $typeSlug ?>"><?= $typeLbl ?></span>
+                  <a href="<?= $filePath ?>" download="<?= htmlspecialchars($filename) ?>" class="media-dl-btn" title="Download">
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                    </svg>
+                  </a>
+                </div>
+                <?php if ($caption): ?>
+                  <p class="text-xs text-gray-600 mt-1"><?= htmlspecialchars($caption) ?></p>
                 <?php endif; ?>
+                <p class="text-xs text-gray-400 mt-1"><?= htmlspecialchars($m['uploaded_by_name'] ?? '—') ?> · <?= (new DateTime($m['uploaded_at']))->format('M j') ?></p>
+              </div>
+            <?php else: ?>
+              <div class="media-file-row">
+                <div class="media-file-icon-wrap">
+                  <svg class="w-6 h-6" style="color:<?= $iconColor ?>" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>
+                  </svg>
+                  <?php if ($ext): ?>
+                    <span class="media-file-ext"><?= strtoupper($ext) ?></span>
+                  <?php endif; ?>
+                </div>
+                <div class="media-file-details">
+                  <p class="media-file-name"><?= htmlspecialchars($caption ?: $filename) ?></p>
+                  <?php if ($caption && $caption !== $filename): ?>
+                    <p class="text-xs text-gray-400 font-mono" style="margin-top:1px;"><?= htmlspecialchars($filename) ?></p>
+                  <?php endif; ?>
+                  <p class="media-file-meta">
+                    <?= htmlspecialchars($m['uploaded_by_name'] ?? '—') ?>
+                    · <?= (new DateTime($m['uploaded_at']))->format('M j, Y') ?>
+                    <?php if ($sizeStr): ?> · <?= $sizeStr ?><?php endif; ?>
+                  </p>
+                </div>
+                <a href="<?= $filePath ?>" download="<?= htmlspecialchars($filename) ?>" class="media-dl-btn-primary">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                  </svg>
+                  Download
+                </a>
               </div>
             <?php endif; ?>
-            <div class="media-info">
-              <span class="media-type media-<?= $typeSlug ?>"><?= $typeLbl ?></span>
-              <?php if ($m['caption'] && $isImage): ?>
-                <p class="text-xs text-gray-600 mt-1"><?= htmlspecialchars($m['caption']) ?></p>
-              <?php endif; ?>
-              <p class="text-xs text-gray-400 mt-1"><?= htmlspecialchars($m['uploaded_by_name'] ?? '—') ?> · <?= (new DateTime($m['uploaded_at']))->format('M j') ?></p>
-            </div>
           </div>
         <?php }; ?>
 
