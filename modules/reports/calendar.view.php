@@ -128,15 +128,36 @@
                                 <?= $day ?>
                             </span>
                             
-                            <div class="mt-1 flex-1 overflow-hidden">
+                            <div class="mt-1 flex-1 overflow-hidden space-y-0.5">
                                 <?php if (!empty($day_holidays)): ?>
                                     <?php foreach ($day_holidays as $dh): ?>
-                                        <div class="bg-red-50 border-l-2 border-red-500 px-1 py-0.5 rounded text-[8px] font-bold text-red-700 shadow-sm leading-tight truncate" title="<?= htmlspecialchars($dh['holiday_name']) ?>">
+                                        <div class="bg-red-50 border-l-2 border-red-500 px-1 py-0.5 rounded text-[8px] font-bold text-red-700 leading-tight truncate" title="<?= htmlspecialchars($dh['holiday_name']) ?>">
                                             <?= htmlspecialchars($dh['holiday_name']) ?>
                                         </div>
                                     <?php endforeach; ?>
                                 <?php elseif ($is_non_working): ?>
                                     <div class="text-[8px] font-bold text-gray-300 uppercase tracking-tighter text-center mt-2">OFF</div>
+                                <?php endif; ?>
+                                <?php
+                                $day_wos  = $wo_by_date[$current_date] ?? [];
+                                $max_show = 2;
+                                foreach (array_slice($day_wos, 0, $max_show) as $_w):
+                                    $sc = match($_w['status']) {
+                                        'resolved', 'closed' => 'bg-gray-100 border-gray-300 text-gray-400',
+                                        'in_progress'        => 'bg-green-50 border-green-500 text-green-700',
+                                        'on_hold'            => 'bg-red-50 border-red-400 text-red-600',
+                                        'scheduled'          => 'bg-purple-50 border-purple-400 text-purple-700',
+                                        default              => 'bg-blue-50 border-blue-400 text-blue-700',
+                                    };
+                                ?>
+                                    <a href="<?= BASE_URL ?>modules/workorders/view.php?id=<?= $_w['wo_id'] ?>"
+                                       class="<?= $sc ?> border-l-2 px-1 py-0.5 rounded text-[8px] font-bold leading-tight truncate block hover:opacity-75 transition-opacity"
+                                       title="<?= htmlspecialchars($_w['wo_number']) ?> — <?= htmlspecialchars($_w['tech_name'] ?? 'Unassigned') ?> (<?= ucfirst($_w['status']) ?>)">
+                                        <?= htmlspecialchars($_w['wo_number']) ?>
+                                    </a>
+                                <?php endforeach; ?>
+                                <?php if (count($day_wos) > $max_show): ?>
+                                    <div class="text-[7px] text-gray-400 font-semibold text-center">+<?= count($day_wos) - $max_show ?> more</div>
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -155,16 +176,13 @@
         </div>
 
         <!-- Legend -->
-        <div class="flex items-center gap-6 px-4 py-2 bg-white rounded-xl border border-gray-100 shadow-sm text-[9px] font-bold uppercase tracking-wider text-gray-500">
-            <div class="flex items-center gap-2">
-                <div class="w-2.5 h-2.5 rounded-full bg-[#1a5c2a]"></div> Today
-            </div>
-            <div class="flex items-center gap-2">
-                <div class="w-2.5 h-2.5 rounded bg-red-100 border-l-2 border-red-500"></div> System Holiday
-            </div>
-            <div class="flex items-center gap-2 text-gray-300">
-                 OFF / Non-Working
-            </div>
+        <div class="flex items-center gap-5 px-4 py-2 bg-white rounded-xl border border-gray-100 shadow-sm text-[9px] font-bold uppercase tracking-wider text-gray-500 flex-wrap">
+            <div class="flex items-center gap-1.5"><div class="w-2.5 h-2.5 rounded-full bg-[#1a5c2a]"></div> Today</div>
+            <div class="flex items-center gap-1.5"><div class="w-2.5 h-2.5 rounded bg-red-100 border-l-2 border-red-500"></div> Holiday</div>
+            <div class="flex items-center gap-1.5 text-gray-300">OFF / Non-Working</div>
+            <div class="flex items-center gap-1.5"><div class="w-2.5 h-2.5 rounded bg-blue-50 border-l-2 border-blue-400"></div> Scheduled WO</div>
+            <div class="flex items-center gap-1.5"><div class="w-2.5 h-2.5 rounded bg-green-50 border-l-2 border-green-500"></div> In Progress</div>
+            <div class="flex items-center gap-1.5"><div class="w-2.5 h-2.5 rounded bg-gray-100 border-l-2 border-gray-300"></div> Resolved</div>
         </div>
     </div>
 </div>
