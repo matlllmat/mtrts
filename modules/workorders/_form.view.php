@@ -103,13 +103,37 @@ if ($is_edit && !empty($wo['wo_id'])) {
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <div class="flex items-center justify-between mb-1">
+            <div class="flex items-center gap-1.5 mb-1">
               <label class="flbl mb-0">Assign To</label>
-              <button type="button" id="btn-suggest"
-                      class="text-xs font-bold text-emerald-700 hover:underline disabled:text-gray-400 disabled:no-underline"
-                      <?= empty($wo['ticket_id']) ? 'disabled' : '' ?>>
-                ✨ Suggest technician
-              </button>
+              <div class="relative group/suggest-help">
+                <button type="button" id="btn-suggest"
+                        class="text-xs font-bold text-emerald-700 hover:underline disabled:text-gray-400 disabled:no-underline"
+                        <?= empty($wo['ticket_id']) ? 'disabled' : '' ?>>
+                  ✨ Suggest technician
+                </button>
+                <!-- Tooltip -->
+                <div class="absolute left-0 top-full mt-2 w-64 p-4 bg-gray-900 text-white text-[11px] rounded-xl shadow-2xl opacity-0 group-hover/suggest-help:opacity-100 transition-opacity pointer-events-none z-50 leading-relaxed border border-gray-700">
+                  <p class="font-bold text-emerald-400 mb-2 flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                    Smart Matching Engine
+                  </p>
+                  <div class="space-y-2">
+                    <div class="flex justify-between border-b border-white/10 pb-1">
+                      <span class="text-white/60">Skill Proficiency</span>
+                      <span class="font-bold">50%</span>
+                    </div>
+                    <div class="flex justify-between border-b border-white/10 pb-1">
+                      <span class="text-white/60">Location Proximity</span>
+                      <span class="font-bold">30%</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span class="text-white/60">Workload Balance</span>
+                      <span class="font-bold">20%</span>
+                    </div>
+                  </div>
+                  <p class="mt-3 text-[10px] text-white/40 italic">Technicians with schedule conflicts are automatically disqualified.</p>
+                </div>
+              </div>
             </div>
             <div class="relative">
               <input type="text" id="assignee-search" list="tech-list"
