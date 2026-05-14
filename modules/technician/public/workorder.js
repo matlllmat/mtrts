@@ -1,9 +1,9 @@
 // Global tab switching functions (must be outside DOMContentLoaded for onclick handlers)
 
-// Switch secondary tabs (simplified - single tab list)
+// Switch secondary tabs — targets the sidebar nav buttons
 function switchSecondaryTab(secondaryKey, btn) {
-  // Remove active state from all secondary buttons
-  document.querySelectorAll('.secondary-tab-btn').forEach(b => b.classList.remove('tab-on'));
+  // Remove active state from all sidebar buttons
+  document.querySelectorAll('.wo-sidebar-btn').forEach(b => b.classList.remove('tab-on'));
   
   // Add active state to current button
   if (btn) btn.classList.add('tab-on');
@@ -21,6 +21,28 @@ function switchSecondaryTab(secondaryKey, btn) {
 // Legacy compatibility - keep switchTab for any old onclick handlers
 function switchTab(key, btn) {
   switchSecondaryTab(key, btn);
+}
+
+// ── Note tag selection ────────────────────────────────────────
+function selectNoteTag(tag, btn) {
+  document.querySelectorAll('#noteTagChips .note-tag-chip').forEach(c => c.classList.remove('note-tag-chip--on'));
+  if (btn) btn.classList.add('note-tag-chip--on');
+}
+
+// ── Note filter ───────────────────────────────────────────────
+function filterNotes(filter, btn) {
+  document.querySelectorAll('.note-filter-chip').forEach(c => c.classList.remove('note-filter-chip--on'));
+  if (btn) btn.classList.add('note-filter-chip--on');
+  window._noteFilter = filter;
+  // Re-render if renderNotes is available (inside DOMContentLoaded scope)
+  if (typeof window._renderNotes === 'function') window._renderNotes();
+}
+
+// ── Mark all safety checks ────────────────────────────────────
+function markAllSafetyChecks(btn) {
+  if (typeof window._markAllSafety === 'function') {
+    window._markAllSafety(btn);
+  }
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -798,24 +820,79 @@ function renderSafety() {
         });
       });
     });
+
+    // Update Mark all button label based on current state
+    const markAllBtn = document.getElementById('btnMarkAllSafety');
+    if (markAllBtn) {
+      const allChecked = (done === total && total > 0);
+      const labelEl = document.getElementById('btnMarkAllSafetyLabel');
+      if (labelEl) labelEl.textContent = allChecked ? 'Unmark all' : 'Mark all';
+    }
   }
 
+  // Expose mark-all logic so the global markAllSafetyChecks() can call it
+  window._markAllSafety = function(btn) {
+    if (!canMutateOrWarn()) return;
+    const items = (wo && wo.safety) ? wo.safety : [];
+    if (!items.length) return;
+
+    const allChecked = items.every(it => !!draft.safety[String(it.id || it.safety_id || 0)]);
+    const nextState = !allChecked; // toggle: if all checked → uncheck all, else check all
+
+    items.forEach(it => {
+      const id = String(it.id || it.safety_id || 0);
+      if (!id || id === '0') return;
+      draft.safety[id] = nextState;
+      it.is_done = nextState;
+    });
+
+    saveDraft(draft);
+    renderSafety();
+    updateCompletionBlocker();
+    if (typeof updateCompletionBadges === 'function') updateCompletionBadges();
+
+    // Auto-sync
+    window.MRTS.offline.isReallyOnline().then(online => {
+      if (online) window.MRTS.offline.syncNow().catch(e => console.warn('[v0] markAll sync failed:', e));
+    });
+  };
+
   function renderNotes() {
-    const notes = draft.notes.slice().sort((a,b)=>b.ts-a.ts);
-    els.notesList.innerHTML = notes.length ? notes.map((n) => `
-      <div class="note">
-        <div class="note__header">
-          <div class="note__title">${n.title ? escapeHtml(n.title) : '<em>Untitled</em>'}</div>
-          <button class="note__remove" type="button" data-remove-note="${n.id}" title="Remove note">×</button>
-        </div>
-        <div class="note__meta">
-          <span>${escapeHtml(n.source || 'local')}</span>
-          <span>${new Date(n.ts).toLocaleString()}</span>
-        </div>
-        <div class="note__text">${escapeHtml(n.text)}</div>
-      </div>
-    `).join('') : '';
-    
+    const activeFilter = window._noteFilter || 'all';
+    const allNotes = draft.notes.slice().sort((a, b) => b.ts - a.ts);
+    const notes = activeFilter === 'all'
+      ? allNotes
+      : allNotes.filter(n => (n.tag || 'general') === activeFilter);
+
+    // Update count badge
+    const countEl = document.getElementById('notesCount');
+    if (countEl) countEl.textContent = allNotes.length + ' note' + (allNotes.length !== 1 ? 's' : '');
+
+    // Tag label map
+    const tagLabels = { general: 'General', progress: 'Progress', issue: 'Issue', follow_up: 'Follow-up' };
+
+    const emptyState = document.getElementById('notesEmptyState');
+
+    if (notes.length === 0) {
+      els.notesList.innerHTML = '';
+      if (emptyState) emptyState.style.display = '';
+    } else {
+      if (emptyState) emptyState.style.display = 'none';
+      els.notesList.innerHTML = notes.map((n) => {
+        const tag = n.tag || 'general';
+        const tagLabel = tagLabels[tag] || tag;
+        return `
+          <div class="note-card" data-note-tag="${escapeHtml(tag)}">
+            <span class="note-card__tag note-card__tag--${escapeHtml(tag)}">${escapeHtml(tagLabel)}</span>
+            <div class="note-card__title">${n.title ? escapeHtml(n.title) : '<em>Untitled</em>'}</div>
+            <div class="note-card__text">${escapeHtml(n.text)}</div>
+            <div class="note-card__meta">${new Date(n.ts).toLocaleString()}</div>
+            <button class="note-card__remove" type="button" data-remove-note="${n.id}" title="Remove note">×</button>
+          </div>
+        `;
+      }).join('');
+    }
+
     // Attach remove handlers
     els.notesList.querySelectorAll('[data-remove-note]').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -828,6 +905,9 @@ function renderSafety() {
       });
     });
   }
+
+  // Expose renderNotes globally so filterNotes() (defined outside DOMContentLoaded) can call it
+  window._renderNotes = renderNotes;
 
   function renderEvidence() {
     const b = draft.evidence.before;
@@ -1860,18 +1940,26 @@ function validateCompletion() {
       MRTS.modal.toast('Please enter a note', { type: 'warning' });
       return;
     }
+    // Read selected tag from chip UI
+    const activeTagChip = document.querySelector('#noteTagChips .note-tag-chip--on');
+    const tag = activeTagChip ? (activeTagChip.dataset.tag || 'general') : 'general';
+
     const noteId = `n_${Date.now()}_${Math.random().toString(16).slice(2)}`;
     draft.notes.push({
       id: noteId,
       title: title,
       text: text,
       ts: Date.now(),
-      source: 'local'
+      source: 'local',
+      tag: tag,
     });
     els.noteTitle.value = '';
     els.noteText.value = '';
+    // Reset char counter
+    const charCount = document.getElementById('noteCharCount');
+    if (charCount) charCount.textContent = '0 / 1,000';
     saveDraft(draft);
-    window.MRTS.offline.queueAction('note_add', woId, { title, text });
+    window.MRTS.offline.queueAction('note_add', woId, { title, text, tag });
     renderNotes();
     updateCompletionBlocker();
   });

@@ -267,16 +267,134 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
 </div>
 
 <!-- ══════════════════════════════════════════════════════════════
-     Main tab body
+     Main tab body — sidebar + content layout
      ══════════════════════════════════════════════════════════════ -->
-<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-4 mt-4">
+<style>
+/* ── Sidebar tab layout ─────────────────────────────────────── */
+.wo-tab-layout {
+  display: flex;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0,0,0,.05);
+  overflow: hidden;
+  margin-bottom: 16px;
+  margin-top: 16px;
+  min-height: 520px;
+}
 
+/* Left sidebar */
+.wo-tab-sidebar {
+  width: 168px;
+  flex-shrink: 0;
+  border-right: 1px solid #e5e7eb;
+  background: #f9fafb;
+  padding: 8px 0;
+  display: flex;
+  flex-direction: column;
+}
 
+.wo-sidebar-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #6b7280;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition: background .12s, color .12s;
+  position: relative;
+  white-space: nowrap;
+  font-family: system-ui, sans-serif;
+  border-left: 3px solid transparent;
+}
+.wo-sidebar-btn svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  opacity: .7;
+}
+.wo-sidebar-btn:hover {
+  background: #f0fdf4;
+  color: #1a5c2a;
+}
+.wo-sidebar-btn:hover svg { opacity: 1; }
 
-  <!-- ── Secondary tabs (unified) ──────────────────────────── -->
-  <div class="tab-nav secondary-tabs">
+.wo-sidebar-btn.tab-on {
+  background: #fff;
+  color: #1a5c2a;
+  font-weight: 600;
+  border-left-color: #1a5c2a;
+}
+.wo-sidebar-btn.tab-on svg { opacity: 1; }
 
-    <button class="tab-btn tab-on secondary-tab-btn"
+.wo-sidebar-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 17px;
+  padding: 0 5px;
+  border-radius: 99px;
+  font-size: 10px;
+  font-weight: 700;
+  background: #f3f4f6;
+  color: #6b7280;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.wo-sidebar-badge.done { background: #dcfce7; color: #15803d; }
+.wo-sidebar-badge.warn { background: #fef3c7; color: #b45309; }
+
+/* Right content pane */
+.wo-tab-content {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+}
+
+/* Responsive: collapse sidebar to top tabs on small screens */
+@media (max-width: 640px) {
+  .wo-tab-layout { flex-direction: column; }
+  .wo-tab-sidebar {
+    width: 100%;
+    flex-direction: row;
+    overflow-x: auto;
+    border-right: none;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 0;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .wo-tab-sidebar::-webkit-scrollbar { display: none; }
+  .wo-sidebar-btn {
+    flex-direction: column;
+    gap: 3px;
+    padding: 8px 12px;
+    font-size: 10.5px;
+    border-left: none;
+    border-bottom: 2px solid transparent;
+    flex-shrink: 0;
+  }
+  .wo-sidebar-btn.tab-on {
+    border-left-color: transparent;
+    border-bottom-color: #1a5c2a;
+  }
+  .wo-sidebar-badge { margin-left: 0; }
+}
+</style>
+
+<div class="wo-tab-layout">
+
+  <!-- ── Left sidebar navigation ──────────────────────────── -->
+  <nav class="wo-tab-sidebar" aria-label="Work order sections">
+
+    <button class="wo-sidebar-btn tab-on"
             data-tab="safety" type="button"
             onclick="switchSecondaryTab('safety', this)">
       <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -284,13 +402,13 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
       </svg>
       Safety
       <?php if ($sf_total > 0): ?>
-        <span class="tab-count-badge <?php echo $sf_done === $sf_total ? 'done' : 'warn'; ?>" data-badge="safety">
+        <span class="wo-sidebar-badge <?php echo $sf_done === $sf_total ? 'done' : 'warn'; ?>" data-badge="safety">
           <?php echo $sf_done; ?>/<?php echo $sf_total; ?>
         </span>
       <?php endif; ?>
     </button>
 
-    <button class="tab-btn secondary-tab-btn"
+    <button class="wo-sidebar-btn"
             data-tab="checklist" type="button"
             onclick="switchSecondaryTab('checklist', this)">
       <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -298,22 +416,22 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
       </svg>
       Checklist
       <?php if ($cl_total > 0): ?>
-        <span class="tab-count-badge <?php echo $cl_done === $cl_total ? 'done' : ''; ?>" data-badge="checklist">
+        <span class="wo-sidebar-badge <?php echo $cl_done === $cl_total ? 'done' : ''; ?>" data-badge="checklist">
           <?php echo $cl_done; ?>/<?php echo $cl_total; ?>
         </span>
       <?php endif; ?>
     </button>
 
-    <button class="tab-btn secondary-tab-btn"
+    <button class="wo-sidebar-btn"
             data-tab="timetracking" type="button"
             onclick="switchSecondaryTab('timetracking', this)">
       <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
         <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
       </svg>
-      Time Tracking
+      Time tracking
     </button>
 
-    <button class="tab-btn secondary-tab-btn"
+    <button class="wo-sidebar-btn"
             data-tab="parts" type="button"
             onclick="switchSecondaryTab('parts', this)">
       <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -322,7 +440,7 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
       Parts
     </button>
 
-    <button class="tab-btn secondary-tab-btn"
+    <button class="wo-sidebar-btn"
             data-tab="communication" type="button"
             onclick="switchSecondaryTab('communication', this)">
       <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -331,7 +449,7 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
       Notes
     </button>
 
-    <button class="tab-btn secondary-tab-btn"
+    <button class="wo-sidebar-btn"
             data-tab="evidence" type="button"
             onclick="switchSecondaryTab('evidence', this)">
       <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -341,7 +459,7 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
       Media
     </button>
 
-    <button class="tab-btn secondary-tab-btn"
+    <button class="wo-sidebar-btn"
             data-tab="signoff" type="button"
             onclick="switchSecondaryTab('signoff', this)">
       <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -350,7 +468,7 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
       Sign-off
     </button>
 
-    <button class="tab-btn secondary-tab-btn"
+    <button class="wo-sidebar-btn"
             data-tab="ratings" type="button"
             onclick="switchSecondaryTab('ratings', this)">
       <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -359,15 +477,19 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
       Ratings
     </button>
 
-    <button class="tab-btn secondary-tab-btn"
+    <button class="wo-sidebar-btn"
             data-tab="contact" type="button"
             onclick="switchSecondaryTab('contact', this)">
       <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
         <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z"/>
       </svg>
-      Contact Requester
+      Contact requester
     </button>
-  </div><!-- /tab-nav secondary-tabs -->
+
+  </nav><!-- /wo-tab-sidebar -->
+
+  <!-- ── Right content area ────────────────────────────────── -->
+  <div class="wo-tab-content">
 
   <!-- ════════════════════════════════════════════════════════════
        TAB PANES
@@ -390,6 +512,18 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
             <?php echo $sf_done . '/' . $sf_total . ' items'; ?>
           </span>
         </div>
+        <?php if ($sf_total > 0): ?>
+        <button type="button" id="btnMarkAllSafety"
+                onclick="markAllSafetyChecks(this)"
+                style="display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;padding:5px 12px;border-radius:6px;border:1.5px solid #e5e7eb;background:#fff;color:#374151;cursor:pointer;font-family:inherit;transition:all .15s;"
+                onmouseover="this.style.borderColor='#86efac';this.style.color='#15803d';this.style.background='#f0fdf4'"
+                onmouseout="this.style.borderColor='#e5e7eb';this.style.color='#374151';this.style.background='#fff'">
+          <svg style="width:12px;height:12px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
+          </svg>
+          <span id="btnMarkAllSafetyLabel">Mark all</span>
+        </button>
+        <?php endif; ?>
       </div>
 
       <?php if ($sf_total > 0): ?>
@@ -835,44 +969,85 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;">
 
-      <!-- Compose -->
-      <div style="background:#fff;border:1px solid #f3f4f6;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.05);">
-        <div style="padding:14px 18px;border-bottom:1px solid #f3f4f6;background:#fafafa;display:flex;align-items:center;gap:7px;">
-          <svg style="width:14px;height:14px;color:#15803d;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <!-- ── Compose panel ─────────────────────────────────── -->
+      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.05);">
+        <!-- Header -->
+        <div style="padding:13px 18px;border-bottom:1px solid #f3f4f6;background:#fafafa;display:flex;align-items:center;gap:7px;">
+          <svg style="width:13px;height:13px;color:#15803d;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/>
           </svg>
-          <span style="font-size:13px;font-weight:700;color:#111827;">New Note</span>
+          <span style="font-size:13px;font-weight:700;color:#111827;">New note</span>
         </div>
+        <!-- Body -->
         <div style="padding:16px 18px;">
+          <!-- Title -->
           <input id="noteTitle" type="text" class="fin"
                  placeholder="Note title (optional)…"
-                 style="width:100%;margin-bottom:10px;font-size:13px;" />
-          <textarea id="noteText" rows="5" class="fin"
-                    placeholder="Add a progress note…"
-                    style="width:100%;resize:none;margin-bottom:14px;font-size:13px;"></textarea>
-          <div style="display:flex;justify-content:flex-end;">
-            <button id="btnAddNote"
-                    style="display:inline-flex;align-items:center;gap:6px;background:#15803d;color:#fff;font-size:13px;font-weight:600;padding:8px 18px;border-radius:8px;border:none;cursor:pointer;font-family:inherit;transition:background .15s;"
-                    onmouseover="this.style.background='#166534'"
-                    onmouseout="this.style.background='#15803d'">
-              <svg style="width:13px;height:13px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14"/>
-              </svg>
-              Add Note
-            </button>
+                 style="width:100%;margin-bottom:10px;font-size:13px;box-sizing:border-box;" />
+          <!-- Body textarea -->
+          <div style="position:relative;margin-bottom:4px;">
+            <textarea id="noteText" rows="5" class="fin"
+                      placeholder="Add a progress note…"
+                      maxlength="1000"
+                      oninput="document.getElementById('noteCharCount').textContent=this.value.length+' / 1,000'"
+                      style="width:100%;resize:none;font-size:13px;box-sizing:border-box;padding-bottom:22px;"></textarea>
+            <span id="noteCharCount" style="position:absolute;bottom:8px;right:10px;font-size:10.5px;color:#9ca3af;pointer-events:none;">0 / 1,000</span>
           </div>
+          <!-- TAG chips -->
+          <div style="margin-top:12px;margin-bottom:14px;">
+            <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;margin-bottom:7px;">Tag</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;" id="noteTagChips">
+              <button type="button" class="note-tag-chip note-tag-chip--on" data-tag="general"
+                      onclick="selectNoteTag('general', this)">General</button>
+              <button type="button" class="note-tag-chip" data-tag="progress"
+                      onclick="selectNoteTag('progress', this)">Progress</button>
+              <button type="button" class="note-tag-chip" data-tag="issue"
+                      onclick="selectNoteTag('issue', this)">Issue</button>
+              <button type="button" class="note-tag-chip" data-tag="follow_up"
+                      onclick="selectNoteTag('follow_up', this)">Follow-up</button>
+            </div>
+          </div>
+          <!-- Add button — full width, dark -->
+          <button id="btnAddNote" type="button"
+                  style="display:flex;align-items:center;justify-content:center;gap:7px;width:100%;background:#111827;color:#fff;font-size:13px;font-weight:600;padding:11px 0;border-radius:8px;border:none;cursor:pointer;font-family:inherit;transition:background .15s;box-sizing:border-box;"
+                  onmouseover="this.style.background='#1f2937'"
+                  onmouseout="this.style.background='#111827'">
+            <svg style="width:14px;height:14px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14"/>
+            </svg>
+            + Add note
+          </button>
         </div>
       </div>
 
-      <!-- Saved notes -->
-      <div style="background:#fff;border:1px solid #f3f4f6;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.05);">
-        <div style="padding:14px 18px;border-bottom:1px solid #f3f4f6;background:#fafafa;display:flex;align-items:center;gap:7px;">
-          <svg style="width:14px;height:14px;color:#15803d;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-          </svg>
-          <span style="font-size:13px;font-weight:700;color:#111827;">Saved Notes</span>
+      <!-- ── Saved notes panel ──────────────────────────────── -->
+      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.05);">
+        <!-- Header -->
+        <div style="padding:13px 18px;border-bottom:1px solid #f3f4f6;background:#fafafa;display:flex;align-items:center;justify-content:space-between;">
+          <div style="display:flex;align-items:center;gap:7px;">
+            <svg style="width:13px;height:13px;color:#15803d;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+            <span style="font-size:13px;font-weight:700;color:#111827;">Saved notes</span>
+          </div>
+          <span id="notesCount" style="font-size:11.5px;color:#9ca3af;">0 notes</span>
         </div>
-        <div style="padding:16px 18px;">
+        <!-- Filter chips -->
+        <div style="padding:10px 18px;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+          <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;margin-right:2px;">Filter</span>
+          <button type="button" class="note-filter-chip note-filter-chip--on" data-filter="all"
+                  onclick="filterNotes('all', this)">All</button>
+          <button type="button" class="note-filter-chip" data-filter="general"
+                  onclick="filterNotes('general', this)">General</button>
+          <button type="button" class="note-filter-chip" data-filter="progress"
+                  onclick="filterNotes('progress', this)">Progress</button>
+          <button type="button" class="note-filter-chip" data-filter="issue"
+                  onclick="filterNotes('issue', this)">Issue</button>
+          <button type="button" class="note-filter-chip" data-filter="follow_up"
+                  onclick="filterNotes('follow_up', this)">Follow-up</button>
+        </div>
+        <!-- Notes list -->
+        <div style="padding:14px 18px;min-height:160px;">
           <div id="notesList"></div>
           <div id="notesEmptyState" style="padding:36px 16px;text-align:center;">
             <div style="width:40px;height:40px;border-radius:50%;background:#f3f4f6;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;">
@@ -880,12 +1055,84 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
                 <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/>
               </svg>
             </div>
-            <p style="font-size:13px;color:#9ca3af;font-style:italic;margin:0;">No notes yet. Add one on the left.</p>
+            <p style="font-size:13px;color:#9ca3af;font-style:italic;margin:0;">No notes yet.<br>Add one on the left.</p>
           </div>
         </div>
       </div>
 
     </div>
+
+    <style>
+    /* ── Note tag / filter chips ─────────────────────────── */
+    .note-tag-chip {
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 500;
+      border: 1.5px solid #e5e7eb;
+      background: #fff;
+      color: #6b7280;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all .12s;
+    }
+    .note-tag-chip:hover { border-color: #86efac; color: #15803d; background: #f0fdf4; }
+    .note-tag-chip--on   { background: #15803d !important; color: #fff !important; border-color: #15803d !important; }
+
+    .note-filter-chip {
+      padding: 3px 11px;
+      border-radius: 999px;
+      font-size: 11.5px;
+      font-weight: 500;
+      border: 1.5px solid #e5e7eb;
+      background: #fff;
+      color: #6b7280;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all .12s;
+    }
+    .note-filter-chip:hover { border-color: #86efac; color: #15803d; }
+    .note-filter-chip--on   { background: #15803d !important; color: #fff !important; border-color: #15803d !important; }
+
+    /* ── Saved note card ─────────────────────────────────── */
+    .note-card {
+      position: relative;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 11px 36px 11px 13px;
+      margin-bottom: 8px;
+      transition: border-color .15s;
+    }
+    .note-card:hover { border-color: #d1d5db; }
+    .note-card__tag {
+      display: inline-flex;
+      align-items: center;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 999px;
+      margin-bottom: 5px;
+      text-transform: capitalize;
+    }
+    .note-card__tag--general   { background: #f3f4f6; color: #6b7280; }
+    .note-card__tag--progress  { background: #eff6ff; color: #1d4ed8; }
+    .note-card__tag--issue     { background: #fef2f2; color: #b91c1c; }
+    .note-card__tag--follow_up { background: #fdf4ff; color: #7e22ce; }
+    .note-card__title { font-size: 13px; font-weight: 700; color: #1f2937; line-height: 1.3; margin-bottom: 3px; }
+    .note-card__title em { font-style: italic; font-weight: 400; color: #9ca3af; }
+    .note-card__text  { font-size: 12.5px; color: #374151; line-height: 1.55; }
+    .note-card__meta  { font-size: 10.5px; color: #9ca3af; margin-top: 5px; }
+    .note-card__remove {
+      position: absolute; top: 9px; right: 9px;
+      width: 22px; height: 22px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      background: transparent; border: none; cursor: pointer;
+      font-size: 15px; line-height: 1; color: #d1d5db;
+      transition: background .15s, color .15s; padding: 0;
+    }
+    .note-card__remove:hover { background: #e5e7eb; color: #4b5563; }
+    </style>
   </div>
 
   <!-- ── Evidence (Documentation) ──────────────────────────────── -->
@@ -1365,7 +1612,9 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
     </div>
   </div>
 
-</div><!-- /main tab body -->
+  </div><!-- /wo-tab-content -->
+
+</div><!-- /wo-tab-layout -->
 
 <?php
 /* ── JSON payload for workorder.js ────────────────────────── */
@@ -1489,32 +1738,15 @@ window.MRTS = {
   USER_ID:  <?php echo json_encode($_SESSION['user_id'] ?? null); ?>
 };
 
-/* ── Primary tab switching ───────────────────────────────── */
+/* ── Primary tab switching (legacy — no longer used) ────────── */
 function switchPrimaryTab(key, btn) {
-  document.querySelectorAll('.primary-tab-btn').forEach(b => b.classList.remove('tab-on'));
-  if (btn) btn.classList.add('tab-on');
-
-  const isExec = (key === 'primary-execution');
-  document.getElementById('execution-secondary-tabs').classList.toggle('hidden', !isExec);
-  document.getElementById('documentation-secondary-tabs').classList.toggle('hidden', isExec);
-
-  // Activate the first secondary tab for the chosen primary
-  if (isExec) {
-    const firstExecBtn = document.querySelector('#execution-secondary-tabs .secondary-tab-btn');
-    if (firstExecBtn) switchSecondaryTab(firstExecBtn.dataset.tab, firstExecBtn, 'execution');
-  } else {
-    const firstDocBtn = document.querySelector('#documentation-secondary-tabs .secondary-tab-btn');
-    if (firstDocBtn) switchSecondaryTab(firstDocBtn.dataset.tab, firstDocBtn, 'documentation');
-  }
+  // No-op: primary tabs replaced by sidebar layout
 }
 
 /* ── Secondary tab switching ───────────────────────────────── */
 function switchSecondaryTab(key, btn, group) {
-  // Deactivate all secondary tabs in this group
-  const container = document.getElementById(group + '-secondary-tabs');
-  if (container) {
-    container.querySelectorAll('.secondary-tab-btn').forEach(b => b.classList.remove('tab-on'));
-  }
+  // Deactivate all sidebar nav buttons
+  document.querySelectorAll('.wo-sidebar-btn').forEach(b => b.classList.remove('tab-on'));
   if (btn) btn.classList.add('tab-on');
 
   // Hide all tab panes
@@ -1527,7 +1759,7 @@ function switchSecondaryTab(key, btn, group) {
 
 /* Legacy alias kept for workorder.js compatibility */
 function switchTab(key, btn) {
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('tab-on'));
+  document.querySelectorAll('.wo-sidebar-btn').forEach(b => b.classList.remove('tab-on'));
   document.querySelectorAll('[id^="tab-"]').forEach(p => p.classList.add('hidden'));
   if (btn) btn.classList.add('tab-on');
   const panel = document.getElementById('tab-' + key);
@@ -1554,7 +1786,7 @@ function updateCompletionBadges() {
   const safetyBadge = document.querySelector('[data-badge="safety"]');
   if (safetyBadge) {
     safetyBadge.textContent = safetyDone + '/' + safetyTotal;
-    safetyBadge.className = safetyDone === safetyTotal ? 'tab-count-badge done' : 'tab-count-badge warn';
+    safetyBadge.className = safetyDone === safetyTotal ? 'wo-sidebar-badge done' : 'wo-sidebar-badge warn';
   }
   const safetyProgress = document.getElementById('safetyProgress');
   if (safetyProgress) {
@@ -1600,7 +1832,7 @@ function updateCompletionBadges() {
   const checklistBadge = document.querySelector('[data-badge="checklist"]');
   if (checklistBadge) {
     checklistBadge.textContent = checklistDone + '/' + checklistTotal;
-    checklistBadge.className = checklistDone === checklistTotal ? 'tab-count-badge done' : 'tab-count-badge';
+    checklistBadge.className = checklistDone === checklistTotal ? 'wo-sidebar-badge done' : 'wo-sidebar-badge';
   }
   const checklistProgress = document.getElementById('checklistProgress');
   if (checklistProgress) {
