@@ -405,6 +405,31 @@ function check_wo_conflict(PDO $pdo, int $assigned_to, string $start, string $en
     return false;
 }
 
+function check_operating_calendar_conflict(PDO $pdo, string $start): array|false {
+    $dt   = new DateTime($start);
+    $date = $dt->format('Y-m-d');
+    $dow  = (int)$dt->format('w');
+    $md   = $dt->format('m-d');
+
+    $biz = $pdo->query("SELECT day_of_week, is_working FROM business_hours")->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($biz as $bh) {
+        if ((int)$bh['day_of_week'] === $dow && !(bool)$bh['is_working']) {
+            return ['type' => 'non_working', 'label' => $dt->format('l') . ' is a non-working day'];
+        }
+    }
+
+    $holidays = $pdo->query("SELECT holiday_date, holiday_name, is_recurring FROM holidays")->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($holidays as $h) {
+        $h_check = $h['is_recurring'] ? date('m-d', strtotime($h['holiday_date'])) : $h['holiday_date'];
+        $c_check  = $h['is_recurring'] ? $md : $date;
+        if ($h_check === $c_check) {
+            return ['type' => 'holiday', 'label' => $h['holiday_name']];
+        }
+    }
+
+    return false;
+}
+
 // ── Assignment History ────────────────────────────────────────
 
 function get_wo_assignment_history(PDO $pdo, int $wo_id): array {
