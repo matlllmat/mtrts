@@ -353,9 +353,10 @@ function count_inbox_messages_page(PDO $pdo, int $user_id, string $q = '', strin
 }
 
 /**
- * Fetch a single inbox_message by ID, scoped to the given recipient.
+ * Fetch a single inbox_message by ID, scoped to the given user
+ * (either as recipient OR sender — so both parties can view it).
  * Returns the message row (with sender_name from users JOIN) or false
- * if the message does not exist or is not owned by $user_id.
+ * if the message does not exist or is not accessible by $user_id.
  *
  * Requirements: 1.5, 8.1
  */
@@ -365,15 +366,147 @@ function get_inbox_message(PDO $pdo, int $message_id, int $user_id): array|false
                m.wo_id, m.ticket_id,
                m.subject, m.body,
                m.sent_at, m.read_at,
-               u.full_name AS sender_name
+               u.full_name  AS sender_name,
+               r.full_name  AS recipient_name
         FROM inbox_messages m
-        JOIN users u ON m.sender_id = u.user_id
+        JOIN users u ON m.sender_id    = u.user_id
+        JOIN users r ON m.recipient_id = r.user_id
         WHERE m.message_id = ?
-          AND m.recipient_id = ?
+          AND (m.recipient_id = ? OR m.sender_id = ?)
     ");
-    $stmt->execute([$message_id, $user_id]);
+    $stmt->execute([$message_id, $user_id, $user_id]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
     return $row !== false ? $row : false;
+}
+
+/**
+ * Fetch the full conversation thread for a given message.
+ *
+ * A "thread" is all messages that share the same (wo_id OR ticket_id)
+ * AND involve the same two users (regardless of direction), ordered
+ * chronologically.  Falls back to just the single message if no
+ * wo_id / ticket_id is set.
+ *
+ * Returns rows with: message_id, sender_id, sender_name, recipient_id,
+ * recipient_name, subject, body, sent_at, read_at.
+ */
+function get_inbox_thread(PDO $pdo, int $message_id, int $user_id): array {
+    // First fetch the anchor message to get the two participants + context IDs
+    $anchor = get_inbox_message($pdo, $message_id, $user_id);
+    if (!$anchor) return [];
+
+    $uid_a = (int)$anchor['sender_id'];
+    $uid_b = (int)$anchor['recipient_id'];
+
+    // Build WHERE: same two users, same wo/ticket context
+    if (!empty($anchor['wo_id'])) {
+        $stmt = $pdo->prepare("
+            SELECT m.message_id, m.sender_id, m.recipient_id,
+                   m.subject, m.body, m.sent_at, m.read_at,
+                   s.full_name AS sender_name,
+                   r.full_name AS recipient_name
+            FROM inbox_messages m
+            JOIN users s ON m.sender_id    = s.user_id
+            JOIN users r ON m.recipient_id = r.user_id
+            WHERE m.wo_id = ?
+              AND ((m.sender_id = ? AND m.recipient_id = ?)
+                OR (m.sender_id = ? AND m.recipient_id = ?))
+            ORDER BY m.sent_at ASC
+        ");
+        $stmt->execute([$anchor['wo_id'], $uid_a, $uid_b, $uid_b, $uid_a]);
+    } elseif (!empty($anchor['ticket_id'])) {
+        $stmt = $pdo->prepare("
+            SELECT m.message_id, m.sender_id, m.recipient_id,
+                   m.subject, m.body, m.sent_at, m.read_at,
+                   s.full_name AS sender_name,
+                   r.full_name AS recipient_name
+            FROM inbox_messages m
+            JOIN users s ON m.sender_id    = s.user_id
+            JOIN users r ON m.recipient_id = r.user_id
+            WHERE m.ticket_id = ?
+              AND ((m.sender_id = ? AND m.recipient_id = ?)
+                OR (m.sender_id = ? AND m.recipient_id = ?))
+            ORDER BY m.sent_at ASC
+        ");
+        $stmt->execute([$anchor['ticket_id'], $uid_a, $uid_b, $uid_b, $uid_a]);
+    } else {
+        // No context — just return the single message
+        return [$anchor];
+    }
+
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+/**
+ * Paginated list of messages SENT by $user_id (outbox view).
+ *
+ * Returns rows with: message_id, recipient_id, recipient_name,
+ * subject, body, sent_at, read_at (null = unread by recipient).
+ */
+function get_sent_messages_page(PDO $pdo, int $user_id, string $q = '', string $filter = 'all', int $page = 1, int $per = 20): array {
+    $where  = ['m.sender_id = ?'];
+    $params = [$user_id];
+
+    if ($filter === 'unread') {
+        $where[] = 'm.read_at IS NULL';
+    } elseif ($filter === 'today') {
+        $where[] = 'DATE(m.sent_at) = CURDATE()';
+    } elseif ($filter === 'week') {
+        $where[] = 'm.sent_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)';
+    }
+
+    if ($q !== '') {
+        $kw      = '%' . $q . '%';
+        $where[] = '(m.subject LIKE ? OR m.body LIKE ? OR r.full_name LIKE ?)';
+        array_push($params, $kw, $kw, $kw);
+    }
+
+    $where_str = implode(' AND ', $where);
+    $offset    = max(0, ($page - 1) * $per);
+
+    $stmt = $pdo->prepare("
+        SELECT m.message_id, m.sender_id, m.recipient_id,
+               r.full_name AS recipient_name,
+               m.subject, m.body, m.sent_at, m.read_at,
+               m.wo_id, m.ticket_id
+        FROM inbox_messages m
+        JOIN users r ON m.recipient_id = r.user_id
+        WHERE $where_str
+        ORDER BY m.sent_at DESC
+        LIMIT $per OFFSET $offset
+    ");
+    $stmt->execute($params);
+    return $stmt->fetchAll();
+}
+
+function count_sent_messages_page(PDO $pdo, int $user_id, string $q = '', string $filter = 'all'): int {
+    $where  = ['m.sender_id = ?'];
+    $params = [$user_id];
+
+    if ($filter === 'unread') {
+        $where[] = 'm.read_at IS NULL';
+    } elseif ($filter === 'today') {
+        $where[] = 'DATE(m.sent_at) = CURDATE()';
+    } elseif ($filter === 'week') {
+        $where[] = 'm.sent_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)';
+    }
+
+    if ($q !== '') {
+        $kw      = '%' . $q . '%';
+        $where[] = '(m.subject LIKE ? OR m.body LIKE ? OR r.full_name LIKE ?)';
+        array_push($params, $kw, $kw, $kw);
+    }
+
+    $where_str = implode(' AND ', $where);
+
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*)
+        FROM inbox_messages m
+        JOIN users r ON m.recipient_id = r.user_id
+        WHERE $where_str
+    ");
+    $stmt->execute($params);
+    return (int) $stmt->fetchColumn();
 }
 
 // ─── Unified Inbox helpers (Requirements 1.4, 5.8) ───────────────────────────

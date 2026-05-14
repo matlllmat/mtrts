@@ -77,3 +77,45 @@ WHERE
   OR (c.category_name = 'AV Rack'      AND s.skill_code IN ('rack_wiring','av_switching'))
   OR (c.category_name = 'Camera'       AND s.skill_code = 'camera_systems')
   OR (c.category_name = 'Amplifier'    AND s.skill_code = 'audio_systems');
+
+-- ============================================================
+-- SEED DATA: USERS (Admin, Manager, Technicians, Requester)
+-- ============================================================
+INSERT IGNORE INTO users (user_id, email, full_name, role_id, department_id, is_active) VALUES
+  (101, 'admin@example.com', 'Admin User', 1, 1, 1),
+  (102, 'manager@example.com', 'IT Manager', 2, 1, 1),
+  (103, 'tech1@example.com', 'John Technician', 4, 1, 1),
+  (104, 'tech2@example.com', 'Jane Technician', 4, 1, 1),
+  (105, 'faculty1@example.com', 'Dr. Smith', 5, 2, 1);
+
+-- ============================================================
+-- SEED DATA: TECHNICIAN SKILLS
+-- ============================================================
+INSERT IGNORE INTO technician_skills (user_id, skill_id, proficiency)
+SELECT 103, skill_id, 5 FROM skills WHERE skill_code IN ('projector_repair', 'audio_systems');
+
+INSERT IGNORE INTO technician_skills (user_id, skill_id, proficiency)
+SELECT 104, skill_id, 5 FROM skills WHERE skill_code IN ('av_switching', 'display_repair', 'camera_systems');
+
+-- ============================================================
+-- SEED DATA: ASSETS
+-- ============================================================
+INSERT IGNORE INTO assets (asset_id, asset_tag, manufacturer, model, category_id, location_id, install_date, status) VALUES
+  (101, 'PRJ-101', 'Epson', 'PowerLite', 1, 1, '2023-01-01', 'active'),
+  (102, 'SND-102', 'Yamaha', 'StagePas', 2, 2, '2023-02-01', 'active'),
+  (103, 'DIS-103', 'Samsung', 'SmartBoard', 4, 3, '2023-03-01', 'active');
+
+-- ============================================================
+-- SEED DATA: TICKETS
+-- ============================================================
+INSERT IGNORE INTO tickets (ticket_id, ticket_number, requester_id, asset_id, category_id, location_id, title, description, status, priority) VALUES
+  (101, 'TKT-1001', 105, 101, 1, 1, 'Projector not turning on', 'The projector in Room 101 is completely unresponsive.', 'assigned', 'high'),
+  (102, 'TKT-1002', 105, 102, 2, 2, 'No sound from speakers', 'The sound system is producing static noise only.', 'assigned', 'medium'),
+  (103, 'TKT-1003', 105, 103, 4, 3, 'Display flickering', 'The main display is flickering constantly.', 'new', 'low');
+
+-- ============================================================
+-- SEED DATA: WORK ORDERS
+-- ============================================================
+INSERT IGNORE INTO work_orders (wo_id, wo_number, ticket_id, wo_type, assigned_to, assigned_by, status) VALUES
+  (101, 'WO-1001', 101, 'repair', 103, 102, 'assigned'),
+  (102, 'WO-1002', 102, 'repair', 104, 102, 'assigned');

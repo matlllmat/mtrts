@@ -369,10 +369,12 @@ $icons = [
         return;
       }
       listEl.innerHTML = items.map(it => {
-        // Email items link to the ticket; message items link to the inbox
+        // Email items link to the ticket; message items open the thread
         const href = it.ticket_id
           ? BASE + 'modules/tickets/view.php?id=' + it.ticket_id
-          : BASE + 'modules/inbox/index.php';
+          : (it.message_id
+              ? BASE + 'modules/inbox/index.php?thread=' + it.message_id
+              : BASE + 'modules/inbox/index.php');
         const typeLabel = it.ticket_id
           ? '<span style="font-size:10px;font-weight:700;background:#f3f4f6;color:#6b7280;padding:1px 6px;border-radius:999px;flex-shrink:0;">Email</span>'
           : '<span style="font-size:10px;font-weight:700;background:#dcfce7;color:#15803d;padding:1px 6px;border-radius:999px;flex-shrink:0;">Message</span>';
