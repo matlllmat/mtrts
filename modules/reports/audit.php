@@ -5,6 +5,7 @@ $page_title = 'E-Discovery & Audit Logs';
 require_once __DIR__ . '/../../config/guard.php';
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/functions.php';
+require_once __DIR__ . '/scope.php';
 
 // E-Discovery Search Logic
 $f = [
@@ -18,13 +19,25 @@ $f = [
 $page = (int)($_GET['page'] ?? 1);
 $per  = 50;
 
-$logs = get_audit_logs($pdo, $f, $page, $per);
-$total_logs = count_audit_logs($pdo, $f);
+// RLS scope — applies the same auto-scoping as the dashboard so non-admin viewers
+// only see audit rows they're permitted to inspect.
+$viewer_id   = (int)$_SESSION['user_id'];
+$viewer_role = (int)$_SESSION['role_id'];
+$scope = resolve_report_scope($pdo, $viewer_id, $viewer_role, [
+    'department_id' => $_GET['department_id'] ?? null,
+    'building'      => $_GET['building']      ?? null,
+]);
+
+$logs = get_audit_logs($pdo, $f, $page, $per, $scope, $viewer_id);
+$total_logs = count_audit_logs($pdo, $f, $scope, $viewer_id);
 $total_pages = ceil($total_logs / $per);
 
 // Lookups for filters
 $users = $pdo->query("SELECT user_id, full_name FROM users ORDER BY full_name")->fetchAll();
 $object_types = $pdo->query("SELECT DISTINCT object_type FROM audit_log ORDER BY object_type")->fetchAll(PDO::FETCH_COLUMN);
+
+// Surface the active scope to the view so we can render a chip
+$active_scope = $scope;
 
 require __DIR__ . '/audit.view.php';
 require_once __DIR__ . '/../../includes/footer.php';

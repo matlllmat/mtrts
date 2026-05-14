@@ -28,6 +28,30 @@
         </div>
     </div>
 
+    <!-- RLS Scope Chip -->
+    <?php if (!empty($active_scope)): ?>
+    <div class="mb-4 flex items-center gap-2 flex-wrap">
+        <span class="inline-flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-800 px-3 py-1.5 rounded-lg text-xs font-bold">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
+            Filtered to:
+            <?php if (!empty($active_scope['department_id'])): ?>
+                <?php
+                    $dept_name_stmt = $pdo->prepare("SELECT department_name FROM departments WHERE department_id = ?");
+                    $dept_name_stmt->execute([$active_scope['department_id']]);
+                    $dept_label = $dept_name_stmt->fetchColumn() ?: ('Dept #' . $active_scope['department_id']);
+                ?>
+                <span class="bg-amber-100 px-1.5 py-0.5 rounded text-amber-900"><?= htmlspecialchars($dept_label) ?></span>
+            <?php endif; ?>
+            <?php if (!empty($active_scope['building'])): ?>
+                <span class="bg-amber-100 px-1.5 py-0.5 rounded text-amber-900"><?= htmlspecialchars($active_scope['building']) ?></span>
+            <?php endif; ?>
+            <?php if (!empty($active_scope['assigned_to'])): ?>
+                <span class="bg-amber-100 px-1.5 py-0.5 rounded text-amber-900">Your assignments only</span>
+            <?php endif; ?>
+        </span>
+    </div>
+    <?php endif; ?>
+
     <!-- Filters Section -->
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-8">
         <form method="GET" class="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-6 items-end">

@@ -78,7 +78,37 @@ $html .= <<<HTML
 </html>
 HTML;
 
-// ── 3. Send to managers ──
+// ── 3. Render PDF via mPDF ──
+$pdf_path = '';
+try {
+    require_once __DIR__ . '/../../vendor/autoload.php';
+    $mpdf = new \Mpdf\Mpdf([
+        'mode'        => 'utf-8',
+        'format'      => 'A4',
+        'margin_left' => 10,
+        'margin_right' => 10,
+        'margin_top'   => 10,
+        'margin_bottom'=> 10,
+    ]);
+    $mpdf->WriteHTML($html);
+    $reports_dir = __DIR__ . '/../../public/reports/';
+    if (!is_dir($reports_dir)) mkdir($reports_dir, 0777, true);
+    $pdf_path = $reports_dir . 'monthly_report_' . $end . '.pdf';
+    $mpdf->Output($pdf_path, \Mpdf\Output\Destination::FILE);
+    echo "[EMAIL REPORT] PDF generated: {$pdf_path}\n";
+
+    // Append a PDF download link to the email body
+    $pdf_url = 'http://localhost/mtrts/public/reports/monthly_report_' . $end . '.pdf';
+    $html = str_replace(
+        '</body>',
+        '<div style="text-align:center;padding:12px 0;"><a href="' . $pdf_url . '" style="display:inline-block;background:#1a5c2a;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:13px;">📄 Download PDF Version</a></div></body>',
+        $html
+    );
+} catch (\Exception $e) {
+    echo "[EMAIL REPORT] PDF generation failed: " . $e->getMessage() . "\n";
+}
+
+// ── 4. Send to managers ──
 $recipients = $pdo->query("SELECT email, full_name FROM users WHERE role_id IN (1, 2, 8) AND is_active = 1")->fetchAll();
 
 if (function_exists('mail')) {
@@ -103,3 +133,4 @@ if (function_exists('mail')) {
 }
 
 echo "[EMAIL REPORT] Completed at " . date('Y-m-d H:i:s') . "\n";
+

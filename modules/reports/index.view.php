@@ -1,53 +1,91 @@
 <!-- modules/reports/index.view.php -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-<div class="flex justify-between items-center mb-6">
+<!-- Row 1: Title + Navigation Links -->
+<div class="flex justify-between items-center mb-4">
     <div>
         <h1 class="text-2xl font-extrabold text-gray-900">SLA & Performance Analytics</h1>
         <p class="text-sm font-normal text-gray-500 mt-1">System-wide analytics and audit reports</p>
     </div>
-    <div class="flex gap-3">
+    <div class="flex gap-2">
         <a href="<?= BASE_URL ?>modules/reports/audit.php" class="bg-[#1a5c2a] text-white hover:bg-[#1f6e32] px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 shadow-sm transition">
             <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
             E-Discovery Logs
         </a>
         <a href="<?= BASE_URL ?>modules/reports/calendar.php" class="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 shadow-sm transition">
             <svg class="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-            Operating Calendar
+            Calendar
         </a>
-        <button onclick="document.getElementById('info-modal').classList.remove('hidden')" class="bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 shadow-sm transition">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-            How it Works
-        </button>
-        <select id="date-range" onchange="fetchStats()" class="bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 focus:ring-2 focus:ring-[#1a5c2a] focus:border-[#1a5c2a] outline-none shadow-sm">
-            <option value="7">Last 7 Days</option>
-            <option value="30" selected>Last 30 Days</option>
-            <option value="90">Last 90 Days</option>
-            <option value="365">This Year</option>
-        </select>
-        <button onclick="doExportCsv()" class="bg-[#1a5c2a] text-white rounded-lg px-4 py-2 text-sm font-semibold hover:bg-[#1f6e32] transition-colors shadow-sm flex items-center gap-2">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-            Export CSV
-        </button>
-        <script>
-        function doExportCsv() {
-            const range = document.getElementById('date-range').value;
-            const dEnd = new Date();
-            const dStart = new Date();
-            dStart.setDate(dEnd.getDate() - range);
-            const toYMD = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-            const end = toYMD(dEnd);
-            const start = toYMD(dStart);
-            window.location.href = '<?= BASE_URL ?>modules/reports/export.php?start=' + start + '&end=' + end + '&format=csv';
-        }
-        </script>
         <?php if (in_array($_SESSION['role_id'], [1, 2, 8])): ?>
         <a href="<?= BASE_URL ?>modules/reports/sla_policies.php" class="bg-white border border-[#1a5c2a] text-[#1a5c2a] hover:bg-green-50 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 shadow-sm transition">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
             SLA Policies
         </a>
         <?php endif; ?>
+        <button onclick="document.getElementById('info-modal').classList.remove('hidden')" class="bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 px-3 py-2 rounded-lg text-sm font-bold flex items-center gap-1.5 shadow-sm transition" title="How analytics works">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <span class="hidden sm:inline">How it Works</span>
+        </button>
     </div>
+</div>
+
+<!-- Row 2: Filter Bar -->
+<div class="bg-white rounded-xl p-3 shadow-sm border border-gray-100 mb-6 flex flex-wrap items-center gap-3">
+    <div class="flex items-center gap-1.5 text-xs font-bold text-gray-400 uppercase tracking-wider mr-1">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
+        Filters
+    </div>
+    <select id="date-range" onchange="fetchStats()" class="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 focus:ring-2 focus:ring-[#1a5c2a] focus:border-[#1a5c2a] outline-none">
+        <option value="7">Last 7 Days</option>
+        <option value="30" selected>Last 30 Days</option>
+        <option value="90">Last 90 Days</option>
+        <option value="365">This Year</option>
+    </select>
+    <?php if (!empty($show_scope_filters)): ?>
+    <select id="dept-filter" onchange="fetchStats()" class="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 focus:ring-2 focus:ring-[#1a5c2a] focus:border-[#1a5c2a] outline-none">
+        <option value="">All Departments</option>
+        <?php foreach ($departments as $d): ?>
+            <option value="<?= (int)$d['department_id'] ?>" <?= ($initial_scope['department_id'] ?? 0) == $d['department_id'] ? 'selected' : '' ?>>
+                <?= htmlspecialchars($d['department_name']) ?>
+            </option>
+        <?php endforeach; ?>
+    </select>
+    <select id="bldg-filter" onchange="fetchStats()" class="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 focus:ring-2 focus:ring-[#1a5c2a] focus:border-[#1a5c2a] outline-none">
+        <option value="">All Buildings</option>
+        <?php foreach ($buildings as $b): ?>
+            <option value="<?= htmlspecialchars($b) ?>" <?= ($initial_scope['building'] ?? '') === $b ? 'selected' : '' ?>>
+                <?= htmlspecialchars($b) ?>
+            </option>
+        <?php endforeach; ?>
+    </select>
+    <?php else: ?>
+    <span class="inline-flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2 rounded-lg text-xs font-bold">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+        Personal view
+    </span>
+    <?php endif; ?>
+    <div class="flex-1"></div>
+    <button onclick="doExportCsv()" class="bg-[#1a5c2a] text-white rounded-lg px-4 py-2 text-sm font-semibold hover:bg-[#1f6e32] transition-colors shadow-sm flex items-center gap-2">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+        Export CSV
+    </button>
+    <script>
+    function doExportCsv() {
+        const range = document.getElementById('date-range').value;
+        const dEnd = new Date();
+        const dStart = new Date();
+        dStart.setDate(dEnd.getDate() - range);
+        const toYMD = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        const end = toYMD(dEnd);
+        const start = toYMD(dStart);
+        const dept = document.getElementById('dept-filter');
+        const bldg = document.getElementById('bldg-filter');
+        let extra = '';
+        if (dept && dept.value) extra += '&department_id=' + encodeURIComponent(dept.value);
+        if (bldg && bldg.value) extra += '&building=' + encodeURIComponent(bldg.value);
+        window.location.href = '<?= BASE_URL ?>modules/reports/export.php?start=' + start + '&end=' + end + '&format=csv' + extra;
+    }
+    </script>
 </div>
 
 <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4 mb-6">
@@ -451,6 +489,15 @@ const formatMinutes = (mins) => {
     return s > 0 ? `${m}m ${s}s` : `${m}m`;
 };
 
+function _scopeQueryString() {
+    const dept = document.getElementById('dept-filter');
+    const bldg = document.getElementById('bldg-filter');
+    const parts = [];
+    if (dept && dept.value) parts.push('department_id=' + encodeURIComponent(dept.value));
+    if (bldg && bldg.value) parts.push('building=' + encodeURIComponent(bldg.value));
+    return parts.length ? '&' + parts.join('&') : '';
+}
+
 const fetchStats = () => {
     const range = document.getElementById('date-range').value;
     const dEnd = new Date();
@@ -460,7 +507,7 @@ const fetchStats = () => {
     const end = toYMD(dEnd);
     const start = toYMD(dStart);
 
-    fetch(`<?= BASE_URL ?>modules/reports/api_stats.php?start=${start}&end=${end}`)
+    fetch(`<?= BASE_URL ?>modules/reports/api_stats.php?start=${start}&end=${end}${_scopeQueryString()}`)
         .then(r => r.json())
         .then(data => {
             // Update top stats
@@ -877,7 +924,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const end = toYMD(dEnd);
         const start = toYMD(dStart);
 
-        let url = `<?= BASE_URL ?>modules/reports/api_stats.php?drilldown=${type}&start=${start}&end=${end}`;
+        let url = `<?= BASE_URL ?>modules/reports/api_stats.php?drilldown=${type}&start=${start}&end=${end}${_scopeQueryString()}`;
         if (subtype) url += `&subtype=${subtype}`;
 
         fetch(url)
@@ -1042,12 +1089,32 @@ document.addEventListener('DOMContentLoaded', () => {
             </ol>
           </div>
 
+          <div class="bg-[#f0fdf4] border border-[#dcfce7] p-4 rounded-xl">
+            <div class="flex items-start justify-between gap-4 mb-3">
+              <div>
+                <strong class="text-[#166534] text-sm">C. Generate Monthly PDF Report</strong>
+                <p class="text-xs text-gray-500 mt-0.5 leading-relaxed">Click the button to generate this month's SLA summary as a PDF file right now. It will open in a new tab once ready.</p>
+              </div>
+              <button id="gen-pdf-btn" onclick="triggerGeneratePDF()" class="flex-shrink-0 flex items-center gap-2 bg-[#1a5c2a] hover:bg-[#1f6e32] active:scale-95 text-white px-4 py-2.5 rounded-lg text-sm font-bold shadow-sm transition-all">
+                <svg id="gen-pdf-icon" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+                <svg id="gen-pdf-spinner" class="w-4 h-4 hidden animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+                <span id="gen-pdf-label">Generate PDF</span>
+              </button>
+            </div>
+            <div id="gen-pdf-status" class="hidden text-xs rounded-lg px-3 py-2 font-medium"></div>
+          </div>
+
           <div class="bg-gray-50 p-3 rounded">
-            <strong>C. Test Exports & E-Mail Reports:</strong>
+            <strong>D. Test Audit & Data Retention:</strong>
             <ol class="list-decimal pl-4 mt-1 text-xs space-y-1">
-              <li>Click the <strong>Export ▾</strong> button at the top of the dashboard and choose Excel. Open the downloaded `.xls` file.</li>
-              <li>Run <code>php C:\xampp\htdocs\mtrts\modules\reports\cron_email_report.php</code> in your terminal to simulate the weekly automated email report.</li>
+              <li>Click <strong>E-Discovery Logs</strong> in the green Audit card. Search for 'tickets' to see a detailed history of every change.</li>
+              <li>Run <code>php C:\xampp\htdocs\mtrts\modules\reports\cron_data_retention.php</code> to force the system to archive logs older than 2 years and purge temporary data.</li>
             </ol>
+          </div>
+        </div>
+      </section>
+
+    </div>
           </div>
 
           <div class="bg-gray-50 p-3 rounded">
@@ -1062,10 +1129,66 @@ document.addEventListener('DOMContentLoaded', () => {
 
     </div>
     
-    <div class="p-4 border-t border-gray-100 bg-gray-50 text-right">
-      <button onclick="document.getElementById('info-modal').classList.add('hidden')" class="bg-[#1a5c2a] text-white px-5 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-[#1f6e32] transition">
-        Understood, Close
+    <div class="p-4 border-t border-gray-100 bg-gray-50 flex justify-end">
+      <button onclick="document.getElementById('info-modal').classList.add('hidden')" class="bg-gray-200 text-gray-700 px-5 py-2 rounded-lg text-sm font-bold hover:bg-gray-300 transition">
+        Close
       </button>
     </div>
+    <script>
+    function triggerGeneratePDF() {
+      const btn    = document.getElementById('gen-pdf-btn');
+      const icon   = document.getElementById('gen-pdf-icon');
+      const spin   = document.getElementById('gen-pdf-spinner');
+      const label  = document.getElementById('gen-pdf-label');
+      const status = document.getElementById('gen-pdf-status');
+
+      // Loading state
+      btn.disabled = true;
+      icon.classList.add('hidden');
+      spin.classList.remove('hidden');
+      label.textContent = 'Generating...';
+      status.className = 'hidden text-xs rounded-lg px-3 py-2 font-medium';
+
+      fetch('<?= BASE_URL ?>modules/reports/run_report.php', { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+          spin.classList.add('hidden');
+          icon.classList.remove('hidden');
+          btn.disabled = false;
+
+          if (data.ok && data.pdf_url) {
+            label.textContent = 'Generate PDF';
+            status.className = 'block text-xs rounded-lg px-3 py-2 font-medium bg-green-50 border border-green-200 text-green-800 space-y-1';
+            status.innerHTML = `
+              <div class="flex items-center justify-between">
+                <span>✅ PDF ready!</span>
+                <a href="${data.pdf_url}" target="_blank" class="font-bold underline">Open PDF →</a>
+              </div>
+              <div class="text-[10px] text-gray-400 font-mono mt-1 pt-1 border-t border-green-100">
+                Saved to: ${data.pdf_path}
+              </div>
+            `;
+            
+            // Auto-open in new tab (some browsers may block this)
+            const win = window.open(data.pdf_url, '_blank');
+            if (!win) {
+                alert('PDF generated but popup was blocked. Please click the "Open PDF" link in the green box.');
+            }
+          } else {
+            label.textContent = 'Retry';
+            status.className = 'block text-xs rounded-lg px-3 py-2 font-medium bg-red-50 border border-red-200 text-red-700 whitespace-pre-wrap';
+            status.textContent = '❌ ' + (data.error || 'Generation failed.');
+          }
+        })
+        .catch((err) => {
+          spin.classList.add('hidden');
+          icon.classList.remove('hidden');
+          btn.disabled = false;
+          label.textContent = 'Retry';
+          status.className = 'block text-xs rounded-lg px-3 py-2 font-medium bg-red-50 border border-red-200 text-red-700';
+          status.textContent = '❌ Network error: ' + err.message;
+        });
+    }
+    </script>
   </div>
 </div>

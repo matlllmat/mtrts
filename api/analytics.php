@@ -4,6 +4,7 @@
 
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../modules/reports/functions.php';
+require_once __DIR__ . '/../modules/reports/scope.php';
 
 header('Access-Control-Allow-Origin: *'); // Allow external BI tools
 
@@ -19,18 +20,28 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role_id'], [1, 2, 8])) 
 $start = $_GET['start'] ?? date('Y-m-d', strtotime('-90 days'));
 $end = $_GET['end'] ?? date('Y-m-d');
 
+// RLS scope — validate + clamp filters per the viewer's role
+$viewer_id   = (int)$_SESSION['user_id'];
+$viewer_role = (int)$_SESSION['role_id'];
+$scope = resolve_report_scope($pdo, $viewer_id, $viewer_role, [
+    'location_id'   => $_GET['location_id']   ?? null,
+    'department_id' => $_GET['department_id'] ?? null,
+    'building'      => $_GET['building']      ?? null,
+]);
+
 $data = [
     'metadata' => [
         'generated_at' => date('c'),
         'range' => [$start, $end],
-        'version' => '1.0'
+        'version' => '1.0',
+        'scope' => $scope ?: 'global'
     ],
-    'sla_summary' => get_sla_compliance_stats($pdo, $start, $end),
-    'operational_metrics' => get_operational_stats($pdo, $start, $end),
-    'mttr_data' => get_mttr_stats($pdo, $start, $end),
-    'asset_hotspots' => get_asset_hotspots($pdo, 20),
-    'location_heatmap' => get_location_heatmap($pdo),
-    'technician_performance' => get_technician_scorecards($pdo)
+    'sla_summary' => get_sla_compliance_stats($pdo, $start, $end, $scope),
+    'operational_metrics' => get_operational_stats($pdo, $start, $end, $scope),
+    'mttr_data' => get_mttr_stats($pdo, $start, $end, $scope),
+    'asset_hotspots' => get_asset_hotspots($pdo, 20, $scope),
+    'location_heatmap' => get_location_heatmap($pdo, $scope),
+    'technician_performance' => get_technician_scorecards($pdo, $scope)
 ];
 
 $is_browser = isset($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'text/html') !== false;
