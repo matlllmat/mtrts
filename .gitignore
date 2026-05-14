@@ -5,6 +5,7 @@ debug-*.log
 # Uploaded files
 public/uploads/
 modules/technician/uploads/
+modules/uploads/media/
 
 # OS noise
 .DS_Store
