@@ -271,11 +271,22 @@ switch ($action) {
                 $fullText  = $noteTitle !== '' ? "[{$noteTitle}] {$noteText}" : $noteText;
                 if ($woId && $fullText) {
                     try {
-                        add_work_order_note($pdo, $woId, $fullText, false, null, $tag);
-                        tech_dbg('H_NOTE_SAVE', 'modules/technician/api/sync.php:note_add', 'Inserted note', [
-                            'wo_id' => $woId, 'tag' => $tag, 'note_id' => $pdo->lastInsertId(),
-                        ]);
-                        $results[] = ['id' => $itemId, 'ok' => true, 'action' => $itemAction];
+                        // Idempotent: same (wo_id, note_type, note_text) already on the row → ack and move on.
+                        $chk = $pdo->prepare("SELECT note_id FROM wo_notes WHERE wo_id = ? AND note_type = ? AND note_text = ? LIMIT 1");
+                        $chk->execute([$woId, $tag, $fullText]);
+                        $existing = $chk->fetchColumn();
+                        if ($existing) {
+                            tech_dbg('H_NOTE_SAVE', 'modules/technician/api/sync.php:note_add', 'Skipped duplicate', [
+                                'wo_id' => $woId, 'tag' => $tag, 'note_id' => $existing,
+                            ]);
+                            $results[] = ['id' => $itemId, 'ok' => true, 'action' => $itemAction, 'duplicate' => true];
+                        } else {
+                            add_work_order_note($pdo, $woId, $fullText, false, null, $tag);
+                            tech_dbg('H_NOTE_SAVE', 'modules/technician/api/sync.php:note_add', 'Inserted note', [
+                                'wo_id' => $woId, 'tag' => $tag, 'note_id' => $pdo->lastInsertId(),
+                            ]);
+                            $results[] = ['id' => $itemId, 'ok' => true, 'action' => $itemAction];
+                        }
                     } catch (Throwable $e) {
                         tech_dbg('H_NOTE_SAVE', 'modules/technician/api/sync.php:note_add', 'Insert failed', [
                             'wo_id' => $woId, 'tag' => $tag, 'error' => $e->getMessage(),

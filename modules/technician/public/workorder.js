@@ -2166,23 +2166,60 @@ function validateCompletion() {
         ? draft.time_logs
         : (storedDraft.time_logs || []);
 
+      // Gather local-source notes from both in-memory and stored drafts so they
+      // ride along with the Complete request. This bypasses the offline queue
+      // (which has proven unreliable: stale items from previous sessions and
+      // dropped items mean the server-side insertion was not happening).
+      const allDraftNotes = [
+        ...((draft.notes || []).filter(n => n.source === 'local')),
+        ...((storedDraft.notes || []).filter(n => n.source === 'local')),
+      ];
+      const seenNoteIds = new Set();
+      const completionNotes = allDraftNotes
+        .filter(n => {
+          if (!n || !n.id || seenNoteIds.has(n.id)) return false;
+          seenNoteIds.add(n.id);
+          return (n.text || '').trim().length > 0;
+        })
+        .map(n => ({ title: n.title || '', text: n.text || '', tag: n.tag || 'general' }));
+
       const completionPayload = {
         wo_id:               parsedWoId,
         checklist:           mergedChecklist,
         safety:              mergedSafety,
         time_logs:           mergedTimeLogs,
         total_time_ms:       totalTimeMs,
+        notes:               completionNotes,
         signer_name:         draft.signoff.signerName         || storedDraft.signoff?.signerName         || '',
         signed_by_user_id:   draft.signoff.signatoryUserId    || storedDraft.signoff?.signatoryUserId    || null,
         signature_data_url:  draft.signoff.signatureDataUrl   || storedDraft.signoff?.signatureDataUrl   || '',
         resolution_notes:    draft.signoff.resolutionNotes    || storedDraft.signoff?.resolutionNotes    || '',
       };
+      console.log('[v0:DEBUG] completionPayload notes', completionNotes);
 
       // Final completion must persist immediately on server; no prototype queue-only completion.
       await window.MRTS.api('/modules/technician/api/complete_work_order.php', {
         method: 'POST',
         body: JSON.stringify(completionPayload),
       });
+
+      // Notes were just persisted via the Complete payload — purge any leftover
+      // note_add queue items for THIS work order so they don't re-insert as duplicates
+      // (server-side dedupe already protects, but keeping the queue clean is hygiene).
+      try {
+        const raw = localStorage.getItem('mrtsp.queue.v1');
+        if (raw) {
+          const q = JSON.parse(raw);
+          if (Array.isArray(q)) {
+            const before = q.length;
+            const next = q.filter(it => !(it && it.type === 'note_add' && String(it.workOrderId) === String(parsedWoId)));
+            if (next.length !== before) {
+              localStorage.setItem('mrtsp.queue.v1', JSON.stringify(next));
+              console.log('[v0:DEBUG] purged note_add queue items for wo', parsedWoId, before - next.length);
+            }
+          }
+        }
+      } catch (purgeErr) { console.warn('[v0:DEBUG] queue purge failed', purgeErr); }
 
       await MRTS.modal.alert('Work order completed and saved successfully.', { type: 'success', title: 'Completed!' });
       window.location.href = window.MRTS.APP_BASE + '/modules/technician/index.php';

@@ -460,6 +460,7 @@ function complete_work_order_transactional(PDO $pdo, array $payload, int $techni
     $checklist_map       = is_array($payload['checklist'] ?? null) ? $payload['checklist'] : [];
     $safety_map          = is_array($payload['safety'] ?? null) ? $payload['safety'] : [];
     $time_logs           = is_array($payload['time_logs'] ?? null) ? $payload['time_logs'] : [];
+    $local_notes         = is_array($payload['notes'] ?? null) ? $payload['notes'] : [];
     $signer_name         = trim((string)($payload['signer_name'] ?? ''));
     $signed_by_user_id   = ($payload['signed_by_user_id'] ?? null) ? (int)$payload['signed_by_user_id'] : $technician_id;
     $signature_data_url  = trim((string)($payload['signature_data_url'] ?? ''));
@@ -560,6 +561,45 @@ function complete_work_order_transactional(PDO $pdo, array $payload, int $techni
                 'signer_name'       => $signer_name,
                 'signed_by_user_id' => $signed_by_user_id,
             ]);
+        }
+
+        // ── Direct note insertion (bypass offline queue, which has proven unreliable) ──
+        // The technician's draft notes are sent along with the completion payload so
+        // they persist atomically with the resolve. Dedupe by (note_type + note_text)
+        // against rows already in wo_notes for this WO so re-resolving doesn't double-insert.
+        if (!empty($local_notes)) {
+            $existing = $pdo->prepare("SELECT note_type, note_text FROM wo_notes WHERE wo_id = ?");
+            $existing->execute([$wo_id]);
+            $seen = [];
+            foreach ($existing->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                $seen[($row['note_type'] ?? 'general') . '|' . ($row['note_text'] ?? '')] = true;
+            }
+            $allowed_tags = ['diagnosis','repair','general','system','voice','progress','issue','follow_up'];
+            $ins = $pdo->prepare("
+                INSERT INTO wo_notes (wo_id, note_type, note_text, is_voice, voice_path, added_by)
+                VALUES (?, ?, ?, 0, NULL, ?)
+            ");
+            foreach ($local_notes as $n) {
+                $text  = trim((string)($n['text']  ?? ''));
+                $title = trim((string)($n['title'] ?? ''));
+                $tag   = trim((string)($n['tag']   ?? 'general'));
+                if (!in_array($tag, $allowed_tags, true)) $tag = 'general';
+                if ($text === '') continue;
+                $full = $title !== '' ? "[{$title}] {$text}" : $text;
+                $key  = $tag . '|' . $full;
+                if (isset($seen[$key])) continue;
+                $seen[$key] = true;
+                try {
+                    $ins->execute([$wo_id, $tag, $full, $technician_id ?: null]);
+                    tech_dbg('H_NOTE_SAVE', 'modules/technician/functions.php:complete_work_order_transactional', 'Inserted local note', [
+                        'wo_id' => $wo_id, 'tag' => $tag, 'note_id' => $pdo->lastInsertId(),
+                    ]);
+                } catch (Throwable $e) {
+                    tech_dbg('H_NOTE_SAVE', 'modules/technician/functions.php:complete_work_order_transactional', 'Note insert failed', [
+                        'wo_id' => $wo_id, 'tag' => $tag, 'error' => $e->getMessage(),
+                    ]);
+                }
+            }
         }
 
         if (!empty($time_logs)) {
