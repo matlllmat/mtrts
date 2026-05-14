@@ -16,6 +16,17 @@ if (!$assigned_to || !$start || !$end) {
     exit;
 }
 
+// Operating calendar check (holiday / non-working day) — runs first
+$cal = check_operating_calendar_conflict($pdo, $start);
+if ($cal) {
+    $prefix = $cal['type'] === 'holiday' ? '🚫 Holiday' : '🚫 Non-working day';
+    echo json_encode([
+        'conflict' => true,
+        'message'  => "$prefix: {$cal['label']}. Please choose a working day."
+    ]);
+    exit;
+}
+
 $conflict = check_wo_conflict($pdo, $assigned_to, $start, $end, $wo_id, $ticket_id);
 
 if ($conflict) {
