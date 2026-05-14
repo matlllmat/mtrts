@@ -41,6 +41,7 @@ $signoff      = get_wo_signoff($pdo, $id);
 $assignments  = get_wo_assignment_history($pdo, $id);
 $technicians  = get_all_technicians($pdo);
 $kb_articles  = get_wo_kb_articles($pdo, $id);
+$notes        = get_wo_notes($pdo, $id);
 
 $active_tab   = $_GET['tab'] ?? 'checklist';
 

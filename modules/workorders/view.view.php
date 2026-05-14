@@ -200,6 +200,7 @@
           'timelog'     => 'Time Log',
           'media'       => 'Media (' . count($media) . ')',
           'signoff'     => 'Sign-off',
+          'communication' => 'Notes (' . count($notes) . ')',
           'assignments' => 'Assignment History (' . count($assignments) . ')',
         ];
         foreach ($tabs as $key => $label):
@@ -502,6 +503,43 @@
           <p class="text-sm text-gray-400 italic">Awaiting requester sign-off. This will be captured by the technician at completion.</p>
         <?php endif; ?>
       </div>
+ 
+      <!-- Communication / Notes tab -->
+      <div id="tab-communication" class="p-5 <?= $active_tab !== 'communication' ? 'hidden' : '' ?>">
+        <div style="display:grid;grid-template-columns:1fr;gap:16px;align-items:start;">
+          <!-- Saved notes panel -->
+          <div class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+            <div class="px-4 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <svg class="w-3.5 h-3.5 text-olfu-green" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                <span class="text-sm font-bold text-gray-900">Saved Notes</span>
+              </div>
+              <span id="notesCount" class="text-xs text-gray-400">0 notes</span>
+            </div>
+            <div class="px-4 py-2 border-b border-gray-50 flex items-center gap-2 flex-wrap">
+              <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mr-1">Filter</span>
+              <button type="button" class="note-filter-chip note-filter-chip--on" data-filter="all" onclick="filterNotes('all', this)">All</button>
+              <button type="button" class="note-filter-chip" data-filter="general" onclick="filterNotes('general', this)">General</button>
+              <button type="button" class="note-filter-chip" data-filter="progress" onclick="filterNotes('progress', this)">Progress</button>
+              <button type="button" class="note-filter-chip" data-filter="issue" onclick="filterNotes('issue', this)">Issue</button>
+              <button type="button" class="note-filter-chip" data-filter="follow_up" onclick="filterNotes('follow_up', this)">Follow-up</button>
+            </div>
+            <div class="p-4 min-h-[200px]" id="notesListContainer">
+              <div id="notesList"></div>
+              <div id="notesEmptyState" class="py-10 text-center">
+                <div class="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <svg class="w-5 h-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/>
+                  </svg>
+                </div>
+                <p class="text-sm text-gray-400 italic">No notes captured for this work order.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <!-- Assignment history tab -->
       <div id="tab-assignments" class="p-5 <?= $active_tab !== 'assignments' ? 'hidden' : '' ?>">
@@ -782,4 +820,91 @@ function doAutoAssign() {
       reassignMsg.classList.remove('hidden');
     });
 }
+
+// ── Notes Module Logic ────────────────────────────────────────
+let activeNoteTag = 'general';
+let activeNoteFilter = 'all';
+let allNotes = <?= json_encode($notes) ?>;
+
+function filterNotes(filter, btn) {
+    activeNoteFilter = filter;
+    document.querySelectorAll('.note-filter-chip').forEach(b => b.classList.remove('note-filter-chip--on'));
+    btn.classList.add('note-filter-chip--on');
+    renderNotes();
+}
+
+function renderNotes() {
+    const list = document.getElementById('notesList');
+    const empty = document.getElementById('notesEmptyState');
+    const count = document.getElementById('notesCount');
+    
+    const filtered = activeNoteFilter === 'all' 
+        ? allNotes 
+        : allNotes.filter(n => (n.note_type || 'general') === activeNoteFilter);
+    
+    count.textContent = allNotes.length + ' note' + (allNotes.length !== 1 ? 's' : '');
+    const tabLabel = document.getElementById('tab-btn-communication');
+    if (tabLabel) tabLabel.textContent = `Notes (${allNotes.length})`;
+    
+    if (filtered.length === 0) {
+        list.innerHTML = '';
+        empty.style.display = 'block';
+    } else {
+        empty.style.display = 'none';
+        list.innerHTML = filtered.map(n => {
+            const tagLabels = { general: 'General', progress: 'Progress', issue: 'Issue', follow_up: 'Follow-up' };
+            const type = n.note_type || 'general';
+            
+            // Try to extract title if formatted as [Title] Text
+            let title = '';
+            let text = n.note_text || '';
+            const match = text.match(/^\[(.*?)\]\s*(.*)$/);
+            if (match) {
+                title = match[1];
+                text = match[2];
+            }
+
+            return `
+                <div class="note-card">
+                    <span class="note-card__tag note-card__tag--${type}">${tagLabels[type] || type}</span>
+                    <div class="note-card__title">${title ? escapeHtml(title) : '<em>Untitled</em>'}</div>
+                    <div class="note-card__text">${escapeHtml(text)}</div>
+                    <div class="note-card__meta">${escapeHtml(n.added_by_name || 'System')} · ${new Date(n.added_at).toLocaleString()}</div>
+                </div>
+            `;
+        }).join('');
+    }
+}
+
+
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+    renderNotes();
+});
 </script>
+
+<style>
+.note-filter-chip {
+    padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 500;
+    border: 1.5px solid #e5e7eb; background: #fff; color: #6b7280; cursor: pointer;
+    transition: all .12s;
+}
+.note-filter-chip:hover { border-color: #86efac; color: #15803d; background: #f0fdf4; }
+.note-filter-chip--on { background: #15803d !important; color: #fff !important; border-color: #15803d !important; }
+
+.note-card { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; margin-bottom: 8px; }
+.note-card__tag { display: inline-flex; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 999px; margin-bottom: 6px; text-transform: capitalize; }
+.note-card__tag--general { background: #f3f4f6; color: #6b7280; }
+.note-card__tag--progress { background: #eff6ff; color: #1d4ed8; }
+.note-card__tag--issue { background: #fef2f2; color: #b91c1c; }
+.note-card__tag--follow_up { background: #fdf4ff; color: #7e22ce; }
+.note-card__title { font-size: 13px; font-weight: 700; color: #1f2937; margin-bottom: 2px; }
+.note-card__text { font-size: 12.5px; color: #4b5563; line-height: 1.5; }
+.note-card__meta { font-size: 10.5px; color: #9ca3af; margin-top: 6px; }
+</style>

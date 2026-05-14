@@ -296,6 +296,36 @@ function get_wo_media(PDO $pdo, int $wo_id): array {
     return $stmt->fetchAll();
 }
 
+// ── Notes ─────────────────────────────────────────────────────
+
+function get_wo_notes(PDO $pdo, int $wo_id): array {
+    try {
+        $stmt = $pdo->prepare("
+            SELECT n.*, u.full_name AS added_by_name
+            FROM wo_notes n
+            LEFT JOIN users u ON n.added_by = u.user_id
+            WHERE n.wo_id = ?
+            ORDER BY n.added_at DESC
+        ");
+        $stmt->execute([$wo_id]);
+        return $stmt->fetchAll();
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+function add_wo_note(PDO $pdo, int $wo_id, string $text, int $user_id, string $type = 'general'): bool {
+    try {
+        $stmt = $pdo->prepare("
+            INSERT INTO wo_notes (wo_id, note_text, note_type, added_by, added_at)
+            VALUES (?, ?, ?, ?, NOW())
+        ");
+        return $stmt->execute([$wo_id, $text, $type, $user_id]);
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
 // ── Sign-off ──────────────────────────────────────────────────
 
 function get_wo_signoff(PDO $pdo, int $wo_id): array|false {
