@@ -103,18 +103,32 @@ if ($is_edit && !empty($wo['wo_id'])) {
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label class="flbl">Assign To</label>
+            <div class="flex items-center justify-between mb-1">
+              <label class="flbl mb-0">Assign To</label>
+              <button type="button" id="btn-suggest"
+                      class="text-xs font-bold text-emerald-700 hover:underline disabled:text-gray-400 disabled:no-underline"
+                      disabled>
+                ✨ Suggest technician
+              </button>
+            </div>
             <div class="relative">
-              <input type="text" id="assignee-search" list="tech-list" 
-                     class="fin w-full <?= $e('assigned_to') ?>" 
+              <input type="text" id="assignee-search" list="tech-list"
+                     class="fin w-full <?= $e('assigned_to') ?>"
                      placeholder="Search technician..."
-                     value="<?= $wo['technician_name'] ?? '' ?>">
+                     value="<?= $wo['technician_name'] ?? '' ?>"
+                     data-user-touched="0">
               <input type="hidden" name="assigned_to" id="hidden-assigned-to" value="<?= $v('assigned_to') ?>">
               <datalist id="tech-list">
                 <?php foreach ($technicians as $t): ?>
                   <option value="<?= htmlspecialchars($t['full_name']) ?>" data-id="<?= $t['user_id'] ?>">
                 <?php endforeach; ?>
               </datalist>
+            </div>
+            <p class="fhint">Leave blank to auto-assign on save based on skill + location.</p>
+            <!-- Suggested candidates panel -->
+            <div id="suggest-panel" class="mt-2 hidden">
+              <div class="text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1">Top matches</div>
+              <div id="suggest-list" class="space-y-1.5"></div>
             </div>
           </div>
 
@@ -412,9 +426,117 @@ if (assigneeSearch) {
             }
         }
         hiddenAssigned.value = foundId;
+        // Once the user types anything in the assignee field, mark it as touched
+        // so the suggest panel will not overwrite their choice.
+        assigneeSearch.dataset.userTouched = '1';
         checkConflict(); // Trigger conflict check on assignment change
     });
 }
+
+// --- Suggest (Auto-assignment) Logic ---
+const btnSuggest    = document.getElementById('btn-suggest');
+const suggestPanel  = document.getElementById('suggest-panel');
+const suggestList   = document.getElementById('suggest-list');
+
+function _autoAssignParams() {
+    return new URLSearchParams({
+        ticket_id: hiddenTicketId ? (hiddenTicketId.value || '') : '',
+        start:     fStart ? (fStart.value || '') : '',
+        end:       fEnd   ? (fEnd.value   || '') : '',
+        wo_id:     <?= $is_edit ? (int)$wo['wo_id'] : 0 ?>
+    });
+}
+
+function _renderCandidates(list, autoFill) {
+    suggestList.innerHTML = '';
+    if (!list || !list.length) {
+        suggestPanel.classList.add('hidden');
+        return;
+    }
+    suggestPanel.classList.remove('hidden');
+
+    list.forEach((c, idx) => {
+        const disqualified = (c.score < 0);
+        const scoreColor = disqualified ? 'text-red-600'
+                         : c.score >= 70 ? 'text-emerald-700'
+                         : c.score >= 40 ? 'text-amber-700'
+                         : 'text-gray-600';
+        const matchBits = [];
+        if (c.required_skills > 0) matchBits.push(`${c.matched_skills}/${c.required_skills} skills`);
+        else                       matchBits.push('no skills required');
+        if (c.loc_match === 'room')     matchBits.push('exact room');
+        else if (c.loc_match === 'building') matchBits.push('same building');
+        if (c.open_count !== undefined) matchBits.push(`${c.open_count} open WO${c.open_count === 1 ? '' : 's'}`);
+        if (disqualified && c.conflict) matchBits.push('⚠ schedule conflict');
+
+        const row = document.createElement('div');
+        row.className = 'flex items-center justify-between gap-2 p-2 rounded-lg border border-gray-100 hover:bg-emerald-50/40 cursor-pointer';
+        row.innerHTML = `
+            <div class="min-w-0 flex-1">
+                <div class="text-sm font-semibold text-gray-800 truncate">${c.full_name || ('User #' + c.user_id)}</div>
+                <div class="text-[11px] text-gray-500">${matchBits.join(' • ')}</div>
+            </div>
+            <div class="text-right">
+                <div class="text-sm font-bold ${scoreColor}">${disqualified ? '—' : c.score}</div>
+                <div class="text-[10px] text-gray-400 uppercase tracking-wide">score</div>
+            </div>
+        `;
+        row.addEventListener('click', () => {
+            if (disqualified) return;
+            hiddenAssigned.value = c.user_id;
+            assigneeSearch.value = c.full_name || '';
+            assigneeSearch.dataset.userTouched = '1';
+            checkConflict();
+        });
+        suggestList.appendChild(row);
+
+        // Auto-fill the top non-disqualified candidate when the user has not touched the field
+        if (autoFill && idx === 0 && !disqualified && assigneeSearch.dataset.userTouched !== '1') {
+            hiddenAssigned.value = c.user_id;
+            assigneeSearch.value = c.full_name || '';
+            checkConflict();
+        }
+    });
+}
+
+function fetchSuggestions(autoFill) {
+    if (!hiddenTicketId || !hiddenTicketId.value) {
+        suggestPanel.classList.add('hidden');
+        if (btnSuggest) btnSuggest.disabled = true;
+        return;
+    }
+    if (btnSuggest) btnSuggest.disabled = false;
+
+    fetch('suggest.php?' + _autoAssignParams().toString())
+        .then(r => r.json())
+        .then(data => _renderCandidates(data.candidates || [], autoFill))
+        .catch(err => console.error('suggest:', err));
+}
+
+if (btnSuggest) {
+    btnSuggest.addEventListener('click', () => {
+        // Explicit click = user wants a fresh suggestion; reset touched flag so the top candidate is auto-filled.
+        if (assigneeSearch) assigneeSearch.dataset.userTouched = '0';
+        fetchSuggestions(true);
+    });
+}
+
+// Auto-trigger when the ticket changes
+if (ticketSearch) {
+    ticketSearch.addEventListener('change', () => fetchSuggestions(true));
+}
+// Re-fetch when schedule changes (so conflict disqualification refreshes)
+if (fStart) fStart.addEventListener('change', () => fetchSuggestions(false));
+if (fEnd)   fEnd.addEventListener('change',   () => fetchSuggestions(false));
+
+// Initial load — only suggest+autofill when the form was opened with a pre-selected
+// ticket and the assignee is empty (typical "Create WO from ticket" flow).
+document.addEventListener('DOMContentLoaded', () => {
+    if (hiddenTicketId && hiddenTicketId.value) {
+        const autoFill = !hiddenAssigned.value;
+        fetchSuggestions(autoFill);
+    }
+});
 
 function toggleHoldReason() {
   const wrap = document.getElementById('hold-reason-wrap');

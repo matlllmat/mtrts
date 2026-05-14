@@ -759,3 +759,173 @@ function sync_ticket_with_wo(PDO $pdo, int $wo_id): void {
     }
 }
 
+// ── Auto-Assignment (Skill + Location) ────────────────────────
+
+/**
+ * Returns open WO count keyed by user_id for the given technicians.
+ * Used as a workload tie-breaker / normalization in scoring.
+ */
+function get_tech_open_workload(PDO $pdo, array $tech_ids): array {
+    if (!$tech_ids) return [];
+    $place = implode(',', array_fill(0, count($tech_ids), '?'));
+    $stmt  = $pdo->prepare("
+        SELECT assigned_to AS user_id, COUNT(*) AS open_count
+        FROM work_orders
+        WHERE assigned_to IN ($place)
+          AND status NOT IN ('resolved','closed','cancelled')
+        GROUP BY assigned_to
+    ");
+    $stmt->execute($tech_ids);
+    $map = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
+        $map[(int)$r['user_id']] = (int)$r['open_count'];
+    }
+    return $map;
+}
+
+/**
+ * Scores a single technician for a ticket. Returns a breakdown:
+ *   [user_id, full_name, score, skill_score, loc_score, workload_score,
+ *    matched_skills, required_skills, loc_match, conflict]
+ * If the technician is double-booked for the given window, score = -1.
+ */
+function score_technician(PDO $pdo, int $tech_id, int $ticket_id, ?string $start = null, ?string $end = null, int $exclude_wo_id = 0, ?array $workload = null, int $max_open = 1): array {
+    $u = $pdo->prepare("SELECT user_id, full_name FROM users WHERE user_id = ? AND is_active = 1");
+    $u->execute([$tech_id]);
+    $user = $u->fetch(PDO::FETCH_ASSOC);
+    if (!$user) {
+        return ['user_id' => $tech_id, 'full_name' => null, 'score' => -1, 'reason' => 'inactive'];
+    }
+
+    // Ticket context: category + location
+    $tk = $pdo->prepare("
+        SELECT t.location_id, a.category_id, l.building
+        FROM tickets t
+        LEFT JOIN assets a ON t.asset_id = a.asset_id
+        LEFT JOIN locations l ON t.location_id = l.location_id
+        WHERE t.ticket_id = ?
+    ");
+    $tk->execute([$ticket_id]);
+    $ctx = $tk->fetch(PDO::FETCH_ASSOC) ?: ['category_id' => null, 'location_id' => null, 'building' => null];
+
+    // ── Skill score (50pts + proficiency bonus) ─────────────────
+    $required = [];
+    if (!empty($ctx['category_id'])) {
+        $rq = $pdo->prepare("SELECT skill_id FROM category_skills WHERE category_id = ? AND is_required = 1");
+        $rq->execute([(int)$ctx['category_id']]);
+        $required = array_map('intval', $rq->fetchAll(PDO::FETCH_COLUMN));
+    }
+
+    $tech_skills = [];
+    $ts = $pdo->prepare("SELECT skill_id, proficiency FROM technician_skills WHERE user_id = ?");
+    $ts->execute([$tech_id]);
+    foreach ($ts->fetchAll(PDO::FETCH_ASSOC) as $r) {
+        $tech_skills[(int)$r['skill_id']] = (int)$r['proficiency'];
+    }
+
+    $matched = 0;
+    $prof_bonus = 0;
+    foreach ($required as $sid) {
+        if (isset($tech_skills[$sid])) {
+            $matched++;
+            $prof_bonus += 5 * ($tech_skills[$sid] - 1); // basic=0, intermediate=5, expert=10
+        }
+    }
+    $skill_score = empty($required) ? 50.0 : (50.0 * ($matched / count($required)));
+    $skill_score += $prof_bonus;
+
+    // ── Location score (30 exact-room / 20 building) ────────────
+    $loc_score = 0;
+    $loc_match = 'none';
+    if (!empty($ctx['location_id'])) {
+        $lq = $pdo->prepare("SELECT 1 FROM location_assignments WHERE user_id = ? AND location_id = ? LIMIT 1");
+        $lq->execute([$tech_id, (int)$ctx['location_id']]);
+        if ($lq->fetchColumn()) {
+            $loc_score = 30;
+            $loc_match = 'room';
+        }
+    }
+    if ($loc_score === 0 && !empty($ctx['building'])) {
+        $bq = $pdo->prepare("SELECT 1 FROM location_assignments WHERE user_id = ? AND building = ? LIMIT 1");
+        $bq->execute([$tech_id, $ctx['building']]);
+        if ($bq->fetchColumn()) {
+            $loc_score = 20;
+            $loc_match = 'building';
+        }
+    }
+
+    // ── Workload score (20pts, fewer open WOs = higher) ─────────
+    $open = $workload[$tech_id] ?? 0;
+    $max_open = max(1, $max_open);
+    $workload_score = 20 * (1 - ($open / $max_open));
+
+    $total = $skill_score + $loc_score + $workload_score;
+
+    // ── Conflict disqualification ───────────────────────────────
+    $conflict = null;
+    if ($start && $end) {
+        $c = check_wo_conflict($pdo, $tech_id, $start, $end, $exclude_wo_id, $ticket_id);
+        if ($c && ($c['type'] ?? '') === 'technician') {
+            $conflict = $c['data'] ?? null;
+            $total = -1;
+        }
+    }
+
+    return [
+        'user_id'         => $tech_id,
+        'full_name'       => $user['full_name'],
+        'score'           => round($total, 2),
+        'skill_score'     => round($skill_score, 2),
+        'loc_score'       => $loc_score,
+        'workload_score'  => round($workload_score, 2),
+        'matched_skills'  => $matched,
+        'required_skills' => count($required),
+        'loc_match'       => $loc_match,
+        'open_count'      => $open,
+        'conflict'        => $conflict,
+    ];
+}
+
+/**
+ * Returns the top-N ranked technicians for a given ticket context.
+ * `$start`/`$end` are optional — when provided, conflicting techs are pushed to the bottom.
+ */
+function get_qualified_technicians(PDO $pdo, int $ticket_id, ?string $start = null, ?string $end = null, int $exclude_wo_id = 0, int $limit = 3): array {
+    $techs = get_all_technicians($pdo);
+    if (!$techs) return [];
+
+    $ids = array_map(fn($t) => (int)$t['user_id'], $techs);
+    $workload = get_tech_open_workload($pdo, $ids);
+    $max_open = $workload ? max($workload) : 1;
+
+    $scored = [];
+    foreach ($ids as $tid) {
+        $scored[] = score_technician($pdo, $tid, $ticket_id, $start, $end, $exclude_wo_id, $workload, $max_open);
+    }
+
+    usort($scored, function($a, $b) {
+        if ($a['score'] === $b['score']) {
+            // tie-breaker: fewer open WOs, then lower user_id
+            if (($a['open_count'] ?? 0) === ($b['open_count'] ?? 0)) {
+                return $a['user_id'] <=> $b['user_id'];
+            }
+            return ($a['open_count'] ?? 0) <=> ($b['open_count'] ?? 0);
+        }
+        return $b['score'] <=> $a['score'];
+    });
+
+    return array_slice($scored, 0, $limit);
+}
+
+/**
+ * Picks the best technician for the ticket. Returns user_id or null
+ * (null when no candidate qualifies — e.g., all are conflict-disqualified).
+ */
+function auto_assign_technician(PDO $pdo, int $ticket_id, ?string $start = null, ?string $end = null, int $exclude_wo_id = 0): ?int {
+    $top = get_qualified_technicians($pdo, $ticket_id, $start, $end, $exclude_wo_id, 1);
+    if (!$top) return null;
+    $best = $top[0];
+    if (($best['score'] ?? -1) < 0) return null;
+    return (int)$best['user_id'];
+}
+

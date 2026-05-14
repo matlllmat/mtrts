@@ -26,6 +26,24 @@ if (!empty($data['ticket_id'])) {
     }
 }
 
+// Auto-assignment fallback: if creating a WO with no technician picked,
+// try to auto-assign based on skill + location. Only on CREATE; edits never
+// auto-replace a manual choice.
+$auto_assigned = false;
+if (!$is_edit && empty($data['assigned_to']) && !empty($data['ticket_id'])) {
+    $best = auto_assign_technician(
+        $pdo,
+        (int)$data['ticket_id'],
+        $data['scheduled_start'] ?: null,
+        $data['scheduled_end']   ?: null
+    );
+    if ($best) {
+        $data['assigned_to'] = $best;
+        $data['assigned_by'] = $user_id;
+        $auto_assigned       = true;
+    }
+}
+
 // ── Validation ────────────────────────────────────────────────
 
 if (empty($data['ticket_id'])) {
@@ -141,6 +159,17 @@ if ($is_edit) {
 
     // LOG AUDIT: Work Order Creation
     log_audit($pdo, 'CREATE', 'work_order', $wo_id, null, $data);
+
+    // Stamp the auto-assignment reason on the assignment log row so the WO history is clear
+    if ($auto_assigned) {
+        $pdo->prepare("
+            UPDATE wo_assignment_log
+            SET reason = ?
+            WHERE wo_id = ?
+            ORDER BY log_id DESC
+            LIMIT 1
+        ")->execute(['Auto-assigned (skill+location match)', $wo_id]);
+    }
 
     set_wo_parts($pdo, $wo_id, $_POST['parts'] ?? [], $user_id);
 

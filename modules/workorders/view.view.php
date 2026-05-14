@@ -651,6 +651,10 @@
                 class="w-full bg-olfu-green text-white text-sm font-semibold py-2 rounded-lg hover:bg-olfu-green-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed" disabled>
           Reassign
         </button>
+        <button id="auto-assign-btn" type="button" onclick="doAutoAssign()"
+                class="w-full mt-2 bg-white border border-emerald-200 text-emerald-700 text-sm font-semibold py-2 rounded-lg hover:bg-emerald-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+          ✨ Auto-assign by skill + location
+        </button>
         <p id="reassign-msg" class="text-xs mt-2 hidden"></p>
       </div>
     </div>
@@ -738,6 +742,41 @@ function doReassign() {
     .catch(() => {
       reassignBtn.textContent = 'Reassign';
       reassignBtn.disabled = false;
+      reassignMsg.className = 'text-xs mt-2 text-red-600';
+      reassignMsg.textContent = 'Network error. Please try again.';
+      reassignMsg.classList.remove('hidden');
+    });
+}
+
+// Auto-assign based on skill + location
+function doAutoAssign() {
+  const btn = document.getElementById('auto-assign-btn');
+  btn.disabled = true;
+  btn.textContent = 'Finding best match…';
+  reassignMsg.classList.add('hidden');
+
+  const fd = new FormData();
+  fd.append('wo_id', <?= (int)$wo['wo_id'] ?>);
+
+  fetch('auto_assign.php', { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(data => {
+      btn.textContent = '✨ Auto-assign by skill + location';
+      btn.disabled = false;
+      if (data.success) {
+        reassignMsg.className = 'text-xs mt-2 text-green-600';
+        reassignMsg.textContent = data.message || 'Auto-assigned successfully.';
+        reassignMsg.classList.remove('hidden');
+        setTimeout(() => window.location.reload(), 800);
+      } else {
+        reassignMsg.className = 'text-xs mt-2 text-red-600';
+        reassignMsg.textContent = data.message || 'Auto-assignment failed.';
+        reassignMsg.classList.remove('hidden');
+      }
+    })
+    .catch(() => {
+      btn.textContent = '✨ Auto-assign by skill + location';
+      btn.disabled = false;
       reassignMsg.className = 'text-xs mt-2 text-red-600';
       reassignMsg.textContent = 'Network error. Please try again.';
       reassignMsg.classList.remove('hidden');
