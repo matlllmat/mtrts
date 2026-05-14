@@ -218,6 +218,13 @@
             <label class="flbl" for="floor-sel">Floor</label>
             <select id="floor-sel" onchange="populateRooms()" class="fsel">
               <option value="">Select floor…</option>
+              <?php if ($current_building && isset($loc_data[$current_building])): ?>
+                <?php foreach (array_keys($loc_data[$current_building]) as $f): ?>
+                  <option value="<?= htmlspecialchars($f) ?>" <?= $current_floor === $f ? 'selected' : '' ?>>
+                    <?= htmlspecialchars($f) ?>
+                  </option>
+                <?php endforeach; ?>
+              <?php endif; ?>
             </select>
           </div>
           <div>
@@ -225,6 +232,13 @@
             <select id="location_id" name="location_id"
                     class="fsel <?= !empty($errors['location_id']) ? 'fsel-err' : '' ?>">
               <option value="">Select room…</option>
+              <?php if ($current_building && $current_floor && isset($loc_data[$current_building][$current_floor])): ?>
+                <?php foreach ($loc_data[$current_building][$current_floor] as $r): ?>
+                  <option value="<?= (int)$r['id'] ?>" <?= $current_loc_id === (int)$r['id'] ? 'selected' : '' ?>>
+                    <?= htmlspecialchars($r['room']) ?>
+                  </option>
+                <?php endforeach; ?>
+              <?php endif; ?>
             </select>
             <?php if (!empty($errors['location_id'])): ?>
               <p class="ferr-msg"><?= htmlspecialchars($errors['location_id']) ?></p>
@@ -622,7 +636,7 @@ function populateRooms(reset = false) {
     locData[b][f].forEach(r => {
       const opt = document.createElement('option');
       opt.value = r.id; opt.textContent = r.room;
-      if (!reset && r.id === initLoc.id) opt.selected = true;
+      if (!reset && +r.id === +initLoc.id) opt.selected = true;
       rsel.appendChild(opt);
     });
   }
