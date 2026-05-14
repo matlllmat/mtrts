@@ -37,6 +37,17 @@ foreach ($locations as $l) {
 $current_loc_id   = (int)($old['location_id'] ?? 0);
 $current_building = '';
 $current_floor    = '';
+// Re-derive building/floor from the recovered location_id so the cascading
+// selects in the form repopulate after a validation failure.
+if ($current_loc_id) {
+    foreach ($locations as $l) {
+        if ((int)$l['location_id'] === $current_loc_id) {
+            $current_building = $l['building'];
+            $current_floor    = $l['floor'];
+            break;
+        }
+    }
+}
 
 $page_heading = 'Add New Asset';
 $back_url     = 'index.php';

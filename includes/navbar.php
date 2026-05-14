@@ -3,6 +3,13 @@
 // Outputs: the sidebar <aside> + the topbar + opens <main>.
 // Relies on: $pdo, $_SESSION, $page, $module_labels, $page_title (all set before this is included).
 
+// These are normally set by includes/header.php (included just before this
+// file by guard.php). Defaults here are defensive — they keep static
+// analyzers quiet and prevent fatal errors if navbar.php is ever included
+// without the standard guard.php flow.
+$module_labels = $module_labels ?? [];
+$page_title    = $page_title    ?? 'MTRTS';
+
 $user_modules = get_user_modules($pdo, $_SESSION['role_id']);
 
 // User initials for avatar (up to 2 chars)

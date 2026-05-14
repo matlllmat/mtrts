@@ -1,5 +1,12 @@
 <?php
 // modules/users/index.view.php — User Access Control listing view.
+// Variables injected by index.php via require; defaults silence IDE static analysis.
+$stats       = $stats       ?? [];
+$filters     = $filters     ?? [];
+$roles       = $roles       ?? [];
+$departments = $departments ?? [];
+$flash_ok    = $flash_ok    ?? null;
+$flash_err   = $flash_err   ?? null;
 $csrf = htmlspecialchars($_SESSION['csrf_token'] ??= bin2hex(random_bytes(16)));
 ?>
 
@@ -97,6 +104,14 @@ $csrf = htmlspecialchars($_SESSION['csrf_token'] ??= bin2hex(random_bytes(16)));
       </svg>
       Bulk Update
     </button>
+    <a href="cost_centers.php"
+       class="inline-flex items-center gap-1.5 border border-gray-200 text-gray-600 hover:border-gray-400 hover:text-gray-800 text-sm font-semibold px-4 py-2 rounded-lg transition-colors duration-150"
+       title="Add, rename, or remove cost centers (departments)">
+      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+      </svg>
+      Manage Cost Centers
+    </a>
   </div>
 </div>
 
