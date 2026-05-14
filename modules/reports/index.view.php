@@ -334,11 +334,8 @@
         </div>
         <!-- SLA Tabs (Hidden by default) -->
         <div id="sla-tabs" class="hidden px-6 bg-white border-b border-gray-100 flex gap-6">
-            <button onclick="switchDrilldownTab('all')" class="sla-tab py-3 text-sm font-bold text-[#1a5c2a] border-b-2 border-[#1a5c2a] transition-all" data-subtype="all">All Non-Compliant</button>
-            <button onclick="switchDrilldownTab('breached')" class="sla-tab py-3 text-sm font-medium text-gray-500 hover:text-gray-700 transition-all" data-subtype="breached">Resolved Breaches</button>
-            <button onclick="switchDrilldownTab('open_breached')" class="sla-tab py-3 text-sm font-medium text-gray-500 hover:text-gray-700 transition-all" data-subtype="open_breached">Breached but not yet done</button>
-            <button onclick="switchDrilldownTab('not_done')" class="sla-tab py-3 text-sm font-medium text-gray-500 hover:text-gray-700 transition-all" data-subtype="not_done">Not done workorders</button>
-            <button onclick="switchDrilldownTab('no_deadline')" class="sla-tab py-3 text-sm font-medium text-gray-500 hover:text-gray-700 transition-all" data-subtype="no_deadline">No Deadline</button>
+            <button onclick="switchDrilldownTab('all')" class="sla-tab py-3 text-sm font-bold text-[#1a5c2a] border-b-2 border-[#1a5c2a] transition-all" data-subtype="all">All Breaches</button>
+            <button onclick="switchDrilldownTab('open_breached')" class="sla-tab py-3 text-sm font-medium text-gray-500 hover:text-gray-700 transition-all" data-subtype="open_breached">Still Open &amp; Overdue</button>
         </div>
         <div class="flex-1 overflow-auto p-0">
             <table class="w-full text-left border-collapse">

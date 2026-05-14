@@ -248,10 +248,12 @@
                     <h5 class="text-sm font-bold text-blue-900">Privacy Compliance Note</h5>
                     <p class="text-xs text-blue-700 leading-relaxed mt-1">
                         Any <strong>Personally Identifiable Information (PII)</strong> in the "Now" column has been processed by the system's masking engine. 
-                        Records older than 2 years are subject to the <span class="font-bold underline cursor-help group/ret">Data Retention Policy
-                            <span class="absolute bottom-full left-0 mb-2 hidden group-hover/ret:block w-64 p-3 bg-gray-900 text-white text-[10px] rounded-xl shadow-2xl z-[60] normal-case font-normal leading-normal">
-                                <b>Minimization:</b> Data older than 2 years is partially anonymized.<br>
-                                <b>Archiving:</b> Data older than 5 years has descriptions stripped to reduce storage liability.
+                        Records older than 2 years are subject to the <span class="relative font-bold underline cursor-help group/ret">Data Retention Policy
+                            <span class="absolute bottom-full left-0 mb-2 hidden group-hover/ret:block w-72 p-3 bg-gray-900 text-white text-[10px] rounded-xl shadow-2xl z-[60] normal-case font-normal leading-relaxed pointer-events-none">
+                                <b class="block mb-1 text-white/80 uppercase tracking-wider" style="font-size:9px;">Data Retention Policy</b>
+                                <b>2-Year Rule:</b> PII fields (names, emails, phone numbers) in records older than 2 years are partially anonymized by the system.<br><br>
+                                <b>5-Year Rule:</b> Records older than 5 years have their description text stripped to reduce storage liability.<br><br>
+                                <b>Immutable:</b> Action type, timestamps, and object references are never deleted.
                             </span>
                         </span>.
                     </p>
