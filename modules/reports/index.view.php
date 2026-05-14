@@ -479,7 +479,7 @@ function showTerm(termKey) {
 
 
 const formatMinutes = (mins) => {
-    if (!mins || isNaN(mins)) return 'â€”';
+    if (!mins || isNaN(mins)) return '—';
     const totalSeconds = Math.round(mins * 60);
     if (totalSeconds < 60) return `${totalSeconds}s`;
     const h = Math.floor(totalSeconds / 3600);
@@ -710,7 +710,7 @@ const fetchStats = () => {
             document.getElementById('hotspots-container').innerHTML = '<div class="text-sm text-red-500">Failed to load data.</div>';
         });
 
-    // Time heatmap is all-time â€” fetch once independently, cache globally
+    // Time heatmap is all-time — fetch once independently, cache globally
     fetch(`<?= BASE_URL ?>modules/reports/api_stats.php?start=2000-01-01&end=2099-12-31&type=all`)
         .then(r => r.json())
         .then(data => {
@@ -752,7 +752,7 @@ window.openHeatmapModal = () => {
         const hourLabels = Array.from({length:24}, (_,i) => i === 0 ? '12am' : i < 12 ? i+'am' : i === 12 ? '12pm' : (i-12)+'pm');
         const dowLabels  = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 
-        // Destroy old charts â€” use distinct names to avoid collision with window.modalHourChart (DOM auto-assign)
+        // Destroy old charts — use distinct names to avoid collision with window.modalHourChart (DOM auto-assign)
         if (window._chartHour && typeof window._chartHour.destroy === 'function') { window._chartHour.destroy(); window._chartHour = null; }
         if (window._chartDow  && typeof window._chartDow.destroy  === 'function') { window._chartDow.destroy();  window._chartDow  = null; }
 
@@ -941,7 +941,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <div class="font-bold text-[#1a5c2a]">#${t.ticket_number}</div>
                             <div class="text-[10px] text-gray-400 font-mono">${new Date(t.created_at).toLocaleDateString()}</div>
                         </td>
-                        <td class="py-3 px-6 text-gray-500 font-mono text-xs">${t.wo_number || 'â€”'}</td>
+                        <td class="py-3 px-6 text-gray-500 font-mono text-xs">${t.wo_number || '—'}</td>
                         <td class="py-3 px-6 text-gray-600 font-medium">${t.requester || 'System'}</td>
                         <td class="py-3 px-6">
                             <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider 
@@ -1148,7 +1148,7 @@ document.addEventListener('DOMContentLoaded', () => {
             status.innerHTML = `
               <div class="flex items-center justify-between">
                 <span>✅ PDF ready!</span>
-                <a href="${data.pdf_url}" target="_blank" class="font-bold underline">Open PDF â†’</a>
+                <a href="${data.pdf_url}" target="_blank" class="font-bold underline">Open PDF →</a>
               </div>
               <div class="text-[10px] text-gray-400 font-mono mt-1 pt-1 border-t border-green-100">
                 Saved to: ${data.pdf_path}
