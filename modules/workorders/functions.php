@@ -382,7 +382,7 @@ function check_wo_conflict(PDO $pdo, int $assigned_to, string $start, string $en
                 JOIN tickets t ON wo.ticket_id = t.ticket_id
                 WHERE t.location_id = ?
                   AND wo.wo_id != ?
-                  AND wo.status NOT IN ('closed', 'cancelled')
+                  AND wo.status NOT IN ('closed', 'cancelled', 'resolved')
                   AND DATE(wo.scheduled_start) = DATE(?)
             ");
             $roomQuery->execute([$locId, $exclude_wo_id, $start]);
