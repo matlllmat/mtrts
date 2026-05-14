@@ -194,7 +194,7 @@ function get_wo_parts(PDO $pdo, int $wo_id): array {
         JOIN parts_inventory p ON pu.part_id = p.part_id
         LEFT JOIN users u ON pu.used_by = u.user_id
         JOIN work_orders wo ON pu.wo_id = wo.wo_id
-        JOIN tickets t ON wo.ticket_id = t.ticket_id
+        LEFT JOIN tickets t ON wo.ticket_id = t.ticket_id
         LEFT JOIN asset_warranty aw ON t.asset_id = aw.asset_id
         WHERE pu.wo_id = ?
         ORDER BY pu.used_at DESC

@@ -1,4 +1,4 @@
-﻿﻿<?php require __DIR__ . '/_styles.php'; ?>
+<?php require __DIR__ . '/_styles.php'; ?>
 
 <?php
 /* ── Badge helper ───────────────────────────────────────────── */
@@ -1267,10 +1267,17 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
             </label>
             <select class="fin text-sm w-full" id="signatorySelect">
               <option value="">Select authorized signatory…</option>
-              <?php foreach ($signatory_users as $su): ?>
+              <?php foreach ($signatory_users as $su): 
+                  $is_selected = false;
+                  if ($signoff && (int)($signoff['signed_by_user_id'] ?? 0) === (int)$su['user_id']) {
+                      $is_selected = true;
+                  } elseif (!$signoff && (int)$su['user_id'] === (int)$wo['assigned_to']) {
+                      $is_selected = true;
+                  }
+              ?>
                 <option value="<?php echo (int)$su['user_id']; ?>"
                         data-name="<?php echo htmlspecialchars($su['full_name'], ENT_QUOTES); ?>"
-                        <?php echo ($signoff && (int)($signoff['signed_by_user_id'] ?? 0) === (int)$su['user_id']) ? 'selected' : ''; ?>>
+                        <?php echo $is_selected ? 'selected' : ''; ?>>
                   <?php echo htmlspecialchars($su['full_name']) . ' — ' . htmlspecialchars(ucwords(str_replace('_', ' ', $su['role_name']))); ?>
                 </option>
               <?php endforeach; ?>

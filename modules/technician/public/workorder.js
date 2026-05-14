@@ -1662,6 +1662,11 @@ function renderSafety() {
   }
 
   function updateCompletionBlocker() {
+    if (isReadOnly) {
+      els.blocker.classList.add('hidden');
+      els.blocker.style.display = 'none';
+      return true;
+    }
     const reasons = validateCompletion();
     if (reasons.length) {
       els.blocker.classList.remove('hidden');
@@ -2265,6 +2270,25 @@ function validateCompletion() {
         }
       });
     }
+
+    // Hydrate parts from server
+    draft.parts = (draft.parts || []).filter((p) => p.source !== 'server');
+    if (wo.parts && wo.parts.length > 0) {
+      const localPartIds = new Set(draft.parts.map(p => p.id));
+      wo.parts.forEach(p => {
+        const pId = 'srv_' + p.part_id + '_' + (p.added_at || Math.random());
+        if (localPartIds.has(pId)) return;
+        draft.parts.push({
+          id: pId,
+          partNumber: p.part_number || 'Unknown',
+          qty: p.quantity || 1,
+          serial: p.serial_no || '',
+          category: 'server',
+          source: 'server'
+        });
+      });
+    }
+
     mergeServerStateIntoDraft({
       success: true,
       // For resolved/closed WOs, skip time_logs here — the auto-fetch block below
@@ -2570,6 +2594,24 @@ function validateCompletion() {
             source: 'server',
           });
         }
+      });
+    }
+
+    // Hydrate parts from server
+    draft.parts = (draft.parts || []).filter((p) => p.source !== 'server');
+    if (wo && wo.parts && wo.parts.length > 0) {
+      const localPartIds = new Set(draft.parts.map(p => p.id));
+      wo.parts.forEach(p => {
+        const pId = 'srv_' + p.part_id + '_' + (p.added_at || Math.random());
+        if (localPartIds.has(pId)) return;
+        draft.parts.push({
+          id: pId,
+          partNumber: p.part_number || 'Unknown',
+          qty: p.quantity || 1,
+          serial: p.serial_no || '',
+          category: 'server',
+          source: 'server'
+        });
       });
     }
 

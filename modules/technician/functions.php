@@ -25,14 +25,9 @@ function tech_dbg(string $hypothesisId, string $location, string $message, array
 
 function tech_table_exists(PDO $pdo, string $table): bool {
     try {
-        $stmt = $pdo->prepare("
-            SELECT COUNT(*)
-            FROM information_schema.TABLES
-            WHERE TABLE_SCHEMA = DATABASE()
-              AND TABLE_NAME = ?
-        ");
-        $stmt->execute([$table]);
-        return (int)$stmt->fetchColumn() > 0;
+        $clean_table = preg_replace('/[^a-zA-Z0-9_]/', '', $table);
+        $stmt = $pdo->query("SHOW TABLES LIKE '$clean_table'");
+        return $stmt && $stmt->rowCount() > 0;
     } catch (Throwable $e) {
         return false;
     }
