@@ -238,7 +238,7 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
           default                    => 'text-gray-700 font-medium',
         };
       ?>
-      <div id="woPriority" class="text-sm <?php echo $prio_cls; ?>"><?php echo ucfirst($wo['priority'] ?? '&mdash;'); ?></div>
+      <div id="woPriority" class="text-sm <?php echo $prio_cls; ?>"><?php echo ucfirst($wo['priority'] ?? '—'); ?></div>
     </div>
     <div>
       <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Scheduled</div>
@@ -252,14 +252,14 @@ $cl_total = count($manual_checklist) + 4; // +4 auto-verified rows
     </div>
     <div>
       <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Requester</div>
-      <div class="text-sm text-gray-700 font-medium truncate"><?php echo htmlspecialchars($wo['requester_name'] ?? '&mdash;'); ?></div>
+      <div class="text-sm text-gray-700 font-medium truncate"><?php echo htmlspecialchars($wo['requester_name'] ?? '—'); ?></div>
     </div>
     <div>
       <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Location</div>
       <div class="text-sm text-gray-700 font-medium truncate">
         <?php
           $loc_parts = array_filter([$wo['building'] ?? '', $wo['room'] ?? '']);
-          echo htmlspecialchars(implode(' &middot; ', $loc_parts) ?: '&mdash;');
+          echo implode(' · ', array_map('htmlspecialchars', $loc_parts)) ?: '—';
         ?>
       </div>
     </div>
