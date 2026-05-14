@@ -115,9 +115,23 @@ if ($is_edit) {
     $old_assignee = $old_wo['assigned_to'] ?? null;
 
     update_work_order($pdo, $wo_id, $data);
-    
+
     // LOG AUDIT: Work Order Update
     log_audit($pdo, 'UPDATE', 'work_order', $wo_id, $old_wo, $data);
+
+    // LOG AUDIT: distinct events for status transitions (E-Discovery clarity)
+    $prev_status = $old_wo['status'] ?? null;
+    if ($data['status'] !== $prev_status) {
+        if ($data['status'] === 'in_progress') {
+            log_audit($pdo, 'START', 'work_order', $wo_id,
+                ['status' => $prev_status],
+                ['status' => 'in_progress']);
+        } elseif ($data['status'] === 'resolved') {
+            log_audit($pdo, 'RESOLVE', 'work_order', $wo_id,
+                ['status' => $prev_status],
+                ['status' => 'resolved', 'resolution_notes' => $data['resolution_notes'] ?? null]);
+        }
+    }
 
     set_wo_parts($pdo, $wo_id, $_POST['parts'] ?? [], $user_id);
 

@@ -193,12 +193,24 @@ function get_audit_logs(PDO $pdo, array $f = [], int $page = 1, int $per = 20): 
     $stmt->execute($params);
     $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // PII Masking for non-admins
+    // PII handling for non-admins
     if (session_status() === PHP_SESSION_NONE) session_start();
     $is_admin = isset($_SESSION['role_id']) && $_SESSION['role_id'] == 1;
-    
+
     if (!$is_admin) {
+        $null_fields = ['external_requester_email', 'password', 'password_hash'];
         foreach ($logs as &$log) {
+            foreach (['old_values', 'new_values'] as $col) {
+                if (empty($log[$col])) continue;
+                $vals = json_decode($log[$col], true);
+                if (is_array($vals)) {
+                    foreach ($null_fields as $f) {
+                        if (array_key_exists($f, $vals)) $vals[$f] = null;
+                    }
+                    $log[$col] = json_encode($vals);
+                }
+            }
+            // Preserve the existing regex masking for internal-user email/phone
             if (!empty($log['new_values'])) {
                 $log['new_values'] = mask_pii($log['new_values']);
             }

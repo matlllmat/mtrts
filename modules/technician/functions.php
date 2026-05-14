@@ -559,6 +559,14 @@ function complete_work_order_transactional(PDO $pdo, array $payload, int $techni
             $signed_by_user_id,
         ]);
 
+        // LOG AUDIT: distinct sign-off / approval event for E-Discovery
+        if (function_exists('log_audit')) {
+            log_audit($pdo, 'SIGNOFF', 'work_order', $wo_id, null, [
+                'signer_name'       => $signer_name,
+                'signed_by_user_id' => $signed_by_user_id,
+            ]);
+        }
+
         if (!empty($time_logs)) {
             foreach ($time_logs as $log) {
                 $elapsed_ms = (int)($log['elapsed_ms'] ?? 0);
@@ -895,6 +903,15 @@ function upsert_work_order_signoff(PDO $pdo, int $wo_id, string $signer_name, st
                                signed_by_user_id = VALUES(signed_by_user_id)
     ");
     $stmt->execute([$wo_id, $signer_name, $signature_path, $satisfaction, $feedback, $uid ?: null]);
+
+    // LOG AUDIT: distinct sign-off / approval event for E-Discovery
+    if (function_exists('log_audit')) {
+        log_audit($pdo, 'SIGNOFF', 'work_order', $wo_id, null, [
+            'signer_name'       => $signer_name,
+            'signed_by_user_id' => $uid ?: null,
+            'satisfaction'      => $satisfaction,
+        ]);
+    }
 }
 
 /**

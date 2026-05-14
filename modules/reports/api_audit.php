@@ -25,20 +25,22 @@ $per = (int)($_GET['per'] ?? 20);
 
 $logs = get_audit_logs($pdo, $filters, $page, $per);
 
-// Mask PII if not super_admin (role 8)
+// PII handling for non super_admin (role 8):
+// - external_requester_email + password + password_hash → null
+// - internal user email + contact_number → masked
 if ($_SESSION['role_id'] != 8) {
+    $null_fields = ['external_requester_email', 'password', 'password_hash'];
     foreach ($logs as &$log) {
-        if (!empty($log['old_values'])) {
-            $old = json_decode($log['old_values'], true);
-            if (isset($old['email'])) $old['email'] = '********@***.***';
-            if (isset($old['contact_number'])) $old['contact_number'] = '********';
-            $log['old_values'] = json_encode($old);
-        }
-        if (!empty($log['new_values'])) {
-            $new = json_decode($log['new_values'], true);
-            if (isset($new['email'])) $new['email'] = '********@***.***';
-            if (isset($new['contact_number'])) $new['contact_number'] = '********';
-            $log['new_values'] = json_encode($new);
+        foreach (['old_values', 'new_values'] as $col) {
+            if (empty($log[$col])) continue;
+            $vals = json_decode($log[$col], true);
+            if (!is_array($vals)) continue;
+            foreach ($null_fields as $f) {
+                if (array_key_exists($f, $vals)) $vals[$f] = null;
+            }
+            if (isset($vals['email']))          $vals['email']          = '********@***.***';
+            if (isset($vals['contact_number'])) $vals['contact_number'] = '********';
+            $log[$col] = json_encode($vals);
         }
     }
 }

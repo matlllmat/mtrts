@@ -731,12 +731,17 @@ function sync_ticket_with_wo(PDO $pdo, int $wo_id): void {
         $new_ticket_status = 'assigned';
     }
 
+    // Capture the prior ticket status so we can log a transition to 'resolved'
+    $prior_stmt = $pdo->prepare("SELECT status FROM tickets WHERE ticket_id = ?");
+    $prior_stmt->execute([$ticket_id]);
+    $prior_ticket_status = $prior_stmt->fetchColumn();
+
     // 1. Update Ticket Status and Assignee
     $stmt_upd = $pdo->prepare("
-        UPDATE tickets 
-        SET status = ?, 
-            assigned_to = ?, 
-            updated_at = NOW() 
+        UPDATE tickets
+        SET status = ?,
+            assigned_to = ?,
+            updated_at = NOW()
         WHERE ticket_id = ?
     ");
     $stmt_upd->execute([$new_ticket_status, $wo_assignee, $ticket_id]);
@@ -746,6 +751,13 @@ function sync_ticket_with_wo(PDO $pdo, int $wo_id): void {
         $pdo->prepare("UPDATE tickets SET resolved_at = COALESCE(resolved_at, NOW()) WHERE ticket_id = ?")->execute([$ticket_id]);
     } elseif ($new_ticket_status === 'closed') {
         $pdo->prepare("UPDATE tickets SET closed_at = COALESCE(closed_at, NOW()) WHERE ticket_id = ?")->execute([$ticket_id]);
+    }
+
+    // 2b. LOG AUDIT: distinct ticket RESOLVE event for E-Discovery
+    if ($new_ticket_status === 'resolved' && $prior_ticket_status !== 'resolved' && function_exists('log_audit')) {
+        log_audit($pdo, 'RESOLVE', 'ticket', $ticket_id,
+            ['status' => $prior_ticket_status],
+            ['status' => 'resolved']);
     }
 
     // 3. Integrate SLA Updates
