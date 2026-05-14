@@ -357,6 +357,36 @@
     </div>
 </div>
 
+<!-- Ratings Modal -->
+<div id="ratings-modal" class="fixed inset-0 z-[60] hidden bg-gray-900 bg-opacity-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+            <div>
+                <h3 id="ratings-modal-title" class="text-lg font-bold text-[#1a5c2a]">Ratings</h3>
+                <div id="ratings-modal-avg" class="flex items-center gap-1.5 mt-1"></div>
+            </div>
+            <button onclick="document.getElementById('ratings-modal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600">
+                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
+        <div class="flex-1 overflow-auto">
+            <table class="w-full text-left border-collapse">
+                <thead class="bg-white sticky top-0 shadow-sm">
+                    <tr>
+                        <th class="py-3 px-5 text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-200">Work Order</th>
+                        <th class="py-3 px-5 text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-200">Rating</th>
+                        <th class="py-3 px-5 text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-200">Comment</th>
+                        <th class="py-3 px-5 text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-200 text-right">Date</th>
+                    </tr>
+                </thead>
+                <tbody id="ratings-tbody" class="divide-y divide-gray-50 text-sm">
+                    <tr><td colspan="4" class="py-8 text-center text-gray-400 italic">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
 <!-- Heatmap Modal -->
 <div id="heatmap-modal" class="fixed inset-0 z-[70] hidden bg-gray-900 bg-opacity-60 flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden transform transition-all scale-100">
@@ -475,6 +505,57 @@ function showTerm(termKey) {
 
 
 
+function openRatingsModal(userId, name, avgRating) {
+    if (!userId || avgRating <= 0) return;
+    const modal = document.getElementById('ratings-modal');
+    document.getElementById('ratings-modal-title').textContent = name + ' — Ratings';
+    const avgEl = document.getElementById('ratings-modal-avg');
+    const stars = [1,2,3,4,5].map(n => {
+        const color = avgRating >= n ? '#facc15' : (avgRating >= n-0.5 ? '#fde68a' : '#e5e7eb');
+        return `<svg class="w-4 h-4" fill="${color}" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>`;
+    }).join('');
+    avgEl.innerHTML = `<div class="flex gap-0.5">${stars}</div><span class="text-sm font-bold text-gray-700">${Number(avgRating).toFixed(1)} avg</span>`;
+    modal.classList.remove('hidden');
+
+    const tbody = document.getElementById('ratings-tbody');
+    tbody.innerHTML = '<tr><td colspan="4" class="py-8 text-center text-gray-400 italic">Loading...</td></tr>';
+
+    fetch(`<?= BASE_URL ?>modules/reports/api_stats.php?type=tech_ratings&user_id=${userId}`)
+        .then(r => r.json())
+        .then(rows => {
+            if (!rows.length) {
+                tbody.innerHTML = '<tr><td colspan="4" class="py-8 text-center text-gray-400 italic">No ratings yet.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = rows.map(r => {
+                const rating = Number(r.rating);
+                const rowStars = [1,2,3,4,5].map(n => {
+                    const c = rating >= n ? '#facc15' : '#e5e7eb';
+                    return `<svg class="w-3.5 h-3.5" fill="${c}" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>`;
+                }).join('');
+                const date = r.created_at ? new Date(r.created_at).toLocaleDateString([], {month:'short', day:'numeric', year:'numeric'}) : '—';
+                const comment = r.comment ? `<span class="text-gray-600">${r.comment}</span>` : `<span class="text-gray-300 italic">No comment</span>`;
+                return `
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="py-3 px-5">
+                        <a href="<?= BASE_URL ?>modules/workorders/view.php?id=${r.wo_id}" target="_blank"
+                           class="font-bold text-[#1a5c2a] hover:underline">${r.wo_number}</a>
+                        ${r.requester_name ? `<div class="text-xs text-gray-400 mt-0.5">${r.requester_name}</div>` : ''}
+                    </td>
+                    <td class="py-3 px-5">
+                        <div class="flex items-center gap-0.5">${rowStars}</div>
+                        <span class="text-xs font-bold text-gray-500 mt-0.5 block">${rating}/5</span>
+                    </td>
+                    <td class="py-3 px-5 text-sm max-w-xs">${comment}</td>
+                    <td class="py-3 px-5 text-right text-xs text-gray-400 whitespace-nowrap">${date}</td>
+                </tr>`;
+            }).join('');
+        })
+        .catch(() => {
+            tbody.innerHTML = '<tr><td colspan="4" class="py-8 text-center text-red-400">Failed to load ratings.</td></tr>';
+        });
+}
+
 const formatMinutes = (mins) => {
     if (!mins || isNaN(mins)) return '—';
     const totalSeconds = Math.round(mins * 60);
@@ -561,7 +642,14 @@ const fetchStats = () => {
             // Update Scorecards
             const tbody = document.getElementById('scorecards-tbody');
             if (data.scorecards && data.scorecards.length > 0) {
-                tbody.innerHTML = data.scorecards.map(s => `
+                tbody.innerHTML = data.scorecards.map(s => {
+                    const avg = Number(s.avg_rating || 0);
+                    const hasRatings = avg > 0;
+                    const starsHtml = [1,2,3,4,5].map(n => {
+                        const filled = avg >= n ? '#facc15' : (avg >= n-0.5 ? 'url(#half)' : '#e5e7eb');
+                        return `<svg class="w-3.5 h-3.5" fill="${filled}" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>`;
+                    }).join('');
+                    return `
                     <tr class="hover:bg-gray-50 transition-colors group">
                         <td class="py-3">
                             <p class="font-semibold text-gray-800">${s.full_name}</p>
@@ -573,13 +661,15 @@ const fetchStats = () => {
                             </span>
                         </td>
                         <td class="py-3 text-right">
-                            <div class="flex items-center justify-end gap-1">
-                                <span class="font-bold text-gray-800">${Number(s.avg_rating || 0).toFixed(1)}</span>
-                                <svg class="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg>
-                            </div>
+                            <button onclick="openRatingsModal(${s.user_id}, '${s.full_name.replace(/'/g,"\\'")}', ${avg})"
+                                class="flex items-center justify-end gap-1 ml-auto ${hasRatings ? 'cursor-pointer hover:opacity-70 transition-opacity' : 'cursor-default'}"
+                                title="${hasRatings ? 'Click to see all ratings' : 'No ratings yet'}">
+                                <span class="font-bold text-gray-800">${avg > 0 ? avg.toFixed(1) : '—'}</span>
+                                <div class="flex gap-0.5">${starsHtml}</div>
+                            </button>
                         </td>
-                    </tr>
-                `).join('');
+                    </tr>`;
+                }).join('');
             } else {
                 tbody.innerHTML = '<tr><td colspan="3" class="py-4 text-center text-gray-400 italic">No scorecard data available.</td></tr>';
             }

@@ -33,6 +33,13 @@ if (isset($_GET['drilldown'])) {
     exit;
 }
 
+if ($type === 'tech_ratings') {
+    $tech_id = (int)($_GET['user_id'] ?? 0);
+    if (!$tech_id) { echo json_encode([]); exit; }
+    echo json_encode(get_tech_rating_details($pdo, $tech_id));
+    exit;
+}
+
 $data = [];
 
 switch ($type) {

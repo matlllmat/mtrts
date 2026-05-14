@@ -242,21 +242,41 @@ function get_technician_scorecards(PDO $pdo, array $scope = []): array {
     $where_sql = implode(' AND ', $where);
     $stmt = $pdo->prepare("
         SELECT
+            u.user_id,
             u.full_name,
             COUNT(DISTINCT w.wo_id) as total_jobs,
-            SUM(w.status IN ('resolved', 'closed')) as completed_jobs,
+            COUNT(DISTINCT CASE WHEN w.status IN ('resolved', 'closed') THEN w.wo_id END) as completed_jobs,
             COALESCE(SUM(tl.elapsed_ms), 0) / 60000.0 as avg_labor_time,
-            AVG(s.satisfaction) as avg_rating
+            AVG(wf.rating) as avg_rating
         FROM users u
         JOIN work_orders w ON u.user_id = w.assigned_to
         $joins
         LEFT JOIN wo_time_logs tl ON tl.wo_id = w.wo_id AND tl.action = 'stop'
-        LEFT JOIN wo_signoff s ON w.wo_id = s.wo_id
+        LEFT JOIN wo_feedback wf ON wf.wo_id = w.wo_id
         WHERE $where_sql
         GROUP BY u.user_id
         ORDER BY avg_rating DESC, completed_jobs DESC
     ");
     $stmt->execute($params);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+function get_tech_rating_details(PDO $pdo, int $tech_user_id): array {
+    $stmt = $pdo->prepare("
+        SELECT
+            w.wo_id,
+            w.wo_number,
+            wf.rating,
+            wf.comment,
+            wf.created_at,
+            ru.full_name AS requester_name
+        FROM wo_feedback wf
+        JOIN work_orders w ON w.wo_id = wf.wo_id
+        LEFT JOIN users ru ON ru.user_id = wf.requester_id
+        WHERE w.assigned_to = ?
+        ORDER BY wf.created_at DESC
+    ");
+    $stmt->execute([$tech_user_id]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
