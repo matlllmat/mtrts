@@ -359,6 +359,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   function renderChecklist() {
     const items = (wo && wo.checklist) ? wo.checklist : [];
     
+    // Guard: ensure draft.evidence exists before accessing .before / .after
+    if (!draft.evidence) draft.evidence = { before: [], after: [] };
+    
     // Auto-verify photo items ONLY when a successfully saved/synced upload actually exists.
     // Error-state or empty entries must NOT trigger auto-check.
     const hasBeforePhoto = (draft.evidence.before || []).some(
@@ -420,6 +423,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   const done = itemsDone + (hasTimeLogs ? 1 : 0) + (hasSig ? 1 : 0) + (hasBeforePhoto ? 1 : 0) + (hasAfterPhoto ? 1 : 0);
   const total = manualItems.length + 4; // +4 for auto-verified rows
   const percentage = total > 0 ? Math.round(done / total * 100) : 0;
+
+  console.log('[v0:DEBUG] renderChecklist', {
+    manualItems: manualItems.length, itemsDone, hasTimeLogs, hasSig, hasBeforePhoto, hasAfterPhoto, done, total,
+    evidenceBefore: (draft.evidence?.before || []).length,
+    evidenceAfter: (draft.evidence?.after || []).length,
+    sigUrl: !!draft.signoff?.signatureDataUrl,
+    timeLogsLen: (draft.time_logs || []).length,
+  });
   
   if (els.checklistProgress) {
     els.checklistProgress.innerHTML = `${done}/${total} items <span class="text-xs ml-1">(${percentage}%)</span>`;
@@ -504,6 +515,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   
   function renderChecklistTimeLogs() {
+    // Guard: ensure draft.evidence exists
+    if (!draft.evidence) draft.evidence = { before: [], after: [] };
+
     // ── Work Time Logged checklist row (auto-verified) ───────────────────────────
     const timeCheckbox = document.getElementById('clTimeCheckbox');
     const timeLabel    = document.getElementById('clTimeLabel');
@@ -863,6 +877,11 @@ function renderSafety() {
     const notes = activeFilter === 'all'
       ? allNotes
       : allNotes.filter(n => (n.tag || 'general') === activeFilter);
+    if (!els.notesList) {
+      console.error('[v0:ERROR] renderNotes: els.notesList is null — #notesList not found in DOM');
+      return;
+    }
+    console.log('[v0:DEBUG] renderNotes', { total: allNotes.length, filtered: notes.length, activeFilter, notesInDraft: draft.notes.length });
 
     // Update count badge
     const countEl = document.getElementById('notesCount');
@@ -1133,6 +1152,7 @@ function renderSafety() {
         // Store reference to blob in draft with state tracking
         const item = { id: itemId, kind, name: f.name, blobId, state: 'saved' };
         draft.evidence[side].push(item);
+        console.log('[v0:DEBUG] filesToEvidence pushed', { side, item, evidenceBefore: draft.evidence.before.length, evidenceAfter: draft.evidence.after.length });
         
         // Queue sync action with blobId in metadata
         window.MRTS.offline.queueAction('evidence_add', woId, { side, kind, name: f.name }, { hasBlob: true, blobId });
@@ -1147,6 +1167,13 @@ function renderSafety() {
     
     saveDraft(draft);
     await loadBlobUrlsForEvidence();
+    
+    console.log('[v0:DEBUG] filesToEvidence pre-renderChecklist', {
+      side,
+      evidenceBefore: draft.evidence.before.map(m => ({ id: m.id, state: m.state, hasBlobId: !!m.blobId, hasUrl: !!m.serverUrl, hasDataUrl: !!m.dataUrl })),
+      evidenceAfter: draft.evidence.after.map(m => ({ id: m.id, state: m.state, hasBlobId: !!m.blobId, hasUrl: !!m.serverUrl, hasDataUrl: !!m.dataUrl })),
+    });
+    
     renderEvidence();
     updateCompletionBlocker();
     
@@ -1296,7 +1323,8 @@ function renderSafety() {
         <div>
           <div class="part-row-item__name">
             ${escapeHtml(p.partNumber)}
-            ${p.category ? `<span class="part-row-item__cat">${escapeHtml(p.category)}</span>` : ''}
+            ${p.isPreallocated ? '<span class="part-row-item__cat" style="background:#dbeafe;color:#1d4ed8;border-color:#bfdbfe;">Pre-allocated</span>' : ''}
+            ${p.category && p.category !== 'server' ? `<span class="part-row-item__cat">${escapeHtml(p.category)}</span>` : ''}
           </div>
           <div class="part-row-item__meta">${p.serial ? 'SN: ' + escapeHtml(p.serial) : '—'}</div>
         </div>
@@ -1309,9 +1337,11 @@ function renderSafety() {
       b.addEventListener('click', () => {
         if (!canMutateOrWarn()) return;
         const id = b.getAttribute('data-part-remove');
+        const target = draft.parts.find((x) => x.id === id);
+        const usageId = target && target.usageId ? target.usageId : 0;
         draft.parts = draft.parts.filter((x) => x.id !== id);
         saveDraft(draft);
-        window.MRTS.offline.queueAction('part_remove', woId, { id });
+        window.MRTS.offline.queueAction('part_remove', woId, { id, usage_id: usageId });
         renderParts();
       });
     });
@@ -1662,7 +1692,7 @@ function renderSafety() {
   }
 
   function updateCompletionBlocker() {
-    if (isReadOnly) {
+    if (!isEditableNow) {
       els.blocker.classList.add('hidden');
       els.blocker.style.display = 'none';
       return true;
@@ -1938,35 +1968,43 @@ function validateCompletion() {
 
   // Add Note
   els.btnAddNote.addEventListener('click', () => {
-    if (!canMutateOrWarn()) return;
-    const title = (els.noteTitle.value || '').trim();
-    const text = (els.noteText.value || '').trim();
-    if (!text) {
-      MRTS.modal.toast('Please enter a note', { type: 'warning' });
-      return;
-    }
-    // Read selected tag from chip UI
-    const activeTagChip = document.querySelector('#noteTagChips .note-tag-chip--on');
-    const tag = activeTagChip ? (activeTagChip.dataset.tag || 'general') : 'general';
+    try {
+      if (!canMutateOrWarn()) return;
+      const title = (els.noteTitle ? els.noteTitle.value : '').trim();
+      const text = (els.noteText ? els.noteText.value : '').trim();
+      console.log('[v0:DEBUG] note_btn clicked', { title, text, hasTitleEl: !!els.noteTitle, hasTextEl: !!els.noteText, hasNotesList: !!els.notesList });
+      if (!text) {
+        MRTS.modal.toast('Please enter a note', { type: 'warning' });
+        return;
+      }
+      // Read selected tag from chip UI
+      const activeTagChip = document.querySelector('#noteTagChips .note-tag-chip--on');
+      const tag = activeTagChip ? (activeTagChip.dataset.tag || 'general') : 'general';
+      console.log('[v0:DEBUG] note_tag', { tag, chipFound: !!activeTagChip });
 
-    const noteId = `n_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-    draft.notes.push({
-      id: noteId,
-      title: title,
-      text: text,
-      ts: Date.now(),
-      source: 'local',
-      tag: tag,
-    });
-    els.noteTitle.value = '';
-    els.noteText.value = '';
-    // Reset char counter
-    const charCount = document.getElementById('noteCharCount');
-    if (charCount) charCount.textContent = '0 / 1,000';
-    saveDraft(draft);
-    window.MRTS.offline.queueAction('note_add', woId, { title, text, tag });
-    renderNotes();
-    updateCompletionBlocker();
+      const noteId = `n_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+      draft.notes.push({
+        id: noteId,
+        title: title,
+        text: text,
+        ts: Date.now(),
+        source: 'local',
+        tag: tag,
+      });
+      console.log('[v0:DEBUG] note_added', { title, text, tag, totalNotes: draft.notes.length, activeFilter: window._noteFilter });
+      els.noteTitle.value = '';
+      els.noteText.value = '';
+      // Reset char counter
+      const charCount = document.getElementById('noteCharCount');
+      if (charCount) charCount.textContent = '0 / 1,000';
+      saveDraft(draft);
+      window.MRTS.offline.queueAction('note_add', woId, { title, text, tag });
+      renderNotes();
+      updateCompletionBlocker();
+    } catch (e) {
+      console.error('[v0:ERROR] note_add failed', e);
+      MRTS.modal.toast('Failed to add note: ' + e.message, { type: 'error' });
+    }
   });
 
   // Sign-off — wire all fields
@@ -2015,6 +2053,7 @@ function validateCompletion() {
     draft.signoff.signatoryUserId = userIdVal;
     draft.signoff.signatureDataUrl = sig.toDataUrl();
     saveDraft(draft);
+    console.log('[v0:DEBUG] signature saved', { nameTrim, userIdVal, hasDataUrl: !!draft.signoff.signatureDataUrl });
     updateSigStatus();
     // Update identity display
     const identityWrap = document.getElementById('signatoryIdentityWrap');
@@ -2088,8 +2127,10 @@ function validateCompletion() {
         els.btnComplete.innerHTML = '<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg> Syncing pending...';
         try {
           const syncRes = await window.MRTS.offline.syncNow();
+          console.log('[v0:DEBUG] sync results', syncRes);
           const syncErrs = (syncRes && syncRes.errors) || [];
           if (syncErrs.length) {
+            console.warn('[v0:DEBUG] sync failures', syncErrs);
             const detail = syncErrs.slice(0, 3).map(e => '- ' + (e.action || '?') + ': ' + (e.error || 'failed')).join('\n');
             const proceed = await MRTS.modal.confirm(
               'Some pending changes failed to sync (' + syncErrs.length + '):\n\n' + detail +
@@ -2202,17 +2243,14 @@ function validateCompletion() {
       }
     }
 
-    // Hydrate notes and before/after photos from the server so any user
-    // viewing the WO sees them — not just the one whose localStorage holds the
-    // original draft. Tag with source:'server' so we can drop and re-hydrate
-    // on subsequent loads. Dedupe by text (notes) / serverUrl (photos).
+    // Hydrate notes from the server. Server is the source of truth: drop
+    // previously-hydrated server notes, then drop local notes whose body
+    // matches a server note (they've already been synced), then push server
+    // copies. Server notes carry stable note_ids so reloads are idempotent.
     draft.notes = (draft.notes || []).filter((n) => n.source !== 'server');
     if (wo.notes && wo.notes.length > 0) {
-      const localTexts = new Set(draft.notes.map((n) => (n.text || '').trim()));
-      wo.notes.forEach((n) => {
+      const parsedServer = wo.notes.map((n) => {
         const raw = (n.note_text || '').trim();
-        if (!raw || localTexts.has(raw)) return;
-        // Parse [title] prefix stored by the sync handler: "[title] text"
         let noteTitle = '';
         let noteText  = raw;
         const titleMatch = raw.match(/^\[(.+?)\]\s*([\s\S]*)$/);
@@ -2220,11 +2258,19 @@ function validateCompletion() {
           noteTitle = titleMatch[1];
           noteText  = titleMatch[2];
         }
+        return { n, noteTitle, noteText };
+      });
+      // Retire local notes that have already made it to the server.
+      const serverBodies = new Set(parsedServer.map((p) => p.noteText.trim()));
+      draft.notes = draft.notes.filter((ln) => !serverBodies.has((ln.text || '').trim()));
+      parsedServer.forEach(({ n, noteTitle, noteText }) => {
+        if (!noteText && !noteTitle) return;
         draft.notes.push({
           id: 'srv_' + n.note_id,
           title: noteTitle,
           text: noteText,
-          ts: n.created_at ? new Date(n.created_at).getTime() : Date.now(),
+          tag: n.note_type || 'general',
+          ts: n.added_at ? new Date(n.added_at).getTime() : Date.now(),
           source: 'server',
         });
       });
@@ -2271,20 +2317,23 @@ function validateCompletion() {
       });
     }
 
-    // Hydrate parts from server
+    // Hydrate parts from server. Use usage_id as the stable dedupe key so
+    // reloads don't generate new draft ids for the same DB row.
     draft.parts = (draft.parts || []).filter((p) => p.source !== 'server');
     if (wo.parts && wo.parts.length > 0) {
       const localPartIds = new Set(draft.parts.map(p => p.id));
       wo.parts.forEach(p => {
-        const pId = 'srv_' + p.part_id + '_' + (p.added_at || Math.random());
+        const pId = 'srv_' + (p.usage_id || (p.part_id + '_' + (p.added_at || Math.random())));
         if (localPartIds.has(pId)) return;
         draft.parts.push({
           id: pId,
+          usageId: p.usage_id || 0,
           partNumber: p.part_number || 'Unknown',
           qty: p.quantity || 1,
           serial: p.serial_no || '',
           category: 'server',
-          source: 'server'
+          isPreallocated: !!p.is_preallocated,
+          source: 'server',
         });
       });
     }

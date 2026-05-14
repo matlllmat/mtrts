@@ -780,12 +780,16 @@ function auto_verify_checklist_item(PDO $pdo, int $wo_id, string $verification_t
     }
 }
 
-function add_work_order_note(PDO $pdo, int $wo_id, string $note_text, bool $is_voice = false, ?string $voice_path = null): void {
+function add_work_order_note(PDO $pdo, int $wo_id, string $note_text, bool $is_voice = false, ?string $voice_path = null, string $note_type = 'general'): void {
+    $allowed = ['diagnosis','repair','general','system','voice','progress','issue','follow_up'];
+    if (!in_array($note_type, $allowed, true)) {
+        $note_type = 'general';
+    }
     $stmt = $pdo->prepare("
-        INSERT INTO wo_notes (wo_id, note_text, is_voice, voice_path, added_by)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO wo_notes (wo_id, note_type, note_text, is_voice, voice_path, added_by)
+        VALUES (?, ?, ?, ?, ?, ?)
     ");
-    $stmt->execute([$wo_id, $note_text, $is_voice ? 1 : 0, $voice_path, $_SESSION['user_id']]);
+    $stmt->execute([$wo_id, $note_type, $note_text, $is_voice ? 1 : 0, $voice_path, $_SESSION['user_id']]);
 }
 
 function save_work_order_media(PDO $pdo, int $wo_id, string $media_type, string $file_path, string $file_type, int $file_size_kb, ?string $caption = null): void {

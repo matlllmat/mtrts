@@ -613,14 +613,14 @@ function update_work_order(PDO $pdo, int $id, array $d): void {
 }
 
 function set_wo_parts(PDO $pdo, int $wo_id, array $parts, int $user_id): void {
-    // Clear existing (pre-allocated) parts first if updating
-    $pdo->prepare("DELETE FROM wo_parts_used WHERE wo_id = ?")->execute([$wo_id]);
-    
+    // Reset only the pre-allocated rows; technician-added consumed parts stay.
+    $pdo->prepare("DELETE FROM wo_parts_used WHERE wo_id = ? AND is_preallocated = 1")->execute([$wo_id]);
+
     if (empty($parts)) return;
 
     $stmt = $pdo->prepare("
-        INSERT INTO wo_parts_used (wo_id, part_id, quantity_used, used_by, used_at)
-        VALUES (?, ?, ?, ?, NOW())
+        INSERT INTO wo_parts_used (wo_id, part_id, quantity_used, is_preallocated, is_consumed, used_by, used_at)
+        VALUES (?, ?, ?, 1, 0, ?, NOW())
     ");
 
     foreach ($parts as $p) {

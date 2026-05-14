@@ -213,10 +213,23 @@ switch ($action) {
                     $results[] = ['id' => $itemId, 'ok' => false, 'action' => $itemAction, 'error' => 'Missing wo_id or safetyId'];
                 }
             } elseif ($itemAction === 'note_add') {
-                $noteText = trim($data['text'] ?? '');
-                if ($woId && $noteText) {
-                    add_work_order_note($pdo, $woId, $noteText, false);
-                    $results[] = ['id' => $itemId, 'ok' => true, 'action' => $itemAction];
+                $noteText  = trim($data['text'] ?? '');
+                $noteTitle = trim($data['title'] ?? '');
+                $tag       = trim($data['tag'] ?? 'general');
+                $fullText  = $noteTitle !== '' ? "[{$noteTitle}] {$noteText}" : $noteText;
+                if ($woId && $fullText) {
+                    try {
+                        add_work_order_note($pdo, $woId, $fullText, false, null, $tag);
+                        tech_dbg('H_NOTE_SAVE', 'modules/technician/sync.php:note_add', 'Inserted note', [
+                            'wo_id' => $woId, 'tag' => $tag, 'note_id' => $pdo->lastInsertId(),
+                        ]);
+                        $results[] = ['id' => $itemId, 'ok' => true, 'action' => $itemAction];
+                    } catch (Throwable $e) {
+                        tech_dbg('H_NOTE_SAVE', 'modules/technician/sync.php:note_add', 'Insert failed', [
+                            'wo_id' => $woId, 'tag' => $tag, 'error' => $e->getMessage(),
+                        ]);
+                        $results[] = ['id' => $itemId, 'ok' => false, 'action' => $itemAction, 'error' => $e->getMessage()];
+                    }
                 } else {
                     $results[] = ['id' => $itemId, 'ok' => false, 'action' => $itemAction, 'error' => 'Missing wo_id or text'];
                 }
@@ -273,16 +286,6 @@ switch ($action) {
                 } else {
                     $results[] = ['id' => $itemId, 'ok' => false, 'action' => $itemAction, 'error' => 'Missing wo_id or total_elapsed_ms'];
                 }
-            } elseif ($itemAction === 'note_add') {
-                $noteText  = trim($data['text'] ?? '');
-                $noteTitle = trim($data['title'] ?? '');
-                $fullText  = $noteTitle !== '' ? "[{$noteTitle}] {$noteText}" : $noteText;
-                if ($woId && $fullText) {
-                    add_work_order_note($pdo, $woId, $fullText, false);
-                    $results[] = ['id' => $itemId, 'ok' => true, 'action' => $itemAction];
-                } else {
-                    $results[] = ['id' => $itemId, 'ok' => false, 'action' => $itemAction, 'error' => 'Missing wo_id or text'];
-                }
             } elseif ($itemAction === 'part_add') {
                 $partKey  = trim((string)($data['partNumber'] ?? ''));
                 $qty      = (int)($data['qty'] ?? 1);
@@ -336,8 +339,28 @@ switch ($action) {
                         $results[] = ['id' => $itemId, 'ok' => true, 'action' => $itemAction, 'serverUrl' => $signature_path];
                     }
                 }
+            } elseif ($itemAction === 'part_remove') {
+                $usageId = (int)($data['usage_id'] ?? 0);
+                if ($woId > 0 && $usageId > 0) {
+                    try {
+                        $stmt = $pdo->prepare("DELETE FROM wo_parts_used WHERE wo_id = ? AND usage_id = ?");
+                        $stmt->execute([$woId, $usageId]);
+                        tech_dbg('H_PART_REMOVE', 'modules/technician/sync.php:part_remove', 'Deleted part', [
+                            'wo_id' => $woId, 'usage_id' => $usageId, 'rows' => $stmt->rowCount(),
+                        ]);
+                        $results[] = ['id' => $itemId, 'ok' => true, 'action' => $itemAction];
+                    } catch (Throwable $e) {
+                        tech_dbg('H_PART_REMOVE', 'modules/technician/sync.php:part_remove', 'Delete failed', [
+                            'wo_id' => $woId, 'usage_id' => $usageId, 'error' => $e->getMessage(),
+                        ]);
+                        $results[] = ['id' => $itemId, 'ok' => false, 'action' => $itemAction, 'error' => $e->getMessage()];
+                    }
+                } else {
+                    // No usage_id (local-only entry that never synced) — acknowledge.
+                    $results[] = ['id' => $itemId, 'ok' => true, 'action' => $itemAction];
+                }
             } elseif (in_array($itemAction, ['note_remove','evidence_remove','config_remove',
-                'signature_clear','draft_save','time_log_remove','part_remove'])) {
+                'signature_clear','draft_save','time_log_remove'])) {
                 // Client-side draft management — no server state to change.
                 $results[] = ['id' => $itemId, 'ok' => true, 'action' => $itemAction];
             } else {
@@ -508,10 +531,13 @@ switch ($action) {
     case 'note_add':
         $wo_id = (int)($payload['wo_id'] ?? 0);
         $note_text = trim($payload['text'] ?? '');
-        // FIX: 4th param of add_work_order_note() is bool $is_voice, not a title string.
-        // Title is not stored in wo_notes; discard it here (JS sends it for display only).
+        $title = trim($payload['title'] ?? '');
+        $tag = trim($payload['tag'] ?? 'general');
+        if ($title) {
+            $note_text = "[$title] $note_text";
+        }
         if ($note_text) {
-            add_work_order_note($pdo, $wo_id, $note_text, false);
+            add_work_order_note($pdo, $wo_id, $note_text, false, null, $tag);
             echo json_encode(['success' => true]);
         } else {
             echo json_encode(['success' => false, 'message' => 'Note text required']);

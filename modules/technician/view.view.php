@@ -1662,9 +1662,10 @@ $__wo_payload = [
   'notes' => array_map(fn($n) => [
     'note_id'    => $n['note_id'] ?? null,
     'note_text'  => $n['note_text'] ?? null,
-    'created_at' => $n['created_at'] ?? null,
-    'created_by' => $n['created_by'] ?? null,
-    'author'     => $n['author_name'] ?? $n['created_by'] ?? null,
+    'note_type'  => $n['note_type'] ?? 'general',
+    'added_at'   => $n['added_at'] ?? null,
+    'added_by'   => $n['added_by'] ?? null,
+    'author'     => $n['added_by_name'] ?? null,
   ], $notes ?? []),
   'media' => array_map(fn($m) => [
     'media_id'   => $m['media_id'],
@@ -1675,12 +1676,15 @@ $__wo_payload = [
     'uploaded_at'=> $m['uploaded_at'],
   ], $media ?? []),
   'parts' => array_map(fn($p) => [
-    'part_id'     => $p['part_id'] ?? null,
-    'part_number' => $p['part_number'] ?? null,
-    'quantity'    => $p['quantity_used'] ?? null,
-    'serial_no'   => $p['serial_number'] ?? null,
-    'added_at'    => $p['used_at'] ?? null,
-    'added_by'    => $p['used_by'] ?? null,
+    'usage_id'        => (int)($p['usage_id'] ?? 0),
+    'part_id'         => $p['part_id'] ?? null,
+    'part_number'     => $p['part_number'] ?? null,
+    'quantity'        => $p['quantity_used'] ?? null,
+    'serial_no'       => $p['serial_number'] ?? null,
+    'added_at'        => $p['used_at'] ?? null,
+    'added_by'        => $p['used_by'] ?? null,
+    'is_preallocated' => (bool)($p['is_preallocated'] ?? false),
+    'is_consumed'     => (bool)($p['is_consumed'] ?? false),
   ], $parts ?? []),
   'time_logs'   => $time_logs ?? [],
   'total_time'  => $total_time ?? 0,
@@ -2169,4 +2173,25 @@ async function woHandleSync(btn) {
   // Check after page is fully loaded
   window.addEventListener('load', () => setTimeout(showQueueWarning, 1500));
 })();
+
+// ── Debug helper ─────────────────────────────────────────────
+window.__debugNotes = function () {
+  const draft = (window.timerDebug && window.timerDebug.getDraft()) || {};
+  const notes = draft.notes || [];
+  console.log('[v0:DEBUG] __debugNotes', {
+    notesInDraft: notes.length,
+    notes: notes.map(n => ({ id: n.id, title: n.title, text: n.text?.slice(0, 40), tag: n.tag, source: n.source })),
+    hasNotesList: !!document.getElementById('notesList'),
+    hasNoteTitle: !!document.getElementById('noteTitle'),
+    hasNoteText: !!document.getElementById('noteText'),
+    hasBtnAddNote: !!document.getElementById('btnAddNote'),
+    noteFilter: window._noteFilter,
+    isEditableNow: !!(window.__WO_DATA__ && window.__WO_DATA__.can_execute_now),
+    woStatus: (window.__WO_DATA__ && window.__WO_DATA__.status) || 'unknown',
+    draft: draft,
+  });
+  if (typeof window._renderNotes === 'function') { window._renderNotes(); console.log('[v0:DEBUG] renderNotes called'); }
+  if (typeof updateCompletionBadges === 'function') { updateCompletionBadges(); }
+};
+console.log('[v0:DEBUG] Debug ready — type __debugNotes() in console to inspect note state');
 </script>

@@ -531,7 +531,7 @@ CREATE TABLE wo_checklist_completions (
 CREATE TABLE wo_notes (
   note_id     INT           PRIMARY KEY AUTO_INCREMENT,
   wo_id       INT           NOT NULL,
-  note_type   ENUM('diagnosis','repair','general','system','voice') NOT NULL DEFAULT 'general',
+  note_type   ENUM('diagnosis','repair','general','system','voice','progress','issue','follow_up') NOT NULL DEFAULT 'general',
   note_text   TEXT          NOT NULL,
   is_private  TINYINT(1)    NOT NULL DEFAULT 0 COMMENT 'Private notes only visible to technicians',
   is_voice    TINYINT(1)    NOT NULL DEFAULT 0,
