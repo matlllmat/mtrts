@@ -40,19 +40,25 @@
     
     <!-- 1. Requester Information -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 md:p-6">
-      <h3 class="text-base font-bold text-gray-900 mb-4 pb-2 border-b border-gray-100">1. Requester Information</h3>
+      <div class="flex items-center justify-between mb-4 pb-2 border-b border-gray-100">
+        <h3 class="text-base font-bold text-gray-900">1. Requester Information</h3>
+        <div class="flex items-center gap-2">
+          <input type="checkbox" id="is-self-requester" name="is_self_requester" value="1" <?= ($t['requester_id'] ?? 0) == $_SESSION['user_id'] ? 'checked' : '' ?> class="w-4 h-4 text-olfu-green border-gray-300 rounded focus:ring-olfu-green">
+          <label for="is-self-requester" class="text-sm font-medium text-gray-700 cursor-pointer">I am the requester</label>
+        </div>
+      </div>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
-          <label class="block text-sm font-medium text-gray-500 mb-1">Full Name</label>
-          <input type="text" value="<?= htmlspecialchars($t['full_name'] ?? '') ?>" readonly class="fin w-full bg-gray-50 border-gray-200 text-gray-600 cursor-not-allowed">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+          <input type="text" name="external_name_from" id="requester-name" value="<?= htmlspecialchars($t['full_name'] ?? '') ?>" class="fin w-full" placeholder="Enter full name">
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-500 mb-1">Contact Email</label>
-          <input type="email" value="<?= htmlspecialchars($t['email'] ?? '') ?>" readonly class="fin w-full bg-gray-50 border-gray-200 text-gray-600 cursor-not-allowed">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Contact Email</label>
+          <input type="email" name="external_email_from" id="requester-email" value="<?= htmlspecialchars($t['email'] ?? '') ?>" class="fin w-full" placeholder="Enter email address">
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-500 mb-1">Department</label>
-          <input type="text" value="<?= htmlspecialchars($t['department'] ?? '') ?>" readonly class="fin w-full bg-gray-50 border-gray-200 text-gray-600 cursor-not-allowed">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Department</label>
+          <input type="text" name="external_dept_from" id="requester-dept" value="<?= htmlspecialchars($t['department'] ?? '') ?>" class="fin w-full" placeholder="Enter department">
         </div>
       </div>
     </div>
@@ -117,7 +123,10 @@
         
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Category <span class="text-red-500">*</span></label>
+            <label class="block text-sm font-medium text-gray-700 mb-1 flex items-center justify-between">
+              <span>Category <span class="text-red-500">*</span></span>
+              <button type="button" onclick="openAddCategoryModal()" class="text-[10px] font-bold text-olfu-green hover:underline">+ Add New</button>
+            </label>
             <select name="category_id" id="category-select" class="fsel w-full" required onchange="checkCategoryOthers(this)">
               <option value="">-- Select Category --</option>
               <?php foreach ($categories as $c): ?>
@@ -223,8 +232,12 @@
       <div class="flex items-center justify-between mb-4 pb-2 border-b border-gray-100">
         <div class="flex items-center gap-2">
           <div class="w-2 h-6 bg-olfu-green rounded-full"></div>
-          <h3 class="text-base font-bold text-gray-900">5. HELPFUL RESOURCES</h3>
+          <h3 class="text-base font-bold text-gray-900 uppercase">5. Helpful Resources</h3>
         </div>
+        <button type="button" onclick="openAddKbModal()" class="text-xs font-bold text-olfu-green hover:underline flex items-center gap-1">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v8m0 0v8m0-8h8m-8 0H4"></path></svg>
+          Add Article
+        </button>
       </div>
       
       <div class="p-4 bg-gray-50 rounded-xl border border-gray-100">
@@ -357,8 +370,75 @@
   </div>
 </div>
 
+<!-- Add Category Modal -->
+<div id="add-category-modal" class="fixed inset-0 z-[130] hidden flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+      <h3 class="font-bold text-gray-900">Add New Category</h3>
+      <button type="button" onclick="closeAddCategoryModal()" class="text-gray-400 hover:text-gray-600">
+        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <form id="add-category-form" class="p-6 space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Category Name</label>
+        <input type="text" name="category_name" id="new-category-name" required class="fin w-full" placeholder="e.g. Smart Board">
+      </div>
+      <div class="flex items-center gap-2">
+        <input type="checkbox" name="has_bulb_hours" id="new-category-bulb" value="1" class="w-4 h-4 text-olfu-green border-gray-300 rounded">
+        <label for="new-category-bulb" class="text-sm text-gray-700">Has Bulb Hours?</label>
+      </div>
+    </form>
+    <div class="px-6 py-4 bg-gray-50 flex justify-end gap-3">
+      <button type="button" onclick="closeAddCategoryModal()" class="px-4 py-2 text-sm font-bold text-gray-700 hover:underline">Cancel</button>
+      <button type="button" onclick="submitAddCategory()" class="bg-olfu-green text-white px-6 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-olfu-green-md transition">Save Category</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add KB Article Modal -->
+<div id="add-kb-modal" class="fixed inset-0 z-[130] hidden flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+      <h3 class="font-bold text-gray-900">Create Helpful Resource</h3>
+      <button type="button" onclick="closeAddKbModal()" class="text-gray-400 hover:text-gray-600">
+        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <form id="add-kb-form" class="p-6 space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Article Title</label>
+        <input type="text" name="title" id="new-kb-title" required class="fin w-full" placeholder="e.g. How to reconnect the sound system">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Category (Optional)</label>
+        <select name="category_id" id="new-kb-category" class="fsel w-full">
+          <option value="">-- All Categories --</option>
+          <?php foreach ($categories as $c): ?>
+            <option value="<?= $c['category_id'] ?>"><?= htmlspecialchars($c['category_name']) ?></option>
+          <?php endforeach; ?>
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Content / Troubleshooting Steps</label>
+        <textarea name="content" id="new-kb-content" rows="6" required class="fin w-full" placeholder="Provide clear, step-by-step instructions..."></textarea>
+      </div>
+    </form>
+    <div class="px-6 py-4 bg-gray-50 flex justify-end gap-3">
+      <button type="button" onclick="closeAddKbModal()" class="px-4 py-2 text-sm font-bold text-gray-700 hover:underline">Cancel</button>
+      <button type="button" onclick="submitAddKb()" class="bg-olfu-green text-white px-6 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-olfu-green-md transition">Save Article</button>
+    </div>
+  </div>
+</div>
+
 <script src="https://unpkg.com/html5-qrcode"></script>
 <script>
+const currentUser = {
+  full_name: <?= json_encode($_SESSION['full_name']) ?>,
+  email: <?= json_encode($_SESSION['email']) ?>,
+  department: <?= json_encode($user_info['department_name'] ?? '') ?>
+};
+
 const categorySelect = document.getElementById('category-select');
 const assetTagInput   = document.getElementById('asset-tag-input');
 const hiddenAssetId  = document.getElementById('hidden-asset-id');
@@ -366,6 +446,22 @@ const modelInput     = document.getElementById('input-model');
 const warrantyInput  = document.getElementById('input-warranty');
 const assetList      = document.getElementById('asset-list');
 const qrFileInput    = document.getElementById('qr-file-input');
+
+// Requester Autofill Logic
+const selfCheck = document.getElementById('is-self-requester');
+const reqName   = document.getElementById('requester-name');
+const reqEmail  = document.getElementById('requester-email');
+const reqDept   = document.getElementById('requester-dept');
+
+if (selfCheck) {
+  selfCheck.addEventListener('change', function() {
+    if (this.checked) {
+      reqName.value = currentUser.full_name;
+      reqEmail.value = currentUser.email;
+      reqDept.value = currentUser.department;
+    }
+  });
+}
 
 function checkCategoryOthers(sel) {
   const container = document.getElementById('others-specify-container');
@@ -431,6 +527,64 @@ function openKbModal(title, content) {
 function closeKbModal() {
   document.getElementById('kb-modal').classList.add('hidden');
   document.body.style.overflow = '';
+}
+
+// Add Category
+function openAddCategoryModal() { document.getElementById('add-category-modal').classList.remove('hidden'); }
+function closeAddCategoryModal() { document.getElementById('add-category-modal').classList.add('hidden'); }
+function submitAddCategory() {
+  const name = document.getElementById('new-category-name').value.trim();
+  const bulb = document.getElementById('new-category-bulb').checked ? 1 : 0;
+  if (!name) return alert('Please enter a category name.');
+  
+  const fd = new FormData();
+  fd.append('category_name', name);
+  fd.append('has_bulb_hours', bulb);
+  
+  fetch('category_save_ajax.php', { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(data => {
+      if (data.ok) {
+        const opt = new Option(name, data.id);
+        opt.setAttribute('data-name', name);
+        opt.setAttribute('data-bulb', bulb);
+        categorySelect.add(opt);
+        categorySelect.value = data.id;
+        categorySelect.dispatchEvent(new Event('change'));
+        closeAddCategoryModal();
+      } else {
+        alert(data.error || 'Failed to save category.');
+      }
+    });
+}
+
+// Add KB
+function openAddKbModal() { 
+  document.getElementById('new-kb-category').value = categorySelect.value;
+  document.getElementById('add-kb-modal').classList.remove('hidden'); 
+}
+function closeAddKbModal() { document.getElementById('add-kb-modal').classList.add('hidden'); }
+function submitAddKb() {
+  const title = document.getElementById('new-kb-title').value.trim();
+  const catId = document.getElementById('new-kb-category').value;
+  const content = document.getElementById('new-kb-content').value.trim();
+  if (!title || !content) return alert('Please fill in title and content.');
+  
+  const fd = new FormData();
+  fd.append('title', title);
+  fd.append('category_id', catId);
+  fd.append('content', content);
+  
+  fetch('kb_save_ajax.php', { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(data => {
+      if (data.ok) {
+        updateFormBehavior(); // Refresh suggestions
+        closeAddKbModal();
+      } else {
+        alert(data.error || 'Failed to save article.');
+      }
+    });
 }
 
 assetTagInput.addEventListener('change', function() {

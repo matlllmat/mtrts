@@ -18,8 +18,13 @@ if ($action === 'create') {
         $description = "Category: " . trim($_POST['category_others']) . "\n\n" . $description;
     }
 
+    $is_self = (int)($_POST['is_self_requester'] ?? 0);
+
     $d = [
-        'requester_id'     => $user_id,
+        'requester_id'     => $is_self ? $user_id : null,
+        'external_name_from'  => !$is_self ? trim($_POST['external_name_from'] ?? '') : null,
+        'external_email_from' => !$is_self ? trim($_POST['external_email_from'] ?? '') : null,
+        'external_dept_from'  => !$is_self ? trim($_POST['external_dept_from'] ?? '') : null,
         'title'            => trim($_POST['title'] ?? ''),
         'description'      => $description,
         'impact'           => $_POST['impact'] ?? 'medium',

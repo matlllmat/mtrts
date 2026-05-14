@@ -226,9 +226,9 @@ function create_ticket(PDO $pdo, array $d): int {
         INSERT INTO tickets
             (ticket_number, requester_id, asset_id, category_id, location_id,
              title, description, impact, urgency, priority, channel,
-             external_email_from, external_name_from,
+             external_email_from, external_name_from, external_dept_from,
              is_event_support, request_type, preferred_window, status)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ")->execute([
         $ticket_number,
         $d['requester_id'] ?: null,
@@ -243,6 +243,7 @@ function create_ticket(PDO $pdo, array $d): int {
         $d['channel'] ?? 'web',
         $d['external_email_from'] ?? null,
         $d['external_name_from']  ?? null,
+        $d['external_dept_from']  ?? null,
         $d['is_event_support'] ?? 0,
         $d['request_type'] ?? 'repair',
         $d['preferred_window'] ?: null,
