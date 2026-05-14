@@ -111,7 +111,7 @@
         </div>
         <div class="flex items-end justify-between">
             <span id="stat-compliance" class="text-3xl font-extrabold text-[#1a5c2a] leading-none">-</span>
-            <span class="text-[10px] font-bold text-gray-400 uppercase group-hover:text-[#1a5c2a] transition-colors">View →</span>
+            <span class="text-[10px] font-bold text-gray-400 uppercase group-hover:text-[#1a5c2a] transition-colors">View â†’</span>
         </div>
     </div>
     <div onclick="openDrilldown('mttr')" class="bg-white rounded-xl p-4 shadow-sm border border-gray-100 flex flex-col justify-between h-full cursor-pointer hover:shadow-md hover:border-[#1a5c2a] transition-all">
@@ -479,7 +479,7 @@ function showTerm(termKey) {
 
 
 const formatMinutes = (mins) => {
-    if (!mins || isNaN(mins)) return '—';
+    if (!mins || isNaN(mins)) return 'â€”';
     const totalSeconds = Math.round(mins * 60);
     if (totalSeconds < 60) return `${totalSeconds}s`;
     const h = Math.floor(totalSeconds / 3600);
@@ -710,7 +710,7 @@ const fetchStats = () => {
             document.getElementById('hotspots-container').innerHTML = '<div class="text-sm text-red-500">Failed to load data.</div>';
         });
 
-    // Time heatmap is all-time — fetch once independently, cache globally
+    // Time heatmap is all-time â€” fetch once independently, cache globally
     fetch(`<?= BASE_URL ?>modules/reports/api_stats.php?start=2000-01-01&end=2099-12-31&type=all`)
         .then(r => r.json())
         .then(data => {
@@ -752,7 +752,7 @@ window.openHeatmapModal = () => {
         const hourLabels = Array.from({length:24}, (_,i) => i === 0 ? '12am' : i < 12 ? i+'am' : i === 12 ? '12pm' : (i-12)+'pm');
         const dowLabels  = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 
-        // Destroy old charts — use distinct names to avoid collision with window.modalHourChart (DOM auto-assign)
+        // Destroy old charts â€” use distinct names to avoid collision with window.modalHourChart (DOM auto-assign)
         if (window._chartHour && typeof window._chartHour.destroy === 'function') { window._chartHour.destroy(); window._chartHour = null; }
         if (window._chartDow  && typeof window._chartDow.destroy  === 'function') { window._chartDow.destroy();  window._chartDow  = null; }
 
@@ -941,7 +941,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <div class="font-bold text-[#1a5c2a]">#${t.ticket_number}</div>
                             <div class="text-[10px] text-gray-400 font-mono">${new Date(t.created_at).toLocaleDateString()}</div>
                         </td>
-                        <td class="py-3 px-6 text-gray-500 font-mono text-xs">${t.wo_number || '—'}</td>
+                        <td class="py-3 px-6 text-gray-500 font-mono text-xs">${t.wo_number || 'â€”'}</td>
                         <td class="py-3 px-6 text-gray-600 font-medium">${t.requester || 'System'}</td>
                         <td class="py-3 px-6">
                             <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider 
@@ -1115,20 +1115,6 @@ document.addEventListener('DOMContentLoaded', () => {
       </section>
 
     </div>
-          </div>
-
-          <div class="bg-gray-50 p-3 rounded">
-            <strong>D. Test Audit & Data Retention:</strong>
-            <ol class="list-decimal pl-4 mt-1 text-xs space-y-1">
-              <li>Click <strong>E-Discovery Logs</strong> in the green Audit card. Search for 'tickets' to see a detailed history of every change.</li>
-              <li>Run <code>php C:\xampp\htdocs\mtrts\modules\reports\cron_data_retention.php</code> to force the system to archive logs older than 2 years and purge temporary data.</li>
-            </ol>
-          </div>
-        </div>
-      </section>
-
-    </div>
-    
     <div class="p-4 border-t border-gray-100 bg-gray-50 flex justify-end">
       <button onclick="document.getElementById('info-modal').classList.add('hidden')" class="bg-gray-200 text-gray-700 px-5 py-2 rounded-lg text-sm font-bold hover:bg-gray-300 transition">
         Close
@@ -1162,7 +1148,7 @@ document.addEventListener('DOMContentLoaded', () => {
             status.innerHTML = `
               <div class="flex items-center justify-between">
                 <span>✅ PDF ready!</span>
-                <a href="${data.pdf_url}" target="_blank" class="font-bold underline">Open PDF →</a>
+                <a href="${data.pdf_url}" target="_blank" class="font-bold underline">Open PDF â†’</a>
               </div>
               <div class="text-[10px] text-gray-400 font-mono mt-1 pt-1 border-t border-green-100">
                 Saved to: ${data.pdf_path}
@@ -1177,7 +1163,7 @@ document.addEventListener('DOMContentLoaded', () => {
           } else {
             label.textContent = 'Retry';
             status.className = 'block text-xs rounded-lg px-3 py-2 font-medium bg-red-50 border border-red-200 text-red-700 whitespace-pre-wrap';
-            status.textContent = '❌ ' + (data.error || 'Generation failed.');
+            status.textContent = 'âŒ ' + (data.error || 'Generation failed.');
           }
         })
         .catch((err) => {
@@ -1186,7 +1172,7 @@ document.addEventListener('DOMContentLoaded', () => {
           btn.disabled = false;
           label.textContent = 'Retry';
           status.className = 'block text-xs rounded-lg px-3 py-2 font-medium bg-red-50 border border-red-200 text-red-700';
-          status.textContent = '❌ Network error: ' + err.message;
+          status.textContent = 'âŒ Network error: ' + err.message;
         });
     }
     </script>
