@@ -7,7 +7,7 @@ define('DB_CHARSET', 'utf8mb4');
 
 // Base URL — adjust if deployed under a sub-folder
 if (!defined('BASE_URL')) {
-    define('BASE_URL', 'http://mtrts.xo.je/');
+    define('BASE_URL', 'https://mtrts.xo.je/');
 }
 
 $options = [

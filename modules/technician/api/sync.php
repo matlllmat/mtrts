@@ -1,9 +1,13 @@
 <?php
+ini_set('display_errors', '0');
+ob_start();
+
 $module = 'technician';
 require_once __DIR__ . '/../../../config/auth_only.php';
 require_once __DIR__ . '/../functions.php';
 require_once __DIR__ . '/../conflict_resolver.php';
 
+ob_end_clean(); // discard any stray output from requires (notices, warnings, etc.)
 header('Content-Type: application/json; charset=utf-8');
 
 // File validation rules (must match frontend idb-storage.js)

@@ -19,6 +19,15 @@ require_once __DIR__ . '/auth.php';
 
 // Must be logged in
 if (!isset($_SESSION['user_id'])) {
+    $isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH'])
+        || str_contains($_SERVER['CONTENT_TYPE'] ?? '', 'application/json')
+        || str_contains($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json');
+    if ($isAjax) {
+        http_response_code(401);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['success' => false, 'message' => 'Session expired. Please log in again.']);
+        exit;
+    }
     header('Location: ' . BASE_URL . 'modules/login.php');
     exit;
 }

@@ -5,9 +5,15 @@ define('DB_USER', 'root');
 define('DB_PASS', '');
 define('DB_CHARSET', 'utf8mb4');
 
-// Base URL — adjust if deployed under a sub-folder
+// Base URL — auto-detected so the same code works on local XAMPP and deployed HTTPS
 if (!defined('BASE_URL')) {
-    define('BASE_URL', '/mtrts/');
+    $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+               || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+    $proto  = $isHttps ? 'https' : 'http';
+    $host   = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    // Local XAMPP: app lives under /mtrts/. Any other host: app is at domain root.
+    $subdir = ($host === 'localhost') ? '/mtrts/' : '/';
+    define('BASE_URL', $proto . '://' . $host . $subdir);
 }
 
 $options = [
