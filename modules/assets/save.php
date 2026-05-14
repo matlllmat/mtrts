@@ -184,6 +184,7 @@ try {
 
         log_asset_changes($pdo, $asset_id, $old, $d, $user_id);
         upsert_warranty($pdo, $asset_id, $d);
+        unset($_SESSION['last_warranty_check']);
         header('Location: ' . BASE_URL . "modules/assets/view.php?id={$asset_id}&flash=updated");
     } else {
         $new_id = create_asset($pdo, $d);
@@ -193,6 +194,9 @@ try {
 
         log_asset_change($pdo, $new_id, 'created', null, $d['asset_tag'], $user_id);
         upsert_warranty($pdo, $new_id, $d);
+        // Force the warranty check to re-run on the next page load so a
+        // newly-created asset with an imminent expiry triggers notifications immediately.
+        unset($_SESSION['last_warranty_check']);
         $view_url = BASE_URL . "modules/assets/view.php?id={$new_id}&flash=created";
         if ($is_ajax) {
             // Skip CSRF regen so staged file uploads keep working with the
