@@ -329,32 +329,33 @@ function update_ticket(PDO $pdo, int $id, array $d): void {
 }
 
 function check_duplicate_ticket(PDO $pdo, array $d, int $days = 7): ?int {
-    // 1. Check by Asset ID (most reliable)
-    if (!empty($d['asset_id'])) {
-        $stmt = $pdo->prepare("
-            SELECT ticket_id 
-            FROM tickets 
-            WHERE asset_id = ? 
-              AND status NOT IN ('resolved', 'closed', 'cancelled')
-              AND created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
-            LIMIT 1
-        ");
-        $stmt->execute([(int)$d['asset_id'], $days]);
-        $id = $stmt->fetchColumn();
-        if ($id) return (int)$id;
-    }
-
-    // 2. Check by Requester + Title (catches rapid double-clicks or same-day re-submissions)
+    // Check for exact duplication of important fields: Requester, Email, Title, Category, Asset, Location, and Description.
     $stmt = $pdo->prepare("
         SELECT ticket_id 
         FROM tickets 
-        WHERE requester_id = ? 
-          AND title = ?
+        WHERE requester_id <=> ? 
+          AND external_email_from <=> ?
+          AND title <=> ?
+          AND category_id <=> ?
+          AND asset_id <=> ?
+          AND location_id <=> ?
+          AND description <=> ?
           AND status NOT IN ('resolved', 'closed', 'cancelled')
-          AND created_at >= DATE_SUB(NOW(), INTERVAL 1 DAY)
+          AND created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
         LIMIT 1
     ");
-    $stmt->execute([(int)$d['requester_id'], $d['title']]);
+    
+    $stmt->execute([
+        $d['requester_id'] ?? null,
+        $d['external_email_from'] ?? null,
+        $d['title'] ?? null,
+        $d['category_id'] ?? null,
+        $d['asset_id'] ?? null,
+        $d['location_id'] ?? null,
+        $d['description'] ?? null,
+        $days
+    ]);
+    
     $id = $stmt->fetchColumn();
     if ($id) return (int)$id;
 
