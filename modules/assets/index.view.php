@@ -31,6 +31,18 @@
       <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
       Bulk Update
     </button>
+    <a href="locations.php"
+       class="inline-flex items-center gap-1.5 border border-gray-200 text-gray-600 hover:border-gray-400 hover:text-gray-800 text-sm font-semibold px-4 py-2 rounded-lg transition-colors duration-150"
+       title="Add, rename, or remove rooms">
+      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+      Manage Locations
+    </a>
+    <a href="categories.php"
+       class="inline-flex items-center gap-1.5 border border-gray-200 text-gray-600 hover:border-gray-400 hover:text-gray-800 text-sm font-semibold px-4 py-2 rounded-lg transition-colors duration-150"
+       title="Add or update equipment categories">
+      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+      Manage Categories
+    </a>
   </div>
 </div>
 
@@ -733,8 +745,8 @@ document.addEventListener('DOMContentLoaded', () => {
       <!-- Template download hint -->
       <p class="text-xs text-gray-400 mt-3">
         Need a template?
-        <a href="<?= BASE_URL ?>public/assets/sample_import.csv" download class="text-olfu-green hover:underline">Download sample CSV</a>
-        to see the required column format.
+        <a href="sample_csv.php" class="text-olfu-green hover:underline font-semibold">Download sample CSV</a>
+        — pre-filled with valid DEMO rows you can import directly to try it out.
       </p>
 
       <!-- Import result -->

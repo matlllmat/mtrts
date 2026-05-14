@@ -72,7 +72,7 @@
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
             </svg>
-            Edit
+            Update Details
           </a>
         </div>
       </div>
@@ -245,9 +245,17 @@
                     : number_format($wd['file_size_kb']) . ' KB';
                 $wd_viewable = in_array($wd['file_type'], ['pdf', 'jpg', 'jpeg', 'png']);
                 ?>
-                <div class="flex items-center gap-2 p-2 bg-gray-50 rounded-lg border border-gray-200">
+                <div class="doc-row" data-doc-id="<?= $wd['document_id'] ?>">
                   <span class="text-xs font-semibold <?= $wd_color ?> px-2 py-0.5 rounded-full flex-shrink-0"><?= $wd_lbl ?></span>
-                  <span class="text-sm text-gray-700 flex-1 truncate"><?= htmlspecialchars($wd['document_name']) ?></span>
+                  <div class="flex-1 min-w-0 flex items-center gap-1 group">
+                    <span class="doc-name text-sm text-gray-700 truncate"><?= htmlspecialchars($wd['document_name']) ?></span>
+                    <button onclick="startRename(<?= $wd['document_id'] ?>, this)"
+                            class="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-gray-700 transition-all flex-shrink-0" title="Rename">
+                      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                      </svg>
+                    </button>
+                  </div>
                   <span class="text-xs text-gray-400 flex-shrink-0"><?= $wd_sz ?></span>
                   <?php if ($wd_viewable): ?>
                   <a href="doc_view.php?id=<?= $wd['document_id'] ?>" target="_blank"

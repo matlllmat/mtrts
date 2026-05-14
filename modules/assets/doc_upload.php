@@ -41,9 +41,11 @@ if (empty($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
     exit;
 }
 
-$file      = $_FILES['file'];
-$orig_name = basename($file['name']);
-$ext       = strtolower(pathinfo($orig_name, PATHINFO_EXTENSION));
+$file         = $_FILES['file'];
+$orig_name    = basename($file['name']);
+$custom_name  = trim($_POST['document_name'] ?? '');
+$display_name = ($custom_name !== '') ? basename($custom_name) : $orig_name;
+$ext          = strtolower(pathinfo($orig_name, PATHINFO_EXTENSION));
 $allowed   = ['pdf', 'jpg', 'jpeg', 'png', 'dwg', 'zip'];
 $max_kb    = 51200; // 50 MB
 $size_kb   = (int) ceil($file['size'] / 1024);
@@ -58,12 +60,12 @@ if ($size_kb > $max_kb) {
     exit;
 }
 
-// Determine version
+// Determine version (check against the display name, not the physical filename)
 $prev = $pdo->prepare("
     SELECT document_id, version FROM asset_documents
     WHERE asset_id = ? AND document_name = ? AND is_latest = 1
 ");
-$prev->execute([$asset_id, $orig_name]);
+$prev->execute([$asset_id, $display_name]);
 $existing = $prev->fetch();
 $version  = $existing ? $existing['version'] + 1 : 1;
 
@@ -91,14 +93,14 @@ $pdo->prepare("
     INSERT INTO asset_documents
         (asset_id, document_name, file_path, file_type, file_size_kb, document_type, version, is_latest, uploaded_by)
     VALUES (?,?,?,?,?,?,?,1,?)
-")->execute([$asset_id, $orig_name, $db_path, $ext, $size_kb, $document_type ?: null, $version, $user_id]);
+")->execute([$asset_id, $display_name, $db_path, $ext, $size_kb, $document_type ?: null, $version, $user_id]);
 
 $doc_id = (int) $pdo->lastInsertId();
 
 echo json_encode([
     'success'       => true,
     'document_id'   => $doc_id,
-    'document_name' => $orig_name,
+    'document_name' => $display_name,
     'file_type'     => $ext,
     'file_size_kb'  => $size_kb,
     'document_type' => $document_type,

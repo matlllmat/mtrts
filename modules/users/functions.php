@@ -138,6 +138,56 @@ function get_departments_list(PDO $pdo): array {
     return $pdo->query("SELECT department_id, department_name FROM departments ORDER BY department_name")->fetchAll();
 }
 
+// ── Cost Center (Department) CRUD ─────────────────────────────
+
+function get_departments_with_counts(PDO $pdo): array {
+    return $pdo->query("
+        SELECT d.department_id, d.department_name,
+               COUNT(DISTINCT u.user_id)  AS user_count,
+               COUNT(DISTINCT a.asset_id) AS asset_count
+        FROM departments d
+        LEFT JOIN users  u ON u.department_id = d.department_id
+        LEFT JOIN assets a ON a.department_id = d.department_id
+        GROUP BY d.department_id, d.department_name
+        ORDER BY d.department_name
+    ")->fetchAll();
+}
+
+function get_department_by_id(PDO $pdo, int $id): array|false {
+    $stmt = $pdo->prepare("SELECT * FROM departments WHERE department_id = ?");
+    $stmt->execute([$id]);
+    return $stmt->fetch();
+}
+
+function department_name_exists(PDO $pdo, string $name, int $exclude = 0): bool {
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM departments WHERE LOWER(department_name) = LOWER(?) AND department_id != ?");
+    $stmt->execute([trim($name), $exclude]);
+    return (int)$stmt->fetchColumn() > 0;
+}
+
+function count_department_usage(PDO $pdo, int $id): int {
+    $u = $pdo->prepare("SELECT COUNT(*) FROM users  WHERE department_id = ?");
+    $u->execute([$id]);
+    $a = $pdo->prepare("SELECT COUNT(*) FROM assets WHERE department_id = ?");
+    $a->execute([$id]);
+    return (int)$u->fetchColumn() + (int)$a->fetchColumn();
+}
+
+function create_department(PDO $pdo, string $name): int {
+    $stmt = $pdo->prepare("INSERT INTO departments (department_name) VALUES (?)");
+    $stmt->execute([trim($name)]);
+    return (int)$pdo->lastInsertId();
+}
+
+function update_department(PDO $pdo, int $id, string $name): void {
+    $pdo->prepare("UPDATE departments SET department_name = ? WHERE department_id = ?")
+        ->execute([trim($name), $id]);
+}
+
+function delete_department(PDO $pdo, int $id): void {
+    $pdo->prepare("DELETE FROM departments WHERE department_id = ?")->execute([$id]);
+}
+
 // ── Uniqueness checks ─────────────────────────────────────────
 
 function email_exists(PDO $pdo, string $email, int $exclude_id = 0): bool {

@@ -328,6 +328,109 @@ function log_asset_changes(PDO $pdo, int $id, array $old, array $new, int $by): 
     }
 }
 
+// ── Locations CRUD ────────────────────────────────────────────
+
+function get_locations_with_counts(PDO $pdo): array {
+    return $pdo->query("
+        SELECT l.location_id, l.building, l.floor, l.room, l.created_at,
+               COUNT(a.asset_id) AS asset_count
+        FROM locations l
+        LEFT JOIN assets a ON a.location_id = l.location_id
+        GROUP BY l.location_id, l.building, l.floor, l.room, l.created_at
+        ORDER BY l.building, l.floor, l.room
+    ")->fetchAll();
+}
+
+function get_location_by_id(PDO $pdo, int $id): array|false {
+    $stmt = $pdo->prepare("SELECT * FROM locations WHERE location_id = ?");
+    $stmt->execute([$id]);
+    return $stmt->fetch();
+}
+
+function count_assets_at_location(PDO $pdo, int $loc_id): int {
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM assets WHERE location_id = ?");
+    $stmt->execute([$loc_id]);
+    return (int) $stmt->fetchColumn();
+}
+
+function location_exists(PDO $pdo, string $building, string $floor, string $room, int $exclude = 0): bool {
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*) FROM locations
+        WHERE building = ? AND floor = ? AND room = ? AND location_id != ?
+    ");
+    $stmt->execute([$building, $floor, $room, $exclude]);
+    return (int) $stmt->fetchColumn() > 0;
+}
+
+function create_location(PDO $pdo, string $building, string $floor, string $room): int {
+    $pdo->prepare("INSERT INTO locations (building, floor, room) VALUES (?,?,?)")
+        ->execute([$building, $floor, $room]);
+    return (int) $pdo->lastInsertId();
+}
+
+function update_location(PDO $pdo, int $id, string $building, string $floor, string $room): void {
+    $pdo->prepare("UPDATE locations SET building=?, floor=?, room=? WHERE location_id=?")
+        ->execute([$building, $floor, $room, $id]);
+}
+
+function delete_location(PDO $pdo, int $id): void {
+    $pdo->prepare("DELETE FROM locations WHERE location_id = ?")->execute([$id]);
+}
+
+// ── Categories CRUD ───────────────────────────────────────────
+
+function get_categories_with_counts(PDO $pdo): array {
+    return $pdo->query("
+        SELECT c.category_id, c.category_name, c.has_bulb_hours, c.description, c.created_at,
+               COUNT(a.asset_id) AS asset_count
+        FROM asset_categories c
+        LEFT JOIN assets a ON a.category_id = c.category_id
+        GROUP BY c.category_id, c.category_name, c.has_bulb_hours, c.description, c.created_at
+        ORDER BY c.category_name
+    ")->fetchAll();
+}
+
+function get_category_by_id(PDO $pdo, int $id): array|false {
+    $stmt = $pdo->prepare("SELECT * FROM asset_categories WHERE category_id = ?");
+    $stmt->execute([$id]);
+    return $stmt->fetch();
+}
+
+function count_assets_in_category(PDO $pdo, int $cat_id): int {
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM assets WHERE category_id = ?");
+    $stmt->execute([$cat_id]);
+    return (int) $stmt->fetchColumn();
+}
+
+function category_name_exists(PDO $pdo, string $name, int $exclude = 0): bool {
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*) FROM asset_categories
+        WHERE category_name = ? AND category_id != ?
+    ");
+    $stmt->execute([$name, $exclude]);
+    return (int) $stmt->fetchColumn() > 0;
+}
+
+function create_category(PDO $pdo, string $name, bool $has_bulb, ?string $description): int {
+    $pdo->prepare("
+        INSERT INTO asset_categories (category_name, has_bulb_hours, description)
+        VALUES (?,?,?)
+    ")->execute([$name, $has_bulb ? 1 : 0, $description]);
+    return (int) $pdo->lastInsertId();
+}
+
+function update_category(PDO $pdo, int $id, string $name, bool $has_bulb, ?string $description): void {
+    $pdo->prepare("
+        UPDATE asset_categories
+        SET category_name = ?, has_bulb_hours = ?, description = ?
+        WHERE category_id = ?
+    ")->execute([$name, $has_bulb ? 1 : 0, $description, $id]);
+}
+
+function delete_category(PDO $pdo, int $id): void {
+    $pdo->prepare("DELETE FROM asset_categories WHERE category_id = ?")->execute([$id]);
+}
+
 // ── Validation ────────────────────────────────────────────────
 
 function asset_tag_exists(PDO $pdo, string $tag, int $exclude = 0): bool {
