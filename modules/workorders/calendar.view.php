@@ -10,12 +10,19 @@ $ev_colors = [
     'closed'      => ['bg-gray-100 text-gray-500',    '#9ca3af'],
 ];
 
-$nav_extra    = http_build_query(array_filter(['tech' => $filter_tech ?: null, 'type' => $filter_type ?: null]));
+$type_labels = [
+    'repair'      => 'Repair',
+    'diagnosis'   => 'Diagnosis',
+    'maintenance' => 'Maintenance',
+    'follow_up'   => 'Follow-up',
+];
+
+$nav_extra     = http_build_query(array_filter(['tech' => $filter_tech ?: null, 'type' => $filter_type ?: null]));
 $nav_extra_str = $nav_extra ? '&' . $nav_extra : '';
-$prev_href    = "?view={$view}&offset=" . ($offset - 1) . $nav_extra_str;
-$today_href   = "?view={$view}&offset=0" . $nav_extra_str;
-$next_href    = "?view={$view}&offset=" . ($offset + 1) . $nav_extra_str;
-$today_mid    = new DateTime('midnight');
+$prev_href     = "?view={$view}&offset=" . ($offset - 1) . $nav_extra_str;
+$today_href    = "?view={$view}&offset=0" . $nav_extra_str;
+$next_href     = "?view={$view}&offset=" . ($offset + 1) . $nav_extra_str;
+$today_mid     = new DateTime('midnight');
 ?>
 
 <!-- Back -->
@@ -108,21 +115,28 @@ function applyCalFilter() {
     <div class="border-r border-gray-100 last:border-0 p-1.5
                 <?= !$day['in_month'] ? 'bg-gray-50/60' : '' ?>
                 <?= $day['is_today'] ? 'bg-green-50' : '' ?>">
-      <!-- Day number — clicking drills into day view -->
+      <!-- Day number -->
       <a href="?view=day&offset=<?= $cell_offset_val ?><?= $nav_extra_str ?>"
          class="inline-flex items-center justify-center w-7 h-7 rounded-full text-sm font-semibold mb-1
                 <?= $day['is_today'] ? 'bg-olfu-green text-white' : (!$day['in_month'] ? 'text-gray-300 hover:bg-gray-100' : 'text-gray-700 hover:bg-gray-100') ?>">
         <?= $day['num'] ?>
       </a>
-      <!-- WO chips (max 3 visible) -->
+      <!-- WO chips (max 3 visible) with tech initials -->
       <?php foreach (array_slice($day_wos, 0, 3) as $dwo):
         [$ev_cls, $ev_accent] = $ev_colors[$dwo['status']] ?? $ev_colors['closed'];
+        $raw_name = $dwo['technician_name'] ?? '';
+        $initials = $raw_name
+          ? implode('', array_map(fn($w) => strtoupper($w[0]), array_slice(explode(' ', trim($raw_name)), 0, 2)))
+          : '?';
       ?>
       <a href="view.php?id=<?= $dwo['wo_id'] ?>"
-         class="block text-[10px] truncate rounded px-1 py-0.5 mb-0.5 <?= $ev_cls ?>"
+         class="flex items-center gap-1 text-[10px] truncate rounded px-1 py-0.5 mb-0.5 <?= $ev_cls ?>"
          style="border-left:2px solid <?= $ev_accent ?>; line-height:1.5;"
          title="<?= htmlspecialchars($dwo['wo_number'] . ' — ' . ($dwo['technician_name'] ?: 'Unassigned')) ?>">
-        <?= htmlspecialchars($dwo['wo_number']) ?>
+        <span class="w-3.5 h-3.5 rounded-full bg-white/60 text-[7px] font-bold flex items-center justify-center shrink-0">
+          <?= htmlspecialchars($initials) ?>
+        </span>
+        <span class="truncate"><?= htmlspecialchars($dwo['wo_number']) ?></span>
       </a>
       <?php endforeach; ?>
       <?php if (count($day_wos) > 3): ?>
@@ -141,6 +155,7 @@ function applyCalFilter() {
 <!-- ══ DAY / WEEK VIEW ════════════════════════════════════════= -->
 <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
 <div class="flex flex-col" style="min-width:<?= $view === 'day' ? '420px' : '800px' ?>;">
+
   <!-- Column headers -->
   <div class="flex border-b border-gray-100">
     <div class="w-16 flex-shrink-0 bg-gray-50 border-r border-gray-100"></div>
@@ -154,10 +169,11 @@ function applyCalFilter() {
 
   <!-- Hour grid -->
   <div class="flex relative" style="height:<?= count($hours) * 4 ?>rem;">
+
     <!-- Time column -->
     <div class="w-16 flex-shrink-0 flex flex-col border-r border-gray-100 bg-gray-50 absolute left-0 top-0 bottom-0 z-10">
       <?php foreach($hours as $h): ?>
-      <div class="h-16 border-b border-gray-100 text-xs text-gray-400 text-right pr-2 pt-1">
+      <div class="h-16 border-b border-gray-100 text-xs text-gray-400 text-right pr-2 pt-1 relative">
         <?= $h > 12 ? $h-12 : $h ?><?= $h >= 12 ? 'pm' : 'am' ?>
       </div>
       <?php endforeach; ?>
@@ -167,43 +183,125 @@ function applyCalFilter() {
     <div class="flex-1 flex ml-16">
       <?php foreach($days as $d): ?>
       <div class="flex-1 relative border-r border-gray-100 last:border-0 <?= $d['is_today'] ? 'bg-green-50/30' : '' ?>">
-        <!-- Grid lines -->
+
+        <!-- Grid lines with half-hour subdivision -->
         <?php foreach($hours as $h): ?>
-        <div class="h-16 border-b border-gray-100/60"></div>
+        <div class="h-16 border-b border-gray-100/60 relative">
+          <div class="absolute left-0 right-0 border-b border-dashed border-gray-100/80" style="top:2rem"></div>
+        </div>
         <?php endforeach; ?>
 
-        <!-- WO event blocks -->
-        <?php foreach($wos as $wo):
+        <?php if ($d['is_today']): ?>
+        <!-- "Now" red line indicator -->
+        <div id="cal-now-line" class="absolute left-0 right-0 z-30 pointer-events-none hidden">
+          <div class="relative">
+            <div class="absolute w-2.5 h-2.5 rounded-full bg-red-500" style="left:-5px;top:-5px"></div>
+            <div class="h-0.5 bg-red-500 opacity-80"></div>
+          </div>
+        </div>
+        <script>
+        (function() {
+          const el = document.getElementById('cal-now-line');
+          if (!el) return;
+          function tick() {
+            const now = new Date();
+            const h = now.getHours() + now.getMinutes() / 60;
+            const hf = <?= (int)$hour_first ?>, hl = <?= (int)$hour_last ?>;
+            if (h < hf || h > hl + 1) { el.classList.add('hidden'); return; }
+            el.style.top = ((h - hf) * 4) + 'rem';
+            el.classList.remove('hidden');
+          }
+          tick();
+          setInterval(tick, 60000);
+        })();
+        </script>
+        <?php endif; ?>
+
+        <?php
+        // ── WO event blocks ────────────────────────────────────
+        $day_has_wos = false;
+
+        foreach ($wos as $wo):
           $ws = new DateTime($wo['scheduled_start']);
           $we = new DateTime($wo['scheduled_end']);
-          if ($ws->format('Y-m-d') !== $d['date']) continue;
 
-          $start_h = (int)$ws->format('H') + ((int)$ws->format('i') / 60);
-          $end_h   = (int)$we->format('H') + ((int)$we->format('i') / 60);
+          $ws_date   = $ws->format('Y-m-d');
+          $we_date   = $we->format('Y-m-d');
+          $curr_date = $d['date'];
+
+          $is_start_day = ($ws_date === $curr_date);
+          $is_end_day   = ($we_date === $curr_date && $ws_date !== $curr_date);
+          $is_mid_day   = (!$is_start_day && !$is_end_day && $curr_date > $ws_date && $curr_date < $we_date);
+
+          if (!$is_start_day && !$is_end_day && !$is_mid_day) continue;
+          $day_has_wos = true;
+
+          if ($is_start_day) {
+            $start_h = (int)$ws->format('H') + ((int)$ws->format('i') / 60);
+            $end_h   = ($we_date !== $ws_date)
+              ? ($hour_last + 1)
+              : ((int)$we->format('H') + ((int)$we->format('i') / 60));
+          } elseif ($is_end_day) {
+            $start_h = $hour_first;
+            $end_h   = (int)$we->format('H') + ((int)$we->format('i') / 60);
+          } else {
+            $start_h = $hour_first;
+            $end_h   = $hour_last + 1;
+          }
+
           $start_h = max($start_h, $hour_first);
           $end_h   = min($end_h,   $hour_last + 1);
           if ($end_h <= $hour_first || $start_h >= $hour_last + 1) continue;
 
           $top    = ($start_h - $hour_first) * 4;
-          $height = max(($end_h - $start_h) * 4, 2.5); // min 2.5rem so short WOs are always visible
+          $height = max(($end_h - $start_h) * 4, 2.5);
+
           [$ev_cls, $ev_accent] = $ev_colors[$wo['status']] ?? $ev_colors['closed'];
+          $type_label = $type_labels[$wo['wo_type']] ?? ucfirst($wo['wo_type'] ?? '');
+          $time_range = $ws->format('g:ia') . ' – ' . $we->format('g:ia');
+          $is_multiday = ($we_date !== $ws_date);
         ?>
         <a href="view.php?id=<?= $wo['wo_id'] ?>"
            class="absolute left-0.5 right-0.5 rounded overflow-hidden shadow-sm z-20 transition-all hover:shadow-md hover:brightness-95 <?= $ev_cls ?>"
            style="border-left:3px solid <?= $ev_accent ?>; top:<?= $top ?>rem; height:<?= $height ?>rem;"
-           title="<?= htmlspecialchars($wo['wo_number'] . ' — ' . ($wo['technician_name'] ?: 'Unassigned') . ' (' . $wo['status'] . ')') ?>">
-          <div class="px-1.5 pt-1 overflow-hidden h-full">
-            <div class="text-[11px] font-bold truncate leading-tight"><?= htmlspecialchars($wo['wo_number']) ?></div>
-            <?php if ($height >= 2.5): ?>
+           title="<?= htmlspecialchars($wo['wo_number'] . ' — ' . ($wo['technician_name'] ?: 'Unassigned') . ' (' . $wo['status'] . ') ' . $time_range) ?>">
+          <div class="px-1.5 pt-1 pb-0.5 overflow-hidden h-full flex flex-col gap-0.5">
+
+            <div class="flex items-center gap-1">
+              <div class="text-[11px] font-bold truncate leading-tight flex-1"><?= htmlspecialchars($wo['wo_number']) ?></div>
+              <?php if ($is_multiday && $is_start_day): ?>
+                <span class="text-[9px] opacity-50 shrink-0 font-bold">→</span>
+              <?php elseif ($is_end_day): ?>
+                <span class="text-[9px] opacity-50 shrink-0 font-bold">←</span>
+              <?php endif; ?>
+            </div>
+
+            <?php if ($height >= 3.5): ?>
+            <div class="text-[9px] font-bold uppercase tracking-wider opacity-60 truncate"><?= htmlspecialchars($type_label) ?></div>
             <div class="text-[10px] truncate opacity-80 leading-tight"><?= htmlspecialchars($wo['technician_name'] ?: 'Unassigned') ?></div>
             <?php endif; ?>
+
+            <?php if ($height >= 5.0): ?>
+            <div class="text-[9px] font-mono opacity-50 mt-auto truncate"><?= htmlspecialchars($time_range) ?></div>
+            <?php endif; ?>
+
           </div>
         </a>
         <?php endforeach; ?>
+
+        <!-- Empty day placeholder -->
+        <?php if (!$day_has_wos): ?>
+        <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <span class="text-[10px] text-gray-200 font-semibold uppercase tracking-widest"
+                style="writing-mode:vertical-lr;transform:rotate(180deg)">No WOs</span>
+        </div>
+        <?php endif; ?>
+
       </div>
       <?php endforeach; ?>
     </div>
   </div>
+
 </div>
 </div>
 <?php endif; ?>
