@@ -268,13 +268,13 @@ function get_tech_rating_details(PDO $pdo, int $tech_user_id): array {
             w.wo_number,
             wf.rating,
             wf.comment,
-            wf.created_at,
+            wf.submitted_at,
             ru.full_name AS requester_name
         FROM wo_feedback wf
         JOIN work_orders w ON w.wo_id = wf.wo_id
         LEFT JOIN users ru ON ru.user_id = wf.requester_id
         WHERE w.assigned_to = ?
-        ORDER BY wf.created_at DESC
+        ORDER BY wf.submitted_at DESC
     ");
     $stmt->execute([$tech_user_id]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);

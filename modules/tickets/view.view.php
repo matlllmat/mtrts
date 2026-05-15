@@ -272,21 +272,28 @@
           const isNegative = diff < 0;
           if (isNegative) diff = Math.abs(diff);
 
-          const h = Math.floor(diff / 3600000);
-          const m = Math.floor((diff % 3600000) / 60000);
-          const s = Math.floor((diff % 60000) / 1000);
+          const totalSec = Math.floor(diff / 1000);
+          const d = Math.floor(totalSec / 86400);
+          const h = Math.floor((totalSec % 86400) / 3600);
+          const m = Math.floor((totalSec % 3600) / 60);
+          const s = totalSec % 60;
           const pad = n => String(n).padStart(2, '0');
 
+          let label;
+          if (d > 0)       label = `${d}d ${pad(h)}h ${pad(m)}m ${pad(s)}s`;
+          else if (h > 0)  label = `${pad(h)}h ${pad(m)}m ${pad(s)}s`;
+          else             label = `${pad(m)}m ${pad(s)}s`;
+
           if (isNegative) {
-            el.textContent = `00:00:00`;
+            el.textContent = 'Overdue';
             el.classList.remove('text-gray-700', 'text-amber-600');
             el.classList.add('text-red-600', 'animate-pulse');
-          } else if (h === 0 && m < 30) {
-            el.textContent = `${pad(h)}:${pad(m)}:${pad(s)}`;
+          } else if (d === 0 && h === 0 && m < 30) {
+            el.textContent = label;
             el.classList.remove('text-gray-700', 'text-red-600');
             el.classList.add('text-amber-600');
           } else {
-            el.textContent = `${pad(h)}:${pad(m)}:${pad(s)}`;
+            el.textContent = label;
             el.classList.remove('text-red-600', 'text-amber-600', 'animate-pulse');
             el.classList.add('text-gray-700');
           }
