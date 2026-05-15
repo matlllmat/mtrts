@@ -15,9 +15,6 @@ $is_staff = in_array($_SESSION['role_id'], [1, 2, 3, 4, 8]);
 if ($action === 'create') {
     // Basic sanitization
     $description = trim($_POST['description'] ?? '');
-    if (!empty($_POST['category_others'])) {
-        $description = "Category: " . trim($_POST['category_others']) . "\n\n" . $description;
-    }
 
     $is_self = (int)($_POST['is_self_requester'] ?? 0);
 
@@ -41,6 +38,11 @@ if ($action === 'create') {
         'dynamic_fields'   => $_POST['dynamic_fields'] ?? [],
         'channel'          => 'web',
     ];
+
+    $category_others = trim($_POST['category_others'] ?? '');
+    if ($category_others !== '' && (((int)($_POST['category_id'] ?? 0)) === 999)) {
+        $d['dynamic_fields']['custom_category'] = $category_others;
+    }
 
     // Check duplicate
     $dup_id = check_duplicate_ticket($pdo, $d);
@@ -144,6 +146,11 @@ if ($action === 'create') {
         'external_email_from' => trim($_POST['external_email_from'] ?? ''),
         'external_dept_from'  => trim($_POST['external_dept_from'] ?? ''),
     ];
+
+    $category_others = trim($_POST['category_others'] ?? '');
+    if ($category_others !== '' && (((int)($_POST['category_id'] ?? 0)) === 999)) {
+        $d['dynamic_fields']['custom_category'] = $category_others;
+    }
 
     if ($is_staff && isset($_POST['assigned_to'])) {
         $d['assigned_to'] = ((int)$_POST['assigned_to']) ?: null;

@@ -424,7 +424,17 @@
           </div>
           <div>
             <dt class="text-gray-500 mb-0.5">Category</dt>
-            <dd class="font-medium text-gray-900"><?= htmlspecialchars($ticket['category_name'] ?: 'None specified') ?></dd>
+            <dd class="font-medium text-gray-900">
+              <?php 
+                if ($ticket['category_name']) {
+                  echo htmlspecialchars($ticket['category_name']);
+                } elseif (!empty($dynamic_fields['custom_category'])) {
+                  echo htmlspecialchars($dynamic_fields['custom_category']);
+                } else {
+                  echo 'None specified';
+                }
+              ?>
+            </dd>
           </div>
           <div>
             <dt class="text-gray-500 mb-0.5">Location</dt>
@@ -526,14 +536,17 @@
     </div>
 
     <!-- Dynamic Fields -->
-    <?php if (!empty($dynamic_fields)): ?>
+    <?php 
+       $display_dynamic_fields = array_filter($dynamic_fields, fn($k) => $k !== 'custom_category', ARRAY_FILTER_USE_KEY);
+    ?>
+    <?php if (!empty($display_dynamic_fields)): ?>
     <div class="bg-white rounded-xl shadow-sm border border-gray-100">
       <div class="px-5 py-3 border-b border-gray-100 font-bold text-gray-900 bg-gray-50 text-sm">
         Additional Data
       </div>
       <div class="p-5">
         <dl class="space-y-3 text-sm">
-          <?php foreach ($dynamic_fields as $k => $v): ?>
+          <?php foreach ($display_dynamic_fields as $k => $v): ?>
           <div>
             <dt class="text-gray-500 mb-0.5"><?= htmlspecialchars(ucwords(str_replace('_', ' ', $k))) ?></dt>
             <dd class="font-medium text-gray-900"><?= htmlspecialchars($v) ?></dd>

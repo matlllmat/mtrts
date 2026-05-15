@@ -127,10 +127,16 @@
               <span>Category <span class="text-red-500">*</span></span>
               <button type="button" onclick="openAddCategoryModal()" class="text-[10px] font-bold text-olfu-green hover:underline">+ Add New</button>
             </label>
+            <?php 
+              $selected_cat = $t['category_id'] ?? 0;
+              if (!$selected_cat && !empty($dynamic_fields['custom_category'])) {
+                  $selected_cat = 999;
+              }
+            ?>
             <select name="category_id" id="category-select" class="fsel w-full" required onchange="checkCategoryOthers(this)">
               <option value="">-- Select Category --</option>
               <?php foreach ($categories as $c): ?>
-                <option value="<?= $c['category_id'] ?>" data-name="<?= htmlspecialchars($c['category_name']) ?>" data-bulb="<?= $c['has_bulb_hours'] ?>" <?= ($t['category_id'] ?? 0) == $c['category_id'] ? 'selected' : '' ?>>
+                <option value="<?= $c['category_id'] ?>" data-name="<?= htmlspecialchars($c['category_name']) ?>" data-bulb="<?= $c['has_bulb_hours'] ?>" <?= $selected_cat == $c['category_id'] ? 'selected' : '' ?>>
                   <?= htmlspecialchars($c['category_name']) ?>
                 </option>
               <?php endforeach; ?>
@@ -138,7 +144,7 @@
           </div>
           <div id="others-specify-container" class="hidden">
             <label class="block text-sm font-medium text-gray-700 mb-1">Others, please specify <span class="text-red-500">*</span></label>
-            <input type="text" name="category_others" id="category-others" class="fin w-full" placeholder="Specify category/issue">
+            <input type="text" name="category_others" id="category-others" value="<?= htmlspecialchars($dynamic_fields['custom_category'] ?? '') ?>" class="fin w-full" placeholder="Specify category/issue">
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
