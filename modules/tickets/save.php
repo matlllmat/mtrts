@@ -142,6 +142,10 @@ if ($action === 'create') {
         'dynamic_fields'   => $_POST['dynamic_fields'] ?? [],
     ];
 
+    if ($is_staff && isset($_POST['assigned_to'])) {
+        $d['assigned_to'] = ((int)$_POST['assigned_to']) ?: null;
+    }
+
 
 
     update_ticket($pdo, $ticket_id, $d);

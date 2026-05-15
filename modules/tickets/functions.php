@@ -296,12 +296,12 @@ function update_ticket(PDO $pdo, int $id, array $d): void {
 
     } else {
         $priority = calculate_priority($d['urgency'], $d['impact']);
-        $pdo->prepare("
-            UPDATE tickets SET
+        
+        $sql = "UPDATE tickets SET
                 title=?, description=?, impact=?, urgency=?, priority=?,
-                is_event_support=?, request_type=?, category_id=?, location_id=?, preferred_window=?
-            WHERE ticket_id=?
-        ")->execute([
+                is_event_support=?, request_type=?, category_id=?, location_id=?, preferred_window=?";
+        
+        $params = [
             $d['title'],
             $d['description'],
             $d['impact'],
@@ -311,9 +311,18 @@ function update_ticket(PDO $pdo, int $id, array $d): void {
             $d['request_type'] ?? 'repair',
             $d['category_id'] ?: null,
             $d['location_id'] ?: null,
-            $d['preferred_window'] ?: null,
-            $id,
-        ]);
+            $d['preferred_window'] ?: null
+        ];
+
+        if (array_key_exists('assigned_to', $d)) {
+            $sql .= ", assigned_to=?";
+            $params[] = $d['assigned_to'] ?: null;
+        }
+
+        $sql .= " WHERE ticket_id=?";
+        $params[] = $id;
+
+        $pdo->prepare($sql)->execute($params);
     }
     
     // Update or inserting dynamic fields

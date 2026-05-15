@@ -189,7 +189,7 @@
                <option value="critical" <?= ($t['urgency'] ?? '') === 'critical' ? 'selected' : '' ?>>Critical</option>
             </select>
           </div>
-          <?php if ($is_staff && !$is_edit): ?>
+          <?php if ($is_staff): ?>
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
               Assign To (Optional)
@@ -198,7 +198,7 @@
             <select name="assigned_to" class="fsel w-full">
               <option value="">-- Leave Unassigned --</option>
               <?php foreach ($assignables as $tech): ?>
-                <option value="<?= $tech['user_id'] ?>"><?= htmlspecialchars($tech['full_name']) ?></option>
+                <option value="<?= $tech['user_id'] ?>" <?= ($t['assigned_to'] ?? '') == $tech['user_id'] ? 'selected' : '' ?>><?= htmlspecialchars($tech['full_name']) ?></option>
               <?php endforeach; ?>
             </select>
           </div>

@@ -405,6 +405,15 @@
       </div>
       <div class="p-5">
         <dl class="space-y-3 text-sm">
+          <?php if (!empty($ticket['assigned_to_name'])): ?>
+          <div>
+            <dt class="text-gray-500 mb-0.5">Assigned To</dt>
+            <dd class="font-medium text-gray-900 font-bold text-olfu-green flex items-center gap-1.5">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+              <?= htmlspecialchars($ticket['assigned_to_name']) ?>
+            </dd>
+          </div>
+          <?php endif; ?>
           <div>
             <dt class="text-gray-500 mb-0.5">Priority</dt>
             <dd><?= ticket_priority_badge($ticket['priority']) ?></dd>
@@ -441,19 +450,28 @@
         Requester
       </div>
       <div class="p-5 space-y-2 text-sm">
-        <div class="font-medium text-gray-900"><?= htmlspecialchars($ticket['requester_name']) ?></div>
+        <?php 
+          $display_name = !empty($ticket['requester_name']) ? $ticket['requester_name'] : (!empty($ticket['external_name_from']) ? $ticket['external_name_from'] : 'Unknown Sender');
+          $display_email = !empty($ticket['requester_email']) ? $ticket['requester_email'] : (!empty($ticket['external_email_from']) ? $ticket['external_email_from'] : 'No email provided');
+          $display_dept = !empty($ticket['requester_dept']) ? $ticket['requester_dept'] : (!empty($ticket['external_dept_from']) ? $ticket['external_dept_from'] : '');
+        ?>
+        <div class="font-medium text-gray-900"><?= htmlspecialchars($display_name) ?></div>
         <div class="text-gray-600 flex items-center gap-1.5">
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-          <a href="mailto:<?= htmlspecialchars($ticket['requester_email']) ?>" class="hover:underline"><?= htmlspecialchars($ticket['requester_email']) ?></a>
+          <?php if ($display_email !== 'No email provided'): ?>
+            <a href="mailto:<?= htmlspecialchars($display_email) ?>" class="hover:underline"><?= htmlspecialchars($display_email) ?></a>
+          <?php else: ?>
+            <span><?= htmlspecialchars($display_email) ?></span>
+          <?php endif; ?>
         </div>
-        <?php if ($ticket['contact_number']): ?>
+        <?php if (!empty($ticket['contact_number'])): ?>
         <div class="text-gray-600 flex items-center gap-1.5">
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
           <?= htmlspecialchars($ticket['contact_number']) ?>
         </div>
         <?php endif; ?>
-        <?php if ($ticket['requester_dept']): ?>
-          <div class="text-gray-600"><?= htmlspecialchars($ticket['requester_dept']) ?></div>
+        <?php if ($display_dept): ?>
+          <div class="text-gray-600"><?= htmlspecialchars($display_dept) ?></div>
         <?php endif; ?>
       </div>
     </div>

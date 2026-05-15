@@ -3,6 +3,7 @@
 $module = 'tickets';
 require_once __DIR__ . '/../../config/guard.php';
 require_once __DIR__ . '/functions.php';
+require_once __DIR__ . '/../workorders/functions.php';
 require_once __DIR__ . '/_styles.php';
 
 $id = (int)($_GET['id'] ?? 0);
@@ -30,6 +31,7 @@ $assets         = $pdo->query("SELECT asset_id, asset_tag, serial_number, manufa
 $dynamic_fields = get_ticket_dynamic_fields($pdo, $id);
 $attachments    = get_ticket_attachments($pdo, $id);
 $sla_policies   = $pdo->query("SELECT * FROM sla_policies WHERE is_active = 1 ORDER BY FIELD(priority, 'critical', 'high', 'medium', 'low'), policy_id ASC")->fetchAll();
+$assignables    = $is_staff ? get_all_technicians($pdo) : [];
 
 $is_edit = true;
 
