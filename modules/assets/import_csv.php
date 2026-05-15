@@ -117,12 +117,16 @@ while (($row = fgetcsv($handle)) !== false) {
 
     $install_date = $r['install_date'] ?? '';
     if (!$install_date) {
-        $errors[] = 'install_date is required';
-    } elseif (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $install_date)) {
-        $errors[] = 'install_date must be YYYY-MM-DD';
+    $errors[] = 'install_date is required';
+    } else {
+    $parsed = date_create($install_date);
+    $install_date = $parsed ? date_format($parsed, 'Y-m-d') : '';
+    if (!$install_date) {
+        $errors[] = 'install_date is not a recognizable date';
     } elseif ($install_date > date('Y-m-d')) {
         $errors[] = 'install_date cannot be in the future';
     }
+}
 
     // ── Optional fields ───────────────────────────────────────
     $serial_number = $r['serial_number'] ?? '' ?: null;
@@ -159,8 +163,11 @@ while (($row = fgetcsv($handle)) !== false) {
     $bulb_hours       = isset($r['bulb_hours']) && $r['bulb_hours'] !== '' ? (int)$r['bulb_hours'] : null;
 
     // Warranty fields
-    $warranty_start      = $r['warranty_start']      ?? '' ?: null;
-    $warranty_end        = $r['warranty_end']        ?? '' ?: null;
+    $ws_raw         = $r['warranty_start'] ?? '';
+    $warranty_start = $ws_raw ? (($p = date_create($ws_raw)) ? date_format($p, 'Y-m-d') : null) : null;
+
+    $we_raw       = $r['warranty_end'] ?? '';
+    $warranty_end = $we_raw ? (($p = date_create($we_raw)) ? date_format($p, 'Y-m-d') : null) : null;   
     $coverage_type       = $r['coverage_type']       ?? 'parts_and_labor';
     $vendor_name         = $r['vendor_name']         ?? '' ?: null;
     $contract_reference  = $r['contract_reference']  ?? '' ?: null;
