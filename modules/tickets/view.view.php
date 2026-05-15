@@ -190,8 +190,101 @@
           <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
           SLA Tracker
         </h3>
-        <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider bg-gray-100 px-2 py-0.5 rounded"><?= htmlspecialchars($ticket_sla['policy_name']) ?></span>
+        <?php
+        $fmt_mins = function(int $m): string {
+            if ($m < 60) return $m . 'm';
+            $h = intdiv($m, 60); $rem = $m % 60;
+            return $h . 'h' . ($rem ? ' ' . $rem . 'm' : '');
+        };
+        ?>
+        <button id="sla-policy-btn"
+                onclick="toggleSlaPop(this)"
+                class="text-[10px] font-bold text-gray-400 uppercase tracking-wider bg-gray-100 hover:bg-gray-200 hover:text-[#1a5c2a] px-2 py-0.5 rounded transition-colors cursor-pointer flex items-center gap-1">
+          <?= htmlspecialchars($ticket_sla['policy_name']) ?>
+          <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </button>
       </div>
+
+      <!-- SLA Policy Popover (fixed so it clears overflow-hidden) -->
+      <div id="sla-policy-pop" class="hidden fixed z-[200] w-80 bg-white border border-gray-200 rounded-2xl shadow-2xl text-left" style="top:0;right:0">
+        <!-- Header -->
+        <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50 rounded-t-2xl">
+          <div>
+            <p class="text-sm font-bold text-gray-900"><?= htmlspecialchars($ticket_sla['policy_name']) ?></p>
+            <p class="text-[10px] text-gray-400 mt-0.5">Applied SLA Policy</p>
+          </div>
+          <?php if ($ticket_sla['uses_business_hours']): ?>
+            <span class="text-[9px] font-bold uppercase tracking-wider bg-blue-50 text-blue-700 border border-blue-200 px-2 py-1 rounded-lg">Business Hours</span>
+          <?php else: ?>
+            <span class="text-[9px] font-bold uppercase tracking-wider bg-purple-50 text-purple-700 border border-purple-200 px-2 py-1 rounded-lg">24 / 7</span>
+          <?php endif; ?>
+        </div>
+
+        <!-- Timeline limits -->
+        <div class="px-4 py-3 space-y-2.5">
+          <p class="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Configured Time Limits</p>
+
+          <div class="flex items-center gap-3">
+            <div class="w-2 h-2 rounded-full bg-blue-400 shrink-0"></div>
+            <div class="flex-1 flex justify-between items-center">
+              <span class="text-xs font-semibold text-gray-600">Response</span>
+              <span class="text-xs font-bold text-gray-900 font-mono bg-gray-100 px-2 py-0.5 rounded"><?= $fmt_mins((int)$ticket_sla['response_minutes']) ?></span>
+            </div>
+          </div>
+          <div class="flex items-center gap-3">
+            <div class="w-2 h-2 rounded-full bg-amber-400 shrink-0"></div>
+            <div class="flex-1 flex justify-between items-center">
+              <span class="text-xs font-semibold text-gray-600">Diagnosis</span>
+              <span class="text-xs font-bold text-gray-900 font-mono bg-gray-100 px-2 py-0.5 rounded"><?= $fmt_mins((int)$ticket_sla['diagnosis_minutes']) ?></span>
+            </div>
+          </div>
+          <div class="flex items-center gap-3">
+            <div class="w-2 h-2 rounded-full bg-green-500 shrink-0"></div>
+            <div class="flex-1 flex justify-between items-center">
+              <span class="text-xs font-semibold text-gray-600">Resolution</span>
+              <span class="text-xs font-bold text-gray-900 font-mono bg-gray-100 px-2 py-0.5 rounded"><?= $fmt_mins((int)$ticket_sla['resolution_minutes']) ?></span>
+            </div>
+          </div>
+        </div>
+
+        <?php if ($ticket_sla['uses_business_hours']): ?>
+        <!-- Business hours explanation -->
+        <div class="mx-4 mb-4 bg-amber-50 border border-amber-200 rounded-xl px-3 py-3">
+          <p class="text-[10px] font-bold text-amber-800 uppercase tracking-wider mb-1.5">Why is the deadline days away?</p>
+          <p class="text-[11px] text-amber-700 leading-relaxed">
+            The SLA clock only ticks during <strong>working hours</strong>. Nights, weekends, and holidays don't count — so a 4-hour response window can stretch over several calendar days.
+          </p>
+          <p class="text-[11px] text-amber-600 mt-1.5 font-medium">
+            Example: A ticket filed Friday 4 PM with a 4h response = deadline Monday morning.
+          </p>
+        </div>
+        <?php else: ?>
+        <div class="mx-4 mb-4 bg-purple-50 border border-purple-100 rounded-xl px-3 py-2.5">
+          <p class="text-[11px] text-purple-700 leading-relaxed">
+            This policy runs <strong>24/7</strong> — the SLA clock never stops, including nights, weekends, and holidays.
+          </p>
+        </div>
+        <?php endif; ?>
+      </div>
+
+      <script>
+      function toggleSlaPop(btn) {
+        const pop = document.getElementById('sla-policy-pop');
+        if (!pop.classList.contains('hidden')) { pop.classList.add('hidden'); return; }
+        const r = btn.getBoundingClientRect();
+        pop.style.top  = (r.bottom + 6) + 'px';
+        pop.style.left = 'auto';
+        pop.style.right = (window.innerWidth - r.right) + 'px';
+        pop.classList.remove('hidden');
+      }
+      document.addEventListener('click', function(e) {
+        const pop = document.getElementById('sla-policy-pop');
+        const btn = document.getElementById('sla-policy-btn');
+        if (pop && !pop.classList.contains('hidden') && !pop.contains(e.target) && !btn.contains(e.target)) {
+          pop.classList.add('hidden');
+        }
+      });
+      </script>
       <div class="p-4 space-y-3">
 
         <?php if ($ticket_sla['paused_at']): ?>
