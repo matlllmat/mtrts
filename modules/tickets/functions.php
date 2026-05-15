@@ -318,6 +318,18 @@ function update_ticket(PDO $pdo, int $id, array $d): void {
             $sql .= ", assigned_to=?";
             $params[] = $d['assigned_to'] ?: null;
         }
+        if (array_key_exists('external_name_from', $d)) {
+            $sql .= ", external_name_from=?";
+            $params[] = $d['external_name_from'] ?: null;
+        }
+        if (array_key_exists('external_email_from', $d)) {
+            $sql .= ", external_email_from=?";
+            $params[] = $d['external_email_from'] ?: null;
+        }
+        if (array_key_exists('external_dept_from', $d)) {
+            $sql .= ", external_dept_from=?";
+            $params[] = $d['external_dept_from'] ?: null;
+        }
 
         $sql .= " WHERE ticket_id=?";
         $params[] = $id;

@@ -140,6 +140,9 @@ if ($action === 'create') {
         'preferred_window' => $_POST['preferred_window'] ?: null,
         'request_type'     => $_POST['request_type'] ?? 'repair',
         'dynamic_fields'   => $_POST['dynamic_fields'] ?? [],
+        'external_name_from'  => trim($_POST['external_name_from'] ?? ''),
+        'external_email_from' => trim($_POST['external_email_from'] ?? ''),
+        'external_dept_from'  => trim($_POST['external_dept_from'] ?? ''),
     ];
 
     if ($is_staff && isset($_POST['assigned_to'])) {

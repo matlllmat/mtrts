@@ -50,15 +50,15 @@
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-          <input type="text" name="external_name_from" id="requester-name" value="<?= htmlspecialchars($t['full_name'] ?? '') ?>" class="fin w-full" placeholder="Enter full name">
+          <input type="text" name="external_name_from" id="requester-name" value="<?= htmlspecialchars($t['full_name'] ?? $t['external_name_from'] ?? '') ?>" class="fin w-full" placeholder="Enter full name">
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Contact Email</label>
-          <input type="email" name="external_email_from" id="requester-email" value="<?= htmlspecialchars($t['email'] ?? '') ?>" class="fin w-full" placeholder="Enter email address">
+          <input type="email" name="external_email_from" id="requester-email" value="<?= htmlspecialchars($t['email'] ?? $t['external_email_from'] ?? '') ?>" class="fin w-full" placeholder="Enter email address">
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Department</label>
-          <input type="text" name="external_dept_from" id="requester-dept" value="<?= htmlspecialchars($t['department'] ?? '') ?>" class="fin w-full" placeholder="Enter department">
+          <input type="text" name="external_dept_from" id="requester-dept" value="<?= htmlspecialchars($t['department'] ?? $t['external_dept_from'] ?? '') ?>" class="fin w-full" placeholder="Enter department">
         </div>
       </div>
     </div>
