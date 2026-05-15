@@ -91,7 +91,17 @@ if ($action === 'create') {
             'notes' => 'Auto-assigned upon ticket creation.',
             'created_by' => $user_id
         ];
-        create_work_order($pdo, $wo_data);
+        $new_wo_id = create_work_order($pdo, $wo_data);
+
+        // Notify the assigned technician
+        $wo_row = get_wo_by_id($pdo, $new_wo_id);
+        $stmt_role = $pdo->prepare("SELECT role_id FROM users WHERE user_id = ?");
+        $stmt_role->execute([$assigned_to]);
+        $tech_role = (int)$stmt_role->fetchColumn();
+        $wo_link = $tech_role === 4
+            ? BASE_URL . 'modules/technician/view.php?id=' . $new_wo_id
+            : BASE_URL . 'modules/workorders/view.php?id=' . $new_wo_id;
+        notify_user($pdo, $assigned_to, 'New Work Order: ' . ($wo_row['wo_number'] ?? ''), 'You have been assigned a new work order.', $wo_link);
     }
 
     // Notify IT Managers / Admins
