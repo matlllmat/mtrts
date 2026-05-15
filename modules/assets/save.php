@@ -185,6 +185,11 @@ try {
         log_asset_changes($pdo, $asset_id, $old, $d, $user_id);
         upsert_warranty($pdo, $asset_id, $d);
         unset($_SESSION['last_warranty_check']);
+
+        if ((int)($old['location_id'] ?? 0) !== (int)($d['location_id'] ?? 0) && $d['location_id']) {
+            sync_open_ticket_locations($pdo, $asset_id, (int)$d['location_id'], $user_id);
+        }
+
         header('Location: ' . BASE_URL . "modules/assets/view.php?id={$asset_id}&flash=updated");
     } else {
         $new_id = create_asset($pdo, $d);

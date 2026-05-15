@@ -216,6 +216,7 @@ function bulkPopulateFloors() {
   const fsel = document.getElementById('bulk-floor');
   fsel.innerHTML = '<option value="">— Select floor —</option>';
   fsel.disabled  = !b;
+  fsel.classList.toggle('opacity-40', !b);
   if (b && bulkLocData[b]) {
     Object.keys(bulkLocData[b]).forEach(f => {
       const opt = document.createElement('option');
@@ -232,6 +233,7 @@ function bulkPopulateRooms() {
   const rsel = document.getElementById('bulk-location');
   rsel.innerHTML = '<option value="">— Select room —</option>';
   rsel.disabled  = !f;
+  rsel.classList.toggle('opacity-40', !f);
   if (b && f && bulkLocData[b] && bulkLocData[b][f]) {
     bulkLocData[b][f].forEach(r => {
       const opt = document.createElement('option');
@@ -297,13 +299,40 @@ function selectAllAssets(checked) {
   updateBulkCount();
 }
 
+function toggleBulkField(field) {
+  const enabled = document.getElementById('bulk-chk-' + field).checked;
+  if (field === 'location_id') {
+    const b = document.getElementById('bulk-building');
+    const f = document.getElementById('bulk-floor');
+    const r = document.getElementById('bulk-location');
+    b.disabled = !enabled;
+    b.classList.toggle('opacity-40', !enabled);
+    if (!enabled) {
+      b.value = '';
+      f.innerHTML = '<option value="">— Select floor —</option>';
+      f.disabled = true; f.classList.add('opacity-40');
+      r.innerHTML = '<option value="">— Select room —</option>';
+      r.disabled = true; r.classList.add('opacity-40');
+    }
+  } else {
+    const ids = { status: 'bulk-status', owner_id: 'bulk-owner', department_id: 'bulk-department' };
+    const el  = document.getElementById(ids[field]);
+    el.disabled = !enabled;
+    el.classList.toggle('opacity-40', !enabled);
+  }
+}
+
 function openBulkModal() {
   const count = document.querySelectorAll('.bulk-chk:checked').length;
   if (count === 0) return;
   document.getElementById('bulk-modal-count').textContent = count;
   document.getElementById('bulk-modal').classList.remove('hidden');
   document.body.style.overflow = 'hidden';
-  switchBulkTab('status'); // reset to first tab
+  document.getElementById('bulk-result').classList.add('hidden');
+  ['status', 'location_id', 'owner_id', 'department_id'].forEach(f => {
+    const chk = document.getElementById('bulk-chk-' + f);
+    if (chk) { chk.checked = false; toggleBulkField(f); }
+  });
 }
 
 function closeBulkModal() {
@@ -312,29 +341,27 @@ function closeBulkModal() {
   document.getElementById('bulk-result').classList.add('hidden');
 }
 
-function switchBulkTab(tab) {
-  document.querySelectorAll('.bulk-tab-btn').forEach(b => {
-    b.classList.toggle('border-olfu-green', b.dataset.tab === tab);
-    b.classList.toggle('text-olfu-green',   b.dataset.tab === tab);
-    b.classList.toggle('border-transparent', b.dataset.tab !== tab);
-    b.classList.toggle('text-gray-500',      b.dataset.tab !== tab);
-  });
-  document.querySelectorAll('.bulk-tab-pane').forEach(p => {
-    p.classList.toggle('hidden', p.dataset.pane !== tab);
-  });
-}
-
 function submitBulkUpdate() {
-  const ids    = [...document.querySelectorAll('.bulk-chk:checked')].map(c => c.value);
-  const active = document.querySelector('.bulk-tab-btn:not(.border-transparent)');
-  if (!active || ids.length === 0) return;
+  const ids = [...document.querySelectorAll('.bulk-chk:checked')].map(c => c.value);
+  if (ids.length === 0) return;
 
-  const tab    = active.dataset.tab;
-  let value    = '';
-  if (tab === 'status')      value = document.getElementById('bulk-status').value;
-  if (tab === 'location_id') value = document.getElementById('bulk-location').value;
-  if (tab === 'owner_id')    value = document.getElementById('bulk-owner').value;
-  if (tab === 'department_id') value = document.getElementById('bulk-department').value;
+  const fields = {};
+  if (document.getElementById('bulk-chk-status').checked)
+    fields.status = document.getElementById('bulk-status').value;
+  if (document.getElementById('bulk-chk-location_id').checked)
+    fields.location_id = document.getElementById('bulk-location').value;
+  if (document.getElementById('bulk-chk-owner_id').checked)
+    fields.owner_id = document.getElementById('bulk-owner').value;
+  if (document.getElementById('bulk-chk-department_id').checked)
+    fields.department_id = document.getElementById('bulk-department').value;
+
+  if (Object.keys(fields).length === 0) {
+    const result = document.getElementById('bulk-result');
+    result.className = 'px-6 pb-2 text-sm font-medium text-red-600';
+    result.classList.remove('hidden');
+    result.textContent = 'Enable at least one field to update.';
+    return;
+  }
 
   const btn = document.getElementById('bulk-submit-btn');
   btn.disabled = true;
@@ -342,8 +369,7 @@ function submitBulkUpdate() {
 
   const body = new FormData();
   body.append('csrf_token', <?= json_encode($_SESSION['csrf_token'] ??= bin2hex(random_bytes(16))) ?>);
-  body.append('field', tab);
-  body.append('value', value);
+  body.append('fields', JSON.stringify(fields));
   ids.forEach(id => body.append('asset_ids[]', id));
 
   fetch('bulk_update.php', { method: 'POST', body })
@@ -361,7 +387,6 @@ function submitBulkUpdate() {
           msg += ` ${data.skipped.length} skipped (open tickets): ${data.skipped.join(', ')}.`;
         }
         result.textContent = msg;
-        // Refresh table and exit bulk mode after short delay
         setTimeout(() => {
           closeBulkModal();
           exitBulkMode();
@@ -569,7 +594,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <h3 class="text-base font-bold text-gray-900">Bulk Update Assets</h3>
         <p class="text-xs text-gray-400 mt-0.5">
           Updating <strong id="bulk-modal-count">0</strong> selected asset(s).
-          Choose a field and the new value.
+          Enable the fields you want to change.
         </p>
       </div>
       <button onclick="closeBulkModal()"
@@ -580,47 +605,33 @@ document.addEventListener('DOMContentLoaded', () => {
       </button>
     </div>
 
-    <!-- Tabs -->
-    <div class="flex border-b border-gray-100 px-6">
-      <?php
-      $bulk_tabs = [
-        'status'      => 'Status',
-        'location_id' => 'Location',
-        'owner_id'    => 'Owner',
-        'department_id' => 'Cost Center',
-      ];
-      foreach ($bulk_tabs as $key => $label): ?>
-      <button data-tab="<?= $key ?>"
-              onclick="switchBulkTab('<?= $key ?>')"
-              class="bulk-tab-btn text-xs font-semibold py-3 px-3 border-b-2 border-transparent text-gray-500 hover:text-gray-800 transition-colors whitespace-nowrap">
-        <?= $label ?>
-      </button>
-      <?php endforeach; ?>
-    </div>
-
-    <!-- Tab panes -->
-    <div class="px-6 py-5" style="height:195px;overflow:hidden">
+    <!-- Fields -->
+    <div class="px-6 py-4 flex flex-col gap-5 max-h-72 overflow-y-auto border-t border-gray-100">
 
       <!-- Status -->
-      <div class="bulk-tab-pane" data-pane="status">
-        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">New Status</label>
-        <select id="bulk-status" class="fsel w-full">
-          <option value="active">Active</option>
-          <option value="spare">Spare</option>
-          <option value="retired">Retired</option>
-        </select>
-        <p class="text-xs text-gray-400 mt-2">
-          Assets with open tickets cannot be set to Retired — they will be skipped and reported.
-        </p>
+      <div class="flex items-start gap-3">
+        <input type="checkbox" id="bulk-chk-status" onchange="toggleBulkField('status')"
+               class="mt-0.5 rounded border-gray-300 text-olfu-green focus:ring-olfu-green cursor-pointer">
+        <div class="flex-1">
+          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Status</label>
+          <select id="bulk-status" class="fsel w-full opacity-40" disabled>
+            <option value="active">Active</option>
+            <option value="spare">Spare</option>
+            <option value="retired">Retired</option>
+          </select>
+          <p class="text-xs text-gray-400 mt-1">Assets with open tickets cannot be set to Retired — they will be skipped.</p>
+        </div>
       </div>
 
       <!-- Location (cascading: building → floor → room) -->
-      <div class="bulk-tab-pane hidden" data-pane="location_id">
-        <div class="flex flex-col gap-2">
-          <div class="flex items-center gap-2">
-            <label class="text-xs font-semibold text-gray-500 uppercase tracking-wider w-16 shrink-0">Building</label>
-            <select id="bulk-building" class="fsel flex-1" onchange="bulkPopulateFloors()">
-              <option value="">— Select building —</option>
+      <div class="flex items-start gap-3">
+        <input type="checkbox" id="bulk-chk-location_id" onchange="toggleBulkField('location_id')"
+               class="mt-0.5 rounded border-gray-300 text-olfu-green focus:ring-olfu-green cursor-pointer">
+        <div class="flex-1">
+          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Location</label>
+          <div class="flex flex-col gap-1.5">
+            <select id="bulk-building" class="fsel w-full opacity-40" onchange="bulkPopulateFloors()" disabled>
+              <option value="">— Building —</option>
               <?php
               $bulk_buildings = array_unique(array_column($all_locations, 'building'));
               sort($bulk_buildings);
@@ -628,44 +639,45 @@ document.addEventListener('DOMContentLoaded', () => {
                 <option value="<?= htmlspecialchars($b) ?>"><?= htmlspecialchars($b) ?></option>
               <?php endforeach; ?>
             </select>
-          </div>
-          <div class="flex items-center gap-2">
-            <label class="text-xs font-semibold text-gray-500 uppercase tracking-wider w-16 shrink-0">Floor</label>
-            <select id="bulk-floor" class="fsel flex-1" onchange="bulkPopulateRooms()" disabled>
-              <option value="">— Select floor —</option>
+            <select id="bulk-floor" class="fsel w-full opacity-40" onchange="bulkPopulateRooms()" disabled>
+              <option value="">— Floor —</option>
             </select>
-          </div>
-          <div class="flex items-center gap-2">
-            <label class="text-xs font-semibold text-gray-500 uppercase tracking-wider w-16 shrink-0">Room</label>
-            <select id="bulk-location" class="fsel flex-1" disabled>
-              <option value="">— Select room —</option>
+            <select id="bulk-location" class="fsel w-full opacity-40" disabled>
+              <option value="">— Room —</option>
             </select>
           </div>
         </div>
-        <p class="text-xs text-gray-400 mt-1">Leave all unselected to clear the location on selected assets.</p>
       </div>
 
       <!-- Owner -->
-      <div class="bulk-tab-pane hidden" data-pane="owner_id">
-        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">New Owner</label>
-        <select id="bulk-owner" class="fsel w-full">
-          <option value="">— Clear owner —</option>
-          <?php foreach ($owners as $o): ?>
-            <option value="<?= $o['user_id'] ?>"><?= htmlspecialchars($o['full_name']) ?></option>
-          <?php endforeach; ?>
-        </select>
+      <div class="flex items-start gap-3">
+        <input type="checkbox" id="bulk-chk-owner_id" onchange="toggleBulkField('owner_id')"
+               class="mt-0.5 rounded border-gray-300 text-olfu-green focus:ring-olfu-green cursor-pointer">
+        <div class="flex-1">
+          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Owner</label>
+          <select id="bulk-owner" class="fsel w-full opacity-40" disabled>
+            <option value="">— Clear owner —</option>
+            <?php foreach ($owners as $o): ?>
+              <option value="<?= $o['user_id'] ?>"><?= htmlspecialchars($o['full_name']) ?></option>
+            <?php endforeach; ?>
+          </select>
+        </div>
       </div>
 
       <!-- Cost Center -->
-      <div class="bulk-tab-pane hidden" data-pane="department_id">
-        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">New Cost Center</label>
-        <select id="bulk-department" class="fsel w-full">
-          <option value="">— Clear cost center —</option>
-          <?php foreach ($departments as $dept): ?>
-            <option value="<?= $dept['department_id'] ?>"><?= htmlspecialchars($dept['department_name']) ?></option>
-          <?php endforeach; ?>
-        </select>
-        <p class="text-xs text-gray-400 mt-2">Which department is financially responsible for the selected assets.</p>
+      <div class="flex items-start gap-3">
+        <input type="checkbox" id="bulk-chk-department_id" onchange="toggleBulkField('department_id')"
+               class="mt-0.5 rounded border-gray-300 text-olfu-green focus:ring-olfu-green cursor-pointer">
+        <div class="flex-1">
+          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Cost Center</label>
+          <select id="bulk-department" class="fsel w-full opacity-40" disabled>
+            <option value="">— Clear cost center —</option>
+            <?php foreach ($departments as $dept): ?>
+              <option value="<?= $dept['department_id'] ?>"><?= htmlspecialchars($dept['department_name']) ?></option>
+            <?php endforeach; ?>
+          </select>
+          <p class="text-xs text-gray-400 mt-1">Which department is financially responsible for the selected assets.</p>
+        </div>
       </div>
 
     </div>

@@ -287,6 +287,33 @@ function update_asset(PDO $pdo, int $id, array $d): void {
     ]);
 }
 
+function sync_open_ticket_locations(PDO $pdo, int $asset_id, int $new_location_id, int $user_id): void {
+    $stmt = $pdo->prepare("
+        SELECT ticket_id FROM tickets
+        WHERE asset_id = ? AND status NOT IN ('closed','cancelled')
+    ");
+    $stmt->execute([$asset_id]);
+    $ticket_ids = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+    if (!$ticket_ids) return;
+
+    $loc_stmt = $pdo->prepare("SELECT building, floor, room FROM locations WHERE location_id = ?");
+    $loc_stmt->execute([$new_location_id]);
+    $loc = $loc_stmt->fetch();
+    $loc_label = $loc ? "{$loc['building']} — {$loc['floor']}, {$loc['room']}" : "Location #{$new_location_id}";
+
+    $upd = $pdo->prepare("UPDATE tickets SET location_id = ? WHERE ticket_id = ?");
+    $cmt = $pdo->prepare("
+        INSERT INTO ticket_comments (ticket_id, user_id, comment_text, is_internal)
+        VALUES (?, ?, ?, 1)
+    ");
+
+    foreach ($ticket_ids as $tid) {
+        $upd->execute([$new_location_id, (int)$tid]);
+        $cmt->execute([(int)$tid, $user_id, "Asset relocated to {$loc_label}. Ticket location updated automatically."]);
+    }
+}
+
 function upsert_warranty(PDO $pdo, int $asset_id, array $d): void {
     if (empty($d['warranty_start']) || empty($d['warranty_end'])) return;
     $pdo->prepare("
