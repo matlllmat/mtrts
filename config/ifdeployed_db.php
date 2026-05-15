@@ -28,6 +28,12 @@ try {
   }
 }
 
+// Set global timezone for PHP to Manila (UTC+8)
+date_default_timezone_set('Asia/Manila');
+
+// Force the MySQL connection session to use UTC+8 so timestamps match PHP exactly
+$pdo->exec("SET time_zone = '+08:00'");
+
 /**
  * ── SYSTEM AUDIT LOGGING ──────────────────────────────────────
  * Global function to record immutable audit logs.

@@ -6,6 +6,7 @@ require_once __DIR__ . '/functions.php';
 require_once __DIR__ . '/../notifications/functions.php';
 require_once __DIR__ . '/../reports/functions.php';
 require_once __DIR__ . '/../../config/sla.php';
+require_once __DIR__ . '/../workorders/functions.php';
 
 $action = $_POST['action'] ?? '';
 $user_id = $_SESSION['user_id'];
@@ -75,6 +76,23 @@ if ($action === 'create') {
 
     // --- Handle File Uploads (Create) ---
     handle_ticket_uploads($pdo, $ticket_id, $user_id);
+
+    // --- Process Auto-Assignment if provided ---
+    $assigned_to = (int)($_POST['assigned_to'] ?? 0);
+    if ($is_staff && $assigned_to > 0) {
+        $wo_data = [
+            'ticket_id' => $ticket_id,
+            'wo_type' => 'repair',
+            'assigned_to' => $assigned_to,
+            'assigned_by' => $user_id,
+            'is_rma' => 0,
+            'scheduled_start' => null,
+            'scheduled_end' => null,
+            'notes' => 'Auto-assigned upon ticket creation.',
+            'created_by' => $user_id
+        ];
+        create_work_order($pdo, $wo_data);
+    }
 
     // Notify IT Managers / Admins
     $notif_targets = $pdo->query("SELECT user_id FROM users WHERE role_id IN (1, 2) AND is_active = 1")->fetchAll(PDO::FETCH_COLUMN);

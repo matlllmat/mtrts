@@ -189,6 +189,20 @@
                <option value="critical" <?= ($t['urgency'] ?? '') === 'critical' ? 'selected' : '' ?>>Critical</option>
             </select>
           </div>
+          <?php if ($is_staff && !$is_edit): ?>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
+              Assign To (Optional)
+              <svg onclick="showHelp('Assignee', 'If you know who will handle this, you can assign it immediately. This will automatically create a work order for them.')" class="w-3.5 h-3.5 text-gray-400 cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            </label>
+            <select name="assigned_to" class="fsel w-full">
+              <option value="">-- Leave Unassigned --</option>
+              <?php foreach ($assignables as $tech): ?>
+                <option value="<?= $tech['user_id'] ?>"><?= htmlspecialchars($tech['full_name']) ?></option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+          <?php endif; ?>
         </div>
 
         <div id="dynamic-fields-container" class="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg border border-gray-200 hidden">
